@@ -1,0 +1,235 @@
+# =========================================================
+# Flutter / Dart
+# =========================================================
+
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+build/
+coverage/
+
+# Flutter generated files
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter_tool/
+.metadata
+
+# Generated plugin registrants / platform generated files
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+
+
+# =========================================================
+# Android
+# =========================================================
+
+# Gradle
+.gradle/
+**/build/
+
+# Android Studio / IntelliJ
+*.iml
+
+# Android local configuration
+android/local.properties
+
+# Signing / keystore files
+*.jks
+*.keystore
+*.p12
+*.pem
+
+# Generated Android files
+android/.cxx/
+android/.gradle/
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+
+# =========================================================
+# iOS
+# =========================================================
+
+# Xcode generated data
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/ephemeral/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+
+# Xcode user-specific files
+ios/Runner.xcworkspace/xcuserdata/
+ios/Runner.xcodeproj/xcuserdata/
+
+# iOS build files
+ios/build/
+
+# CocoaPods
+**/Pods/
+
+
+# =========================================================
+# macOS
+# =========================================================
+
+macos/Pods/
+macos/Flutter/ephemeral/
+macos/Flutter/Generated.xcconfig
+macos/Flutter/flutter_export_environment.sh
+
+
+# =========================================================
+# Windows
+# =========================================================
+
+windows/flutter/ephemeral/
+
+
+# =========================================================
+# Linux
+# =========================================================
+
+linux/flutter/ephemeral/
+
+
+# =========================================================
+# Web
+# =========================================================
+
+# Generated web build output
+web/build/
+
+
+# =========================================================
+# IDE / Editor
+# =========================================================
+
+# VS Code
+.vscode/
+
+# JetBrains / IntelliJ
+.idea/
+
+# Visual Studio
+.vs/
+
+# Vim
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+
+# =========================================================
+# Logs / Temporary Files
+# =========================================================
+
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+
+
+# =========================================================
+# Environment / Secrets
+# =========================================================
+
+.env
+.env.*
+!.env.example
+
+# Local secret/config files
+*.secret
+secrets/
+secret/
+.env.local
+.env.development.local
+.env.production.local
+
+
+# =========================================================
+# Firebase / Google sensitive files
+# =========================================================
+
+# Google service-account credentials
+service-account*.json
+google-services-secret.json
+
+# Firebase emulator local data
+.firebase/
+
+# Firebase debug/emulator data
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+
+# =========================================================
+# Firebase Functions
+# =========================================================
+
+functions/node_modules/
+functions/lib/
+functions/.runtimeconfig.json
+functions/*.log
+
+
+# =========================================================
+# Node / JavaScript
+# =========================================================
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Package manager caches
+.npm/
+.yarn/
+.pnpm-store/
+
+
+# =========================================================
+# Generated Documentation / Reports
+# =========================================================
+
+*.pdf
+*.docx
+*.pptx
+
+# Uncomment these if you create generated reports inside
+# the repository and do not want them committed.
+# reports/
+# docs/generated/
+
+
+# =========================================================
+# Test / Coverage
+# =========================================================
+
+coverage/
+*.lcov
+
+
+# =========================================================
+# Local database / emulator exports
+# =========================================================
+
+firebase-export-*/
+firestore-export-*/
+
+
+# =========================================================
+# Temporary project files
+# =========================================================
+
+*.orig
+*.rej
+*.class
+*.pid
