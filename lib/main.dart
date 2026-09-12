@@ -1,6 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import 'app/router/app_router.dart';
+import 'app/theme/app_theme.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -19,10 +21,9 @@ class PetCareApp extends StatelessWidget {
     return MaterialApp(
       title: 'PetCare+',
       debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        appBar: AppBar(title: const Text('PetCare+')),
-        body: const Center(child: Text('Firebase initialized successfully')),
-      ),
+      theme: AppTheme.lightTheme,
+      initialRoute: AppRouter.splash,
+      routes: AppRouter.routes,
     );
   }
 }
