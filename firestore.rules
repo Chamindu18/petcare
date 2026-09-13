@@ -2,6 +2,390 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ============================================================
+    // Helper Functions
+    // ============================================================
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isCurrentUser(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isOwner() {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.role == 'owner';
+    }
+
+    function isVeterinarian() {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.role == 'veterinarian';
+    }
+
+    function isVeterinaryStaff() {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.role == 'veterinary_staff';
+    }
+
+    function isVeterinaryUser() {
+      return isVeterinarian() || isVeterinaryStaff();
+    }
+
+    function isAdoptionProvider() {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.role == 'adoption_provider';
+    }
+
+    function ownsPet(petId) {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/pets/$(petId)
+        )
+        && get(
+          /databases/$(database)/documents/pets/$(petId)
+        ).data.ownerId == request.auth.uid;
+    }
+
+    // Veterinary profile document ID must be the Firebase Auth UID.
+    function isVeterinaryUserForHospital(hospitalId) {
+      return signedIn()
+        && isVeterinaryUser()
+        && exists(
+          /databases/$(database)/documents/veterinarians/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/veterinarians/$(request.auth.uid)
+        ).data.hospitalId == hospitalId;
+    }
+
+    // ============================================================
+    // Users
+    // ============================================================
+
+    match /users/{uid} {
+      // Users can read only their own profile.
+      allow read: if isCurrentUser(uid);
+
+      // Public registration creates an owner profile only.
+      allow create: if isCurrentUser(uid)
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.role == 'owner';
+
+      // Users can update their own profile but cannot change their role.
+      allow update: if isCurrentUser(uid)
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.role == resource.data.role;
+
+      allow delete: if isCurrentUser(uid);
+    }
+
+    // ============================================================
+    // Pets
+    // ============================================================
+
+    match /pets/{petId} {
+      // Owners can read their own pets.
+      // Veterinary access will be tightened through appointment/QR
+      // authorization when those flows are implemented.
+      allow read: if signedIn()
+        && resource.data.ownerId == request.auth.uid;
+
+      allow create: if isOwner()
+        && request.resource.data.ownerId == request.auth.uid;
+
+      allow update: if isOwner()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
+
+      allow delete: if isOwner()
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    // ============================================================
+    // Medical Conditions
+    // ============================================================
+
+    match /medical_conditions/{conditionId} {
+      allow read: if ownsPet(resource.data.petId);
+
+      allow create: if isOwner()
+        && ownsPet(request.resource.data.petId);
+
+      allow update: if isOwner()
+        && ownsPet(resource.data.petId)
+        && request.resource.data.petId == resource.data.petId;
+
+      allow delete: if isOwner()
+        && ownsPet(resource.data.petId);
+    }
+
+    // ============================================================
+    // Vaccinations
+    // ============================================================
+
+    match /vaccinations/{vaccinationId} {
+      allow read: if ownsPet(resource.data.petId);
+
+      allow create: if isOwner()
+        && ownsPet(request.resource.data.petId);
+
+      allow update: if isOwner()
+        && ownsPet(resource.data.petId)
+        && request.resource.data.petId == resource.data.petId;
+
+      allow delete: if isOwner()
+        && ownsPet(resource.data.petId);
+    }
+
+    // ============================================================
+    // Treatments
+    // ============================================================
+
+    match /treatments/{treatmentId} {
+      allow read: if ownsPet(resource.data.petId);
+
+      allow create: if isOwner()
+        && ownsPet(request.resource.data.petId);
+
+      allow update: if isOwner()
+        && ownsPet(resource.data.petId)
+        && request.resource.data.petId == resource.data.petId;
+
+      allow delete: if isOwner()
+        && ownsPet(resource.data.petId);
+    }
+
+    // ============================================================
+    // Health Measurements
+    // ============================================================
+
+    match /health_measurements/{measurementId} {
+      allow read: if ownsPet(resource.data.petId);
+
+      allow create: if isOwner()
+        && ownsPet(request.resource.data.petId);
+
+      allow update: if isOwner()
+        && ownsPet(resource.data.petId)
+        && request.resource.data.petId == resource.data.petId;
+
+      allow delete: if isOwner()
+        && ownsPet(resource.data.petId);
+    }
+
+    // ============================================================
+    // Hospitals
+    // ============================================================
+
+    match /hospitals/{hospitalId} {
+      // Hospital discovery is available to authenticated users.
+      allow read: if signedIn();
+
+      // Hospital management requires a veterinary user.
+      allow create, update, delete: if isVeterinaryUser();
+    }
+
+    // ============================================================
+    // Services
+    // ============================================================
+
+    match /services/{serviceId} {
+      allow read: if signedIn();
+
+      allow create, update, delete: if isVeterinaryUser();
+    }
+
+    // ============================================================
+    // Veterinarians / Veterinary Staff
+    // ============================================================
+
+    match /veterinarians/{veterinarianId} {
+      allow read: if signedIn();
+
+      // Profile document ID must match authenticated user UID.
+      allow create: if isVeterinaryUser()
+        && veterinarianId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+
+      allow update: if isVeterinaryUser()
+        && veterinarianId == request.auth.uid
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
+
+      allow delete: if isVeterinaryUser()
+        && veterinarianId == request.auth.uid;
+    }
+
+    // ============================================================
+    // Appointments
+    // ============================================================
+
+    match /appointments/{appointmentId} {
+      // Owner can read own appointments.
+      // Veterinary user can read appointments belonging to their hospital.
+      allow read: if signedIn()
+        && (
+          resource.data.ownerId == request.auth.uid
+          || isVeterinaryUserForHospital(resource.data.hospitalId)
+        );
+
+      // Owner can create an appointment only for their own pet.
+      allow create: if isOwner()
+        && request.resource.data.ownerId == request.auth.uid
+        && ownsPet(request.resource.data.petId);
+
+      // Owners can update their own appointments.
+      // Veterinary users can update appointments for their hospital.
+      allow update: if signedIn()
+        && (
+          (
+            isOwner()
+            && resource.data.ownerId == request.auth.uid
+            && request.resource.data.ownerId == resource.data.ownerId
+          )
+          ||
+          isVeterinaryUserForHospital(resource.data.hospitalId)
+        );
+
+      allow delete: if isOwner()
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    // ============================================================
+    // Queue Records
+    // ============================================================
+
+    match /queue_records/{queueId} {
+      // Owner can view their own queue record.
+      // Veterinary users can view queue records for their hospital.
+      allow read: if signedIn()
+        && (
+          resource.data.ownerId == request.auth.uid
+          || isVeterinaryUserForHospital(resource.data.hospitalId)
+        );
+
+      // Queue state is controlled by veterinary-side operations.
+      allow create, update, delete: if isVeterinaryUserForHospital(
+        request.resource.data.hospitalId
+      );
+    }
+
+    // ============================================================
+    // Notifications
+    // ============================================================
+
+    match /notifications/{notificationId} {
+      allow read: if signedIn()
+        && resource.data.recipientUserId == request.auth.uid;
+
+      allow update: if signedIn()
+        && resource.data.recipientUserId == request.auth.uid
+        && request.resource.data.recipientUserId
+          == resource.data.recipientUserId;
+
+      // Notifications should be generated by trusted application/backend
+      // logic, not by arbitrary mobile clients.
+      allow create, delete: if false;
+    }
+
+    // ============================================================
+    // Adoption Listings
+    // ============================================================
+
+    match /adoption_listings/{listingId} {
+      // Authenticated users can discover listings.
+      allow read: if signedIn();
+
+      // Providers can create their own listings.
+      allow create: if isAdoptionProvider()
+        && request.resource.data.providerId == request.auth.uid;
+
+      // Providers can update only their own listings.
+      allow update: if isAdoptionProvider()
+        && resource.data.providerId == request.auth.uid
+        && request.resource.data.providerId == resource.data.providerId;
+
+      // Providers can delete only their own listings.
+      allow delete: if isAdoptionProvider()
+        && resource.data.providerId == request.auth.uid;
+    }
+
+    // ============================================================
+    // Adoption Requests
+    // ============================================================
+
+    match /adoption_requests/{requestId} {
+      // Requester can read their request.
+      // Provider can read requests belonging to their listings.
+      allow read: if signedIn()
+        && (
+          resource.data.requesterId == request.auth.uid
+          || resource.data.providerId == request.auth.uid
+        );
+
+      // Owner can create a request for themselves.
+      allow create: if isOwner()
+        && request.resource.data.requesterId == request.auth.uid;
+
+      // Owner can update their request while preserving its ownership
+      // and listing/provider relationship.
+      allow update: if signedIn()
+        && (
+          (
+            isOwner()
+            && resource.data.requesterId == request.auth.uid
+            && request.resource.data.requesterId
+              == resource.data.requesterId
+            && request.resource.data.providerId
+              == resource.data.providerId
+            && request.resource.data.listingId
+              == resource.data.listingId
+          )
+          ||
+          (
+            isAdoptionProvider()
+            && resource.data.providerId == request.auth.uid
+            && request.resource.data.providerId
+              == resource.data.providerId
+            && request.resource.data.requesterId
+              == resource.data.requesterId
+            && request.resource.data.listingId
+              == resource.data.listingId
+          )
+        );
+
+      // Owner can delete/withdraw their own request.
+      allow delete: if isOwner()
+        && resource.data.requesterId == request.auth.uid;
+    }
+
+    // ============================================================
+    // Default Deny
+    // ============================================================
+
     match /{document=**} {
       allow read, write: if false;
     }
