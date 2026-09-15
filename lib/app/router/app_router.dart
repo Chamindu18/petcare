@@ -4,6 +4,7 @@ import '../../features/auth/presentation/pages/onboarding_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/auth/presentation/pages/onboarding_slides_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/presentation/pages/forgot_password_page.dart';
 
 class AppRouter {
   AppRouter._();
@@ -22,7 +23,7 @@ class AppRouter {
     onboardingSlides: (_) => const OnboardingSlidesPage(),
     login: (_) => const LoginPage(),
     register: (_) => const _PlaceholderPage(title: 'Register'),
-    forgotPassword: (_) => const _PlaceholderPage(title: 'Forgot Password'),
+    forgotPassword: (_) => const ForgotPasswordPage(),
     home: (_) => const _PlaceholderPage(title: 'Home'),
   };
 }
