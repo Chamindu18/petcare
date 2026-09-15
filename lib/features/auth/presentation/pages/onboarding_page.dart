@@ -28,9 +28,7 @@ class OnboardingPage extends StatelessWidget {
                 children: [
                   SizedBox(height: isCompact ? 22 : 32),
 
-                  // --------------------------------------------------------
                   // Logo
-                  // --------------------------------------------------------
                   SizedBox(
                     width: isCompact ? 150 : 175,
                     child: Image.asset(
@@ -43,9 +41,7 @@ class OnboardingPage extends StatelessWidget {
 
                   SizedBox(height: isCompact ? 26 : 38),
 
-                  // --------------------------------------------------------
                   // Heading
-                  // --------------------------------------------------------
                   Text(
                     'Better Care',
                     textAlign: TextAlign.center,
@@ -71,9 +67,7 @@ class OnboardingPage extends StatelessWidget {
 
                   SizedBox(height: isCompact ? 14 : 18),
 
-                  // --------------------------------------------------------
                   // Supporting text
-                  // --------------------------------------------------------
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 330),
                     child: Text(
@@ -89,9 +83,7 @@ class OnboardingPage extends StatelessWidget {
                     ),
                   ),
 
-                  // --------------------------------------------------------
                   // Hero image
-                  // --------------------------------------------------------
                   Expanded(
                     child: Padding(
                       padding: EdgeInsets.symmetric(
@@ -106,9 +98,7 @@ class OnboardingPage extends StatelessWidget {
                     ),
                   ),
 
-                  // --------------------------------------------------------
                   // Get Started
-                  // --------------------------------------------------------
                   SizedBox(
                     width: double.infinity,
                     height: 56,
@@ -123,7 +113,10 @@ class OnboardingPage extends StatelessWidget {
                         ),
                       ),
                       onPressed: () {
-                        Navigator.pushReplacementNamed(
+                        // IMPORTANT:
+                        // Use pushNamed so this Welcome screen remains
+                        // underneath the onboarding slides.
+                        Navigator.pushNamed(
                           context,
                           AppRouter.onboardingSlides,
                         );
@@ -141,9 +134,7 @@ class OnboardingPage extends StatelessWidget {
 
                   const SizedBox(height: 14),
 
-                  // --------------------------------------------------------
                   // Existing account
-                  // --------------------------------------------------------
                   SizedBox(
                     width: double.infinity,
                     height: 56,
