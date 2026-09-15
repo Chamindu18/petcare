@@ -39,6 +39,10 @@ class _OnboardingSlidesPageState extends State<OnboardingSlidesPage> {
     Navigator.pushReplacementNamed(context, AppRouter.register);
   }
 
+  void _login() {
+    Navigator.pushReplacementNamed(context, AppRouter.login);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -50,7 +54,6 @@ class _OnboardingSlidesPageState extends State<OnboardingSlidesPage> {
             Column(
               children: [
                 _TopBar(currentPage: _currentPage, onSkip: _skip),
-
                 Expanded(
                   child: PageView(
                     controller: _pageController,
@@ -59,18 +62,14 @@ class _OnboardingSlidesPageState extends State<OnboardingSlidesPage> {
                         _currentPage = page;
                       });
                     },
-                    children: const [
-                      _SlideOne(),
-                      _SlideTwo(),
-                      _SlideThreePlaceholder(),
-                    ],
+                    children: const [_SlideOne(), _SlideTwo(), _SlideThree()],
                   ),
                 ),
-
                 _BottomControls(
                   currentPage: _currentPage,
                   totalPages: _totalPages,
                   onNext: _nextPage,
+                  onLogin: _login,
                 ),
               ],
             ),
@@ -116,7 +115,7 @@ class _TopBar extends StatelessWidget {
                   'Skip',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: AppTheme.espresso,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
@@ -125,7 +124,7 @@ class _TopBar extends StatelessWidget {
                 '${currentPage + 1} / 3',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppTheme.espresso,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
@@ -160,7 +159,6 @@ class _SlideOne extends StatelessWidget {
         children: [
           SizedBox(height: isCompact ? 2 : 8),
 
-          // Logo
           SizedBox(
             width: isCompact ? 112 : 125,
             child: Image.asset(
@@ -173,7 +171,6 @@ class _SlideOne extends StatelessWidget {
 
           SizedBox(height: isCompact ? 12 : 16),
 
-          // Heading
           Align(
             alignment: Alignment.centerLeft,
             child: Column(
@@ -183,8 +180,8 @@ class _SlideOne extends StatelessWidget {
                   'All Your Pets.',
                   style: theme.textTheme.headlineLarge?.copyWith(
                     color: AppTheme.espresso,
-                    fontSize: isCompact ? 35 : 40,
-                    fontWeight: FontWeight.w800,
+                    fontSize: isCompact ? 38 : 44,
+                    fontWeight: FontWeight.w900,
                     height: 1.05,
                     letterSpacing: -0.8,
                   ),
@@ -193,8 +190,8 @@ class _SlideOne extends StatelessWidget {
                   'One Simple Place.',
                   style: theme.textTheme.headlineLarge?.copyWith(
                     color: AppTheme.primary,
-                    fontSize: isCompact ? 35 : 40,
-                    fontWeight: FontWeight.w800,
+                    fontSize: isCompact ? 38 : 42,
+                    fontWeight: FontWeight.w900,
                     height: 1.05,
                     letterSpacing: -0.8,
                   ),
@@ -205,7 +202,6 @@ class _SlideOne extends StatelessWidget {
 
           SizedBox(height: isCompact ? 10 : 12),
 
-          // Description
           Align(
             alignment: Alignment.centerLeft,
             child: ConstrainedBox(
@@ -215,15 +211,14 @@ class _SlideOne extends StatelessWidget {
                 'track vaccinations and treatments all in one place.',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: AppTheme.espresso,
-                  fontSize: isCompact ? 14 : 15,
-                  fontWeight: FontWeight.w500,
+                  fontSize: isCompact ? 16 : 18,
+                  fontWeight: FontWeight.w600,
                   height: 1.42,
                 ),
               ),
             ),
           ),
 
-          // Hero image
           Expanded(
             child: Padding(
               padding: EdgeInsets.only(
@@ -274,7 +269,6 @@ class _SlideTwo extends StatelessWidget {
         children: [
           SizedBox(height: isCompact ? 2 : 8),
 
-          // Logo
           SizedBox(
             width: isCompact ? 112 : 125,
             child: Image.asset(
@@ -287,7 +281,6 @@ class _SlideTwo extends StatelessWidget {
 
           SizedBox(height: isCompact ? 12 : 18),
 
-          // Heading
           Align(
             alignment: Alignment.centerLeft,
             child: Column(
@@ -297,7 +290,7 @@ class _SlideTwo extends StatelessWidget {
                   'Find Care When',
                   style: theme.textTheme.headlineLarge?.copyWith(
                     color: AppTheme.espresso,
-                    fontSize: isCompact ? 34 : 40,
+                    fontSize: isCompact ? 38 : 44,
                     fontWeight: FontWeight.w900,
                     height: 1.05,
                     letterSpacing: -0.8,
@@ -307,7 +300,7 @@ class _SlideTwo extends StatelessWidget {
                   'Your Pet Needs It.',
                   style: theme.textTheme.headlineLarge?.copyWith(
                     color: AppTheme.primary,
-                    fontSize: isCompact ? 34 : 40,
+                    fontSize: isCompact ? 38 : 42,
                     fontWeight: FontWeight.w900,
                     height: 1.05,
                     letterSpacing: -0.8,
@@ -319,7 +312,6 @@ class _SlideTwo extends StatelessWidget {
 
           SizedBox(height: isCompact ? 10 : 14),
 
-          // Description
           Align(
             alignment: Alignment.centerLeft,
             child: ConstrainedBox(
@@ -329,7 +321,7 @@ class _SlideTwo extends StatelessWidget {
                 'and track your live queue — stress-free.',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: AppTheme.espresso,
-                  fontSize: isCompact ? 15 : 16,
+                  fontSize: isCompact ? 14 : 16,
                   fontWeight: FontWeight.w600,
                   height: 1.42,
                 ),
@@ -339,45 +331,37 @@ class _SlideTwo extends StatelessWidget {
 
           SizedBox(height: isCompact ? 4 : 8),
 
-          // Features + image
           Expanded(
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                // Feature 1
                 Positioned(
                   left: 0,
                   top: isCompact ? 12 : 18,
-                  child: _FeatureItem(
+                  child: const _FeatureItem(
                     icon: Icons.location_on_rounded,
                     title: 'Multiple Hospitals',
                     subtitle: 'Near You',
                   ),
                 ),
-
-                // Feature 2
                 Positioned(
                   left: 0,
                   top: isCompact ? 72 : 84,
-                  child: _FeatureItem(
+                  child: const _FeatureItem(
                     icon: Icons.calendar_month_rounded,
                     title: 'Easy Appointment',
                     subtitle: 'Booking',
                   ),
                 ),
-
-                // Feature 3
                 Positioned(
                   left: 0,
                   top: isCompact ? 132 : 150,
-                  child: _FeatureItem(
+                  child: const _FeatureItem(
                     icon: Icons.groups_rounded,
                     title: 'Live Queue',
                     subtitle: 'Tracking',
                   ),
                 ),
-
-                // Dog hero image
                 Positioned(
                   right: -18,
                   bottom: isCompact ? 0 : 2,
@@ -389,6 +373,172 @@ class _SlideTwo extends StatelessWidget {
                       filterQuality: FilterQuality.high,
                       semanticLabel: 'Dog representing veterinary care and nearby services',
                     ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Slide 3
+// -----------------------------------------------------------------------------
+
+class _SlideThree extends StatelessWidget {
+  const _SlideThree();
+
+  static const String _logoAsset = 'assets/branding/petcare_logo.png';
+
+  static const String _heroAsset =
+      'assets/images/onboarding/onboarding_slide_3.png';
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final theme = Theme.of(context);
+    final isCompact = size.height < 720;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        children: [
+          SizedBox(height: isCompact ? 2 : 8),
+
+          SizedBox(
+            width: isCompact ? 112 : 125,
+            child: Image.asset(
+              _logoAsset,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              semanticLabel: 'PetCare+ logo',
+            ),
+          ),
+
+          SizedBox(height: isCompact ? 14 : 18),
+
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Smarter Care.',
+                  style: theme.textTheme.headlineLarge?.copyWith(
+                    color: AppTheme.espresso,
+                    fontSize: isCompact ? 38 : 44,
+                    fontWeight: FontWeight.w900,
+                    height: 1.05,
+                    letterSpacing: -0.8,
+                  ),
+                ),
+                Text(
+                  'Every Day.',
+                  style: theme.textTheme.headlineLarge?.copyWith(
+                    color: AppTheme.primary,
+                    fontSize: isCompact ? 38 : 42,
+                    fontWeight: FontWeight.w900,
+                    height: 1.05,
+                    letterSpacing: -0.8,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          SizedBox(height: isCompact ? 10 : 14),
+
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 335),
+              child: Text(
+                'Get AI-powered pet care guidance, view health summaries, '
+                'receive preventive insights and even find pets in need '
+                'of a loving home.',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: AppTheme.espresso,
+                  fontSize: isCompact ? 15 : 16,
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ),
+
+          SizedBox(height: isCompact ? 4 : 8),
+
+          Expanded(
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  right: -18,
+                  bottom: isCompact ? 0 : 2,
+                  child: SizedBox(
+                    width: isCompact ? 250 : 285,
+                    child: Image.asset(
+                      _heroAsset,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
+                      semanticLabel:
+                          'Gray and white kitten representing smarter pet care',
+                    ),
+                  ),
+                ),
+
+                // -------------------------------------------------------------------------
+                // Feature 1
+                // -------------------------------------------------------------------------
+                Positioned(
+                  left: 0,
+                  top: isCompact ? 8 : 14,
+                  child: const _FeatureItem(
+                    icon: Icons.psychology_rounded,
+                    title: 'AI Pet Care',
+                    subtitle: 'Assistant',
+                  ),
+                ),
+
+                // -------------------------------------------------------------------------
+                // Feature 2
+                // -------------------------------------------------------------------------
+                Positioned(
+                  left: 0,
+                  top: isCompact ? 66 : 78,
+                  child: const _FeatureItem(
+                    icon: Icons.bar_chart_rounded,
+                    title: 'Health Insights',
+                    subtitle: '& Reminders',
+                  ),
+                ),
+
+                // -------------------------------------------------------------------------
+                // Feature 3
+                // -------------------------------------------------------------------------
+                Positioned(
+                  left: 0,
+                  top: isCompact ? 124 : 142,
+                  child: const _FeatureItem(
+                    icon: Icons.favorite_border_rounded,
+                    title: 'Preventive Care',
+                    subtitle: 'Support',
+                  ),
+                ),
+
+                // -------------------------------------------------------------------------
+                // Feature 4
+                // -------------------------------------------------------------------------
+                Positioned(
+                  left: 0,
+                  top: isCompact ? 182 : 206,
+                  child: const _FeatureItem(
+                    icon: Icons.home_outlined,
+                    title: 'Find Pets for',
+                    subtitle: 'Adoption',
                   ),
                 ),
               ],
@@ -440,7 +590,7 @@ class _FeatureItem extends StatelessWidget {
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: AppTheme.espresso,
                 fontSize: 14,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 height: 1.2,
               ),
             ),
@@ -449,55 +599,13 @@ class _FeatureItem extends StatelessWidget {
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: AppTheme.espresso,
                 fontSize: 14,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 height: 1.2,
               ),
             ),
           ],
         ),
       ],
-    );
-  }
-}
-
-// -----------------------------------------------------------------------------
-// Slide 3 temporary placeholder
-// -----------------------------------------------------------------------------
-
-class _SlideThreePlaceholder extends StatelessWidget {
-  const _SlideThreePlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 28),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.pets_rounded, size: 110, color: AppTheme.primary),
-          const SizedBox(height: 32),
-          Text(
-            'Smarter Care.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.headlineLarge?.copyWith(
-              color: AppTheme.espresso,
-              fontWeight: FontWeight.w800,
-              height: 1.05,
-            ),
-          ),
-          Text(
-            'Every Day.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.headlineLarge?.copyWith(
-              color: AppTheme.primary,
-              fontWeight: FontWeight.w800,
-              height: 1.05,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -511,21 +619,22 @@ class _BottomControls extends StatelessWidget {
     required this.currentPage,
     required this.totalPages,
     required this.onNext,
+    required this.onLogin,
   });
 
   final int currentPage;
   final int totalPages;
   final VoidCallback onNext;
+  final VoidCallback onLogin;
 
   @override
   Widget build(BuildContext context) {
     final isLastPage = currentPage == totalPages - 1;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 4, 28, 24),
+      padding: const EdgeInsets.fromLTRB(28, 4, 28, 18),
       child: Column(
         children: [
-          // Page indicators
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(totalPages, (index) {
@@ -544,20 +653,19 @@ class _BottomControls extends StatelessWidget {
             }),
           ),
 
-          const SizedBox(height: 22),
+          const SizedBox(height: 20),
 
-          // Next button
           SizedBox(
             width: double.infinity,
             height: 56,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(28),
                 ),
                 textStyle: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               onPressed: onNext,
@@ -571,6 +679,37 @@ class _BottomControls extends StatelessWidget {
               ),
             ),
           ),
+
+          if (isLastPage) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: onLogin,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: RichText(
+                text: const TextSpan(
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.espresso,
+                  ),
+                  children: [
+                    TextSpan(text: 'Already have an account?  '),
+                    TextSpan(
+                      text: 'Login',
+                      style: TextStyle(
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -605,7 +744,6 @@ class _OnboardingBackgroundPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.6;
 
-    // Top-left soft shape.
     final topLeftShape = Path()
       ..moveTo(0, 0)
       ..lineTo(size.width * 0.42, 0)
@@ -629,7 +767,6 @@ class _OnboardingBackgroundPainter extends CustomPainter {
 
     canvas.drawPath(topLeftShape, fillPaint);
 
-    // Top-left curved line.
     final topCurve = Path()
       ..moveTo(0, size.height * 0.18)
       ..cubicTo(
@@ -651,7 +788,6 @@ class _OnboardingBackgroundPainter extends CustomPainter {
 
     canvas.drawPath(topCurve, linePaint);
 
-    // Bottom-right soft shape.
     final bottomRightShape = Path()
       ..moveTo(size.width, size.height)
       ..lineTo(size.width * 0.60, size.height)
@@ -675,7 +811,6 @@ class _OnboardingBackgroundPainter extends CustomPainter {
 
     canvas.drawPath(bottomRightShape, fillPaint);
 
-    // Bottom-right curved line.
     final bottomCurve = Path()
       ..moveTo(size.width * 0.61, size.height)
       ..cubicTo(
