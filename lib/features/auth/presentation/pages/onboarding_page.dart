@@ -125,7 +125,7 @@ class OnboardingPage extends StatelessWidget {
                       onPressed: () {
                         Navigator.pushReplacementNamed(
                           context,
-                          AppRouter.register,
+                          AppRouter.onboardingSlides,
                         );
                       },
                       child: const Row(

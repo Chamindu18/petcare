@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../features/auth/presentation/pages/onboarding_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
+import '../../features/auth/presentation/pages/onboarding_slides_page.dart';
 
 class AppRouter {
   AppRouter._();
 
   static const String splash = '/';
   static const String onboarding = '/onboarding';
+  static const String onboardingSlides = '/onboarding-slides';
   static const String login = '/login';
   static const String register = '/register';
   static const String home = '/home';
@@ -15,6 +17,7 @@ class AppRouter {
   static Map<String, WidgetBuilder> get routes => {
         splash: (_) => const SplashPage(),
         onboarding: (_) => const OnboardingPage(),
+        onboardingSlides: (_) => const OnboardingSlidesPage(),
         login: (_) => const _PlaceholderPage(
               title: 'Login',
             ),
