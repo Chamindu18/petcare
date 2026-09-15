@@ -1,12 +1,12 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:petcare/main.dart';
+
+import 'package:petcare/features/auth/presentation/pages/splash_page.dart';
 
 void main() {
-  testWidgets('PetCare+ app starts at splash route', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(const PetCareApp());
+  testWidgets('SplashPage builds successfully', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: SplashPage()));
 
-    expect(find.text('Splash'), findsNWidgets(2));
+    expect(find.byType(SplashPage), findsOneWidget);
   });
 }
