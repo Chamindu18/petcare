@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
+
 import '../../../../app/theme/app_theme.dart';
 
 class OnboardingPage extends StatelessWidget {
@@ -153,10 +154,8 @@ class OnboardingPage extends StatelessWidget {
                         ),
                       ),
                       onPressed: () {
-                        Navigator.pushReplacementNamed(
-                          context,
-                          AppRouter.login,
-                        );
+                        // Use pushNamed so Welcome remains underneath Login.
+                        Navigator.pushNamed(context, AppRouter.login);
                       },
                       child: const Text('Already have an account?'),
                     ),
