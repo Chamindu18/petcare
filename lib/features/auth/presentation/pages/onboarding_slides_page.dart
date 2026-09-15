@@ -43,6 +43,22 @@ class _OnboardingSlidesPageState extends State<OnboardingSlidesPage> {
     Navigator.pushReplacementNamed(context, AppRouter.login);
   }
 
+  // Back navigation:
+  // Slide 1 -> Welcome screen
+  // Slide 2 -> Slide 1
+  // Slide 3 -> Slide 2
+  void _back() {
+    if (_currentPage == 0) {
+      Navigator.pop(context);
+      return;
+    }
+
+    _pageController.previousPage(
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -53,7 +69,11 @@ class _OnboardingSlidesPageState extends State<OnboardingSlidesPage> {
             const Positioned.fill(child: _OnboardingBackground()),
             Column(
               children: [
-                _TopBar(currentPage: _currentPage, onSkip: _skip),
+                _TopBar(
+                  currentPage: _currentPage,
+                  onSkip: _skip,
+                  onBack: _back,
+                ),
                 Expanded(
                   child: PageView(
                     controller: _pageController,
@@ -85,19 +105,41 @@ class _OnboardingSlidesPageState extends State<OnboardingSlidesPage> {
 // -----------------------------------------------------------------------------
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.currentPage, required this.onSkip});
+  const _TopBar({
+    required this.currentPage,
+    required this.onSkip,
+    required this.onBack,
+  });
 
   final int currentPage;
   final VoidCallback onSkip;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(28, 12, 20, 0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Back button
+          Transform.translate(
+            offset: const Offset(-10, 0),
+            child: IconButton(
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back_rounded, size: 28),
+              color: AppTheme.espresso,
+              tooltip: 'Back',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+              style: IconButton.styleFrom(
+                backgroundColor: AppTheme.secondary.withValues(alpha: 0.20),
+                shape: const CircleBorder(),
+              ),
+            ),
+          ),
+
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -158,7 +200,6 @@ class _SlideOne extends StatelessWidget {
       child: Column(
         children: [
           SizedBox(height: isCompact ? 2 : 8),
-
           SizedBox(
             width: isCompact ? 112 : 125,
             child: Image.asset(
@@ -168,9 +209,7 @@ class _SlideOne extends StatelessWidget {
               semanticLabel: 'PetCare+ logo',
             ),
           ),
-
           SizedBox(height: isCompact ? 12 : 16),
-
           Align(
             alignment: Alignment.centerLeft,
             child: Column(
@@ -199,9 +238,7 @@ class _SlideOne extends StatelessWidget {
               ],
             ),
           ),
-
           SizedBox(height: isCompact ? 10 : 12),
-
           Align(
             alignment: Alignment.centerLeft,
             child: ConstrainedBox(
@@ -218,7 +255,6 @@ class _SlideOne extends StatelessWidget {
               ),
             ),
           ),
-
           Expanded(
             child: Padding(
               padding: EdgeInsets.only(
@@ -268,7 +304,6 @@ class _SlideTwo extends StatelessWidget {
       child: Column(
         children: [
           SizedBox(height: isCompact ? 2 : 8),
-
           SizedBox(
             width: isCompact ? 112 : 125,
             child: Image.asset(
@@ -278,9 +313,7 @@ class _SlideTwo extends StatelessWidget {
               semanticLabel: 'PetCare+ logo',
             ),
           ),
-
           SizedBox(height: isCompact ? 12 : 18),
-
           Align(
             alignment: Alignment.centerLeft,
             child: Column(
@@ -309,9 +342,7 @@ class _SlideTwo extends StatelessWidget {
               ],
             ),
           ),
-
           SizedBox(height: isCompact ? 10 : 14),
-
           Align(
             alignment: Alignment.centerLeft,
             child: ConstrainedBox(
@@ -328,12 +359,9 @@ class _SlideTwo extends StatelessWidget {
               ),
             ),
           ),
-
           SizedBox(height: isCompact ? 4 : 8),
-
           Expanded(
             child: Stack(
-              clipBehavior: Clip.none,
               children: [
                 Positioned(
                   left: 0,
@@ -407,7 +435,6 @@ class _SlideThree extends StatelessWidget {
       child: Column(
         children: [
           SizedBox(height: isCompact ? 2 : 8),
-
           SizedBox(
             width: isCompact ? 112 : 125,
             child: Image.asset(
@@ -417,9 +444,7 @@ class _SlideThree extends StatelessWidget {
               semanticLabel: 'PetCare+ logo',
             ),
           ),
-
           SizedBox(height: isCompact ? 14 : 18),
-
           Align(
             alignment: Alignment.centerLeft,
             child: Column(
@@ -448,9 +473,7 @@ class _SlideThree extends StatelessWidget {
               ],
             ),
           ),
-
           SizedBox(height: isCompact ? 10 : 14),
-
           Align(
             alignment: Alignment.centerLeft,
             child: ConstrainedBox(
@@ -468,9 +491,7 @@ class _SlideThree extends StatelessWidget {
               ),
             ),
           ),
-
           SizedBox(height: isCompact ? 4 : 8),
-
           Expanded(
             child: Stack(
               clipBehavior: Clip.none,
@@ -489,10 +510,6 @@ class _SlideThree extends StatelessWidget {
                     ),
                   ),
                 ),
-
-                // -------------------------------------------------------------------------
-                // Feature 1
-                // -------------------------------------------------------------------------
                 Positioned(
                   left: 0,
                   top: isCompact ? 8 : 14,
@@ -502,10 +519,6 @@ class _SlideThree extends StatelessWidget {
                     subtitle: 'Assistant',
                   ),
                 ),
-
-                // -------------------------------------------------------------------------
-                // Feature 2
-                // -------------------------------------------------------------------------
                 Positioned(
                   left: 0,
                   top: isCompact ? 66 : 78,
@@ -515,10 +528,6 @@ class _SlideThree extends StatelessWidget {
                     subtitle: '& Reminders',
                   ),
                 ),
-
-                // -------------------------------------------------------------------------
-                // Feature 3
-                // -------------------------------------------------------------------------
                 Positioned(
                   left: 0,
                   top: isCompact ? 124 : 142,
@@ -528,10 +537,6 @@ class _SlideThree extends StatelessWidget {
                     subtitle: 'Support',
                   ),
                 ),
-
-                // -------------------------------------------------------------------------
-                // Feature 4
-                // -------------------------------------------------------------------------
                 Positioned(
                   left: 0,
                   top: isCompact ? 182 : 206,
@@ -652,9 +657,7 @@ class _BottomControls extends StatelessWidget {
               );
             }),
           ),
-
           const SizedBox(height: 20),
-
           SizedBox(
             width: double.infinity,
             height: 56,
@@ -679,7 +682,6 @@ class _BottomControls extends StatelessWidget {
               ),
             ),
           ),
-
           if (isLastPage) ...[
             const SizedBox(height: 8),
             TextButton(
@@ -690,7 +692,7 @@ class _BottomControls extends StatelessWidget {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: RichText(
-                text: const TextSpan(
+                text: TextSpan(
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
