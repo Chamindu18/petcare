@@ -1,12 +1,39 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 
-class SplashPage extends StatelessWidget {
+class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
 
+  @override
+  State<SplashPage> createState() => _SplashPageState();
+}
+
+class _SplashPageState extends State<SplashPage> {
   static const String _logoAsset = 'assets/branding/petcare_logo.png';
   static const String _loadingMessage = "Preparing your pet's care...";
+
+  Timer? _navigationTimer;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _navigationTimer = Timer(const Duration(seconds: 6), () {
+      if (!mounted) return;
+
+      Navigator.pushReplacementNamed(context, AppRouter.onboarding);
+    });
+  }
+
+  @override
+  void dispose() {
+    _navigationTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +81,7 @@ class SplashPage extends StatelessWidget {
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
-                                  color: AppTheme.deepBrown,
+                                  color: AppTheme.espresso,
                                   fontWeight: FontWeight.w500,
                                   height: 1.4,
                                 ),
