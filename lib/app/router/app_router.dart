@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../features/auth/presentation/pages/onboarding_page.dart';
-import '../../features/auth/presentation/pages/splash_page.dart';
-import '../../features/auth/presentation/pages/onboarding_slides_page.dart';
-import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
-import '../../features/auth/presentation/pages/reset_password_page.dart';
+import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/presentation/pages/onboarding_page.dart';
+import '../../features/auth/presentation/pages/onboarding_slides_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/auth/presentation/pages/reset_password_page.dart';
+import '../../features/auth/presentation/pages/splash_page.dart';
 
 class AppRouter {
   AppRouter._();
@@ -14,26 +14,39 @@ class AppRouter {
   static const String splash = '/';
   static const String onboarding = '/onboarding';
   static const String onboardingSlides = '/onboarding-slides';
+
   static const String login = '/login';
+  static const String register = '/register';
+
   static const String forgotPassword = '/forgot-password';
   static const String resetPassword = '/reset-password';
   static const String passwordResetSuccess = '/password-reset-success';
-  static const String register = '/register';
   static const String registrationSuccess = '/registration-success';
+
   static const String home = '/home';
 
   static Map<String, WidgetBuilder> get routes => {
     splash: (_) => const SplashPage(),
     onboarding: (_) => const OnboardingPage(),
     onboardingSlides: (_) => const OnboardingSlidesPage(),
+
     login: (_) => const LoginPage(),
     register: (_) => const RegisterPage(),
+
     forgotPassword: (_) => const ForgotPasswordPage(),
+
     resetPassword: (context) {
       final code = ModalRoute.of(context)?.settings.arguments as String?;
 
       return ResetPasswordPage(code: code);
     },
+
+    passwordResetSuccess: (_) =>
+        const _PlaceholderPage(title: 'Password Reset Success'),
+
+    registrationSuccess: (_) =>
+        const _PlaceholderPage(title: 'Registration Success'),
+
     home: (_) => const _PlaceholderPage(title: 'Home'),
   };
 }
