@@ -19,8 +19,15 @@ class FirebaseAuthRepository implements AuthRepository {
 
   static Future<void>? _googleInitialization;
 
+  // Web OAuth client ID from the Firebase project's
+  // google-services.json.
+  static const String _googleServerClientId =
+      '265273949414-jvgg24gdvb1003uioum1sasnjp6tl716.apps.googleusercontent.com';
+
   Future<void> _ensureGoogleSignInInitialized() {
-    return _googleInitialization ??= _googleSignIn.initialize();
+    return _googleInitialization ??= _googleSignIn.initialize(
+      serverClientId: _googleServerClientId,
+    );
   }
 
   @override
@@ -44,14 +51,18 @@ class FirebaseAuthRepository implements AuthRepository {
         throw const AuthException('Account creation failed. Please try again.');
       }
 
-      await user.updateDisplayName(fullName.trim());
+      final normalizedFullName = fullName.trim();
+      final normalizedEmail = email.trim();
+      final normalizedPhone = phone.trim();
+
+      await user.updateDisplayName(normalizedFullName);
 
       await _firestore.collection('users').doc(user.uid).set({
         'uid': user.uid,
-        'fullName': fullName.trim(),
-        'displayName': fullName.trim(),
-        'email': email.trim(),
-        'phone': phone.trim(),
+        'fullName': normalizedFullName,
+        'displayName': normalizedFullName,
+        'email': normalizedEmail,
+        'phone': normalizedPhone,
         'role': 'owner',
         'notificationEnabled': true,
         'createdAt': FieldValue.serverTimestamp(),
@@ -62,11 +73,13 @@ class FirebaseAuthRepository implements AuthRepository {
     } on FirebaseAuthException catch (error) {
       throw AuthException(_firebaseAuthErrorMessage(error.code));
     } on FirebaseException catch (error) {
+      // Auth user was created but the Firestore profile failed.
+      // Attempt cleanup so we do not leave a partially-created account.
       if (credential?.user != null) {
         try {
           await credential!.user!.delete();
         } catch (_) {
-          // The Auth account may remain if cleanup requires re-auth.
+          // Cleanup can fail when Firebase requires recent authentication.
         }
       }
 
@@ -91,15 +104,16 @@ class FirebaseAuthRepository implements AuthRepository {
 
   @override
   Future<void> signInWithGoogle() async {
-    await _ensureGoogleSignInInitialized();
-
-    if (!_googleSignIn.supportsAuthenticate()) {
-      throw const AuthException(
-        'Google Sign-In is not supported on this platform.',
-      );
-    }
-
     try {
+      // Initialize exactly once before authenticate().
+      await _ensureGoogleSignInInitialized();
+
+      if (!_googleSignIn.supportsAuthenticate()) {
+        throw const AuthException(
+          'Google Sign-In is not supported on this platform.',
+        );
+      }
+
       final googleUser = await _googleSignIn.authenticate();
 
       final googleAuth = googleUser.authentication;
