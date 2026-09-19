@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../domain/repositories/auth_repository.dart';
@@ -104,30 +105,95 @@ class FirebaseAuthRepository implements AuthRepository {
 
   @override
   Future<void> signInWithGoogle() async {
+    debugPrint('============================================');
+    debugPrint('PETCARE+ GOOGLE SIGN-IN STARTED');
+    debugPrint('============================================');
+
     try {
-      // Initialize exactly once before authenticate().
+      // ---------------------------------------------------------------
+      // Step 1: Initialize Google Sign-In
+      // ---------------------------------------------------------------
+      debugPrint('GOOGLE AUTH STEP 1: Initializing Google Sign-In...');
+
       await _ensureGoogleSignInInitialized();
 
-      if (!_googleSignIn.supportsAuthenticate()) {
+      debugPrint('GOOGLE AUTH STEP 1: Initialization completed.');
+
+      // ---------------------------------------------------------------
+      // Step 2: Check platform support
+      // ---------------------------------------------------------------
+      debugPrint('GOOGLE AUTH STEP 2: Checking authenticate() support...');
+
+      final supportsAuthenticate = _googleSignIn.supportsAuthenticate();
+
+      debugPrint(
+        'GOOGLE AUTH STEP 2: supportsAuthenticate=$supportsAuthenticate',
+      );
+
+      if (!supportsAuthenticate) {
         throw const AuthException(
           'Google Sign-In is not supported on this platform.',
         );
       }
 
+      // ---------------------------------------------------------------
+      // Step 3: Authenticate with Google
+      // ---------------------------------------------------------------
+      debugPrint('GOOGLE AUTH STEP 3: Calling GoogleSignIn.authenticate()...');
+
       final googleUser = await _googleSignIn.authenticate();
+
+      debugPrint(
+        'GOOGLE AUTH STEP 3: Google authentication returned successfully.',
+      );
+
+      debugPrint(
+        'GOOGLE AUTH STEP 3: Google account email='
+        '${googleUser.email}',
+      );
+
+      // ---------------------------------------------------------------
+      // Step 4: Get Google authentication token
+      // ---------------------------------------------------------------
+      debugPrint('GOOGLE AUTH STEP 4: Reading Google authentication token...');
 
       final googleAuth = googleUser.authentication;
       final idToken = googleAuth.idToken;
 
+      debugPrint(
+        'GOOGLE AUTH STEP 4: ID token received='
+        '${idToken != null && idToken.isNotEmpty}',
+      );
+
+      // IMPORTANT:
+      // Never print the actual ID token to logs.
       if (idToken == null || idToken.isEmpty) {
         throw const AuthException(
           'Google Sign-In did not return a valid authentication token.',
         );
       }
 
+      // ---------------------------------------------------------------
+      // Step 5: Create Firebase credential
+      // ---------------------------------------------------------------
+      debugPrint('GOOGLE AUTH STEP 5: Creating Firebase Google credential...');
+
       final credential = GoogleAuthProvider.credential(idToken: idToken);
 
+      debugPrint('GOOGLE AUTH STEP 5: Firebase credential created.');
+
+      // ---------------------------------------------------------------
+      // Step 6: Sign in to Firebase Authentication
+      // ---------------------------------------------------------------
+      debugPrint(
+        'GOOGLE AUTH STEP 6: Calling Firebase signInWithCredential()...',
+      );
+
       final userCredential = await _auth.signInWithCredential(credential);
+
+      debugPrint(
+        'GOOGLE AUTH STEP 6: Firebase signInWithCredential() succeeded.',
+      );
 
       final user = userCredential.user;
 
@@ -135,11 +201,27 @@ class FirebaseAuthRepository implements AuthRepository {
         throw const AuthException('Google account could not be loaded.');
       }
 
+      debugPrint('GOOGLE AUTH STEP 6: Firebase user UID=${user.uid}');
+
+      debugPrint('GOOGLE AUTH STEP 6: Firebase user email=${user.email}');
+
+      // ---------------------------------------------------------------
+      // Step 7: Load/create Firestore owner profile
+      // ---------------------------------------------------------------
+      debugPrint('GOOGLE AUTH STEP 7: Checking Firestore owner profile...');
+
       final profileRef = _firestore.collection('users').doc(user.uid);
 
       final existingProfile = await profileRef.get();
 
+      debugPrint(
+        'GOOGLE AUTH STEP 7: Existing profile='
+        '${existingProfile.exists}',
+      );
+
       if (!existingProfile.exists) {
+        debugPrint('GOOGLE AUTH STEP 7: Creating new owner profile...');
+
         await profileRef.set({
           'uid': user.uid,
           'fullName': user.displayName ?? '',
@@ -151,19 +233,66 @@ class FirebaseAuthRepository implements AuthRepository {
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         });
+
+        debugPrint('GOOGLE AUTH STEP 7: Owner profile created.');
       } else {
+        debugPrint('GOOGLE AUTH STEP 7: Updating existing owner profile...');
+
         await profileRef.update({'updatedAt': FieldValue.serverTimestamp()});
+
+        debugPrint('GOOGLE AUTH STEP 7: Owner profile updated.');
       }
-    } on GoogleSignInException catch (error) {
+
+      debugPrint('============================================');
+      debugPrint('PETCARE+ GOOGLE SIGN-IN SUCCESS');
+      debugPrint('============================================');
+    } on GoogleSignInException catch (error, stackTrace) {
+      debugPrint('============================================');
+      debugPrint('GOOGLE SIGN-IN EXCEPTION');
+      debugPrint('============================================');
+      debugPrint('Google error code: ${error.code}');
+      debugPrint('Google error message: ${error.description}');
+      debugPrint('Google error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
       if (error.code == GoogleSignInExceptionCode.canceled) {
         throw const AuthException('Google Sign-In was cancelled.');
       }
 
       throw AuthException(_googleSignInErrorMessage(error.code));
-    } on FirebaseAuthException catch (error) {
-      throw AuthException(_firebaseAuthErrorMessage(error.code));
-    } on FirebaseException catch (error) {
+    } on FirebaseAuthException catch (error, stackTrace) {
+      debugPrint('============================================');
+      debugPrint('GOOGLE FIREBASE AUTH ERROR');
+      debugPrint('============================================');
+      debugPrint('Firebase Auth error code: ${error.code}');
+      debugPrint('Firebase Auth error message: ${error.message}');
+      debugPrint('Firebase Auth error plugin: ${error.plugin}');
+      debugPrint('Firebase Auth error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      // TEMPORARY:
+      // Expose the exact Firebase error code in the app.
+      throw AuthException('Google authentication failed: ${error.code}');
+    } on FirebaseException catch (error, stackTrace) {
+      debugPrint('============================================');
+      debugPrint('GOOGLE FIREBASE ERROR');
+      debugPrint('============================================');
+      debugPrint('Firebase error code: ${error.code}');
+      debugPrint('Firebase error message: ${error.message}');
+      debugPrint('Firebase error plugin: ${error.plugin}');
+      debugPrint('Firebase error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
       throw AuthException(_firestoreErrorMessage(error.code));
+    } catch (error, stackTrace) {
+      debugPrint('============================================');
+      debugPrint('GOOGLE UNKNOWN ERROR');
+      debugPrint('============================================');
+      debugPrint('Error type: ${error.runtimeType}');
+      debugPrint('Error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      rethrow;
     }
   }
 
@@ -238,6 +367,15 @@ class FirebaseAuthRepository implements AuthRepository {
 
       case 'invalid-action-code':
         return 'This password reset link is invalid.';
+
+      case 'operation-not-allowed':
+        return 'This sign-in method is not enabled.';
+
+      case 'account-exists-with-different-credential':
+        return 'An account already exists with a different sign-in method.';
+
+      case 'credential-already-in-use':
+        return 'This Google account is already linked to another account.';
 
       default:
         return 'Something went wrong. Please try again.';
