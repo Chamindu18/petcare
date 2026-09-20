@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../../../lib/features/pets/domain/entities/pet.dart';
+import 'package:petcare/features/pets/domain/entities/pet.dart';
 
 void main() {
   group('Pet', () {
