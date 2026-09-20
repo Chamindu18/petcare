@@ -7,6 +7,7 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/reset_password_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/notifications/presentation/pages/notifications_page.dart';
 
 class AppRouter {
   AppRouter._();
@@ -21,6 +22,7 @@ class AppRouter {
   static const String register = '/register';
   static const String registrationSuccess = '/registration-success';
   static const String home = '/home';
+  static const String notifications = '/notifications';
 
   static Map<String, WidgetBuilder> get routes => {
     splash: (_) => const SplashPage(),
@@ -35,6 +37,7 @@ class AppRouter {
       return ResetPasswordPage(code: code);
     },
     home: (_) => const _PlaceholderPage(title: 'Home'),
+    notifications: (_) => const NotificationsPage(),
   };
 }
 
