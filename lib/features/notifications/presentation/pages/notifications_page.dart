@@ -4,10 +4,15 @@ import '../../../../app/theme/app_theme.dart';
 import '../../data/repositories/firebase_notification_repository.dart';
 import '../../domain/entities/notification.dart' as notification_entity;
 import '../providers/notification_provider.dart';
+import '../../domain/repositories/notification_repository.dart';
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key});
+  const NotificationsPage({
+  super.key,
+  this.notificationRepository,
+});
 
+final NotificationRepository? notificationRepository;
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
 }
@@ -20,8 +25,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
     super.initState();
 
     _notificationProvider = NotificationProvider(
-      repository: FirebaseNotificationRepository(),
-    );
+  repository:
+      widget.notificationRepository ?? FirebaseNotificationRepository(),
+);
+  
 
     _notificationProvider.startListening();
   }
