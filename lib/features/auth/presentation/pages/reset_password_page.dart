@@ -31,6 +31,15 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
 
+  bool get _hasEightCharacters => _passwordController.text.length >= 8;
+
+  bool get _hasUppercase => RegExp(r'[A-Z]').hasMatch(_passwordController.text);
+
+  bool get _hasNumber => RegExp(r'\d').hasMatch(_passwordController.text);
+
+  bool get _passwordIsValid =>
+      _hasEightCharacters && _hasUppercase && _hasNumber;
+
   @override
   void initState() {
     super.initState();
@@ -44,15 +53,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     _confirmPasswordController.dispose();
     super.dispose();
   }
-
-  bool get _hasEightCharacters => _passwordController.text.length >= 8;
-
-  bool get _hasUppercase => RegExp(r'[A-Z]').hasMatch(_passwordController.text);
-
-  bool get _hasNumber => RegExp(r'\d').hasMatch(_passwordController.text);
-
-  bool get _passwordIsValid =>
-      _hasEightCharacters && _hasUppercase && _hasNumber;
 
   Future<void> _resetPassword() async {
     if (_isLoading) return;
@@ -85,6 +85,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       Navigator.pushReplacementNamed(context, AppRouter.passwordResetSuccess);
     } on AuthException catch (error) {
       if (!mounted) return;
+
       _showError(error.message);
     } catch (_) {
       if (!mounted) return;
@@ -175,7 +176,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                         children: [
                           SizedBox(height: isCompact ? 0 : 4),
 
-                          // Logo
+                          // PetCare+ logo
                           SizedBox(
                             width: isCompact ? 115 : 130,
                             child: Image.asset(
@@ -203,6 +204,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
                           const SizedBox(height: 7),
 
+                          // Supporting text
                           Text(
                             'Create a new password for your account.',
                             textAlign: TextAlign.center,
@@ -216,7 +218,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
                           SizedBox(height: isCompact ? 16 : 20),
 
-                          // Email verified information card
+                          // Verified email card
                           const _VerifiedEmailCard(),
 
                           SizedBox(height: isCompact ? 16 : 20),
@@ -258,11 +260,16 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                                   color: AppTheme.espresso,
                                 ),
                               ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 17,
+                                horizontal: 16,
+                              ),
                             ),
                           ),
 
                           const SizedBox(height: 8),
 
+                          // Password requirements
                           _PasswordRequirements(
                             hasEightCharacters: _hasEightCharacters,
                             hasUppercase: _hasUppercase,
@@ -306,6 +313,10 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                                   size: 21,
                                   color: AppTheme.espresso,
                                 ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 17,
+                                horizontal: 16,
                               ),
                             ),
                           ),
@@ -361,7 +372,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                             ),
                           ),
 
-                          const SizedBox(height: 32),
+                          SizedBox(height: isCompact ? 24 : 36),
+
+                          // Bottom decorative content
+                          const _BottomHint(),
+                          SizedBox(height: isCompact ? 12 : 24),
                         ],
                       ),
                     ),
@@ -431,8 +446,8 @@ class _FieldLabel extends StatelessWidget {
         label,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
           color: AppTheme.espresso,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
+          fontSize: 14,
+          fontWeight: FontWeight.w800,
           height: 1.2,
         ),
       ),
@@ -441,7 +456,7 @@ class _FieldLabel extends StatelessWidget {
 }
 
 // -----------------------------------------------------------------------------
-// Verified email card
+// Verified email information card
 // -----------------------------------------------------------------------------
 
 class _VerifiedEmailCard extends StatelessWidget {
@@ -480,7 +495,7 @@ class _VerifiedEmailCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'We’ve verified your email',
+                  'We\'ve verified your email',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: AppTheme.espresso,
                     fontSize: 13,
@@ -499,6 +514,20 @@ class _VerifiedEmailCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(width: 4),
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: AppTheme.success.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_rounded,
+              color: AppTheme.success,
+              size: 17,
             ),
           ),
         ],
@@ -528,7 +557,7 @@ class _PasswordRequirements extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 11),
       decoration: BoxDecoration(
-        color: AppTheme.white.withValues(alpha: 0.60),
+        color: AppTheme.white.withValues(alpha: 0.70),
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(14),
           bottomRight: Radius.circular(14),
@@ -572,31 +601,99 @@ class _RequirementRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = satisfied ? AppTheme.success : AppTheme.secondary;
-
     return Row(
       children: [
         AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          width: 20,
-          height: 20,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(
+            color: satisfied
+                ? AppTheme.success
+                : AppTheme.secondary.withValues(alpha: 0.35),
+            shape: BoxShape.circle,
+          ),
           child: Icon(
-            satisfied ? Icons.check_rounded : Icons.remove_rounded,
-            color: AppTheme.white,
-            size: 14,
+            Icons.check_rounded,
+            color: satisfied
+                ? AppTheme.white
+                : AppTheme.deepBrown.withValues(alpha: 0.55),
+            size: 13,
           ),
         ),
-        const SizedBox(width: 8),
-        Text(
-          text,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: AppTheme.espresso,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            text,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppTheme.espresso,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+              height: 1.2,
+            ),
           ),
         ),
       ],
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Bottom hint
+// -----------------------------------------------------------------------------
+
+class _BottomHint extends StatelessWidget {
+  const _BottomHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: _DecorativeLine(alignment: Alignment.centerLeft)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Column(
+            children: [
+              Icon(
+                Icons.lock_rounded,
+                size: 18,
+                color: AppTheme.deepBrown.withValues(alpha: 0.68),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Keep your account secure',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppTheme.deepBrown,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(child: _DecorativeLine(alignment: Alignment.centerRight)),
+      ],
+    );
+  }
+}
+
+class _DecorativeLine extends StatelessWidget {
+  const _DecorativeLine({required this.alignment});
+
+  final Alignment alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: alignment,
+      child: Container(
+        width: double.infinity,
+        height: 1,
+        decoration: BoxDecoration(
+          color: AppTheme.secondary.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
     );
   }
 }
@@ -628,21 +725,22 @@ class _ResetPasswordBackgroundPainter extends CustomPainter {
       ..color = AppTheme.secondary.withValues(alpha: 0.14)
       ..style = PaintingStyle.fill;
 
+    final primaryFill = Paint()
+      ..color = AppTheme.primary.withValues(alpha: 0.055)
+      ..style = PaintingStyle.fill;
+
     final linePaint = Paint()
-      ..color = AppTheme.secondary.withValues(alpha: 0.45)
+      ..color = AppTheme.secondary.withValues(alpha: 0.42)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4;
+      ..strokeWidth = 1.3;
 
-    // -------------------------------------------------------------------------
-    // Top-left soft organic shape
-    // -------------------------------------------------------------------------
-
+    // Top-left organic shape.
     final topLeft = Path()
       ..moveTo(0, 0)
-      ..lineTo(size.width * 0.27, 0)
+      ..lineTo(size.width * 0.28, 0)
       ..cubicTo(
-        size.width * 0.17,
-        size.height * 0.04,
+        size.width * 0.18,
+        size.height * 0.035,
         size.width * 0.08,
         size.height * 0.10,
         0,
@@ -652,13 +750,10 @@ class _ResetPasswordBackgroundPainter extends CustomPainter {
 
     canvas.drawPath(topLeft, softFill);
 
-    // -------------------------------------------------------------------------
-    // Top-right rounded shape
-    // -------------------------------------------------------------------------
-
+    // Top-right soft organic shape.
     final topRight = Path()
       ..moveTo(size.width, 0)
-      ..lineTo(size.width, size.height * 0.22)
+      ..lineTo(size.width, size.height * 0.21)
       ..cubicTo(
         size.width * 0.92,
         size.height * 0.17,
@@ -679,10 +774,7 @@ class _ResetPasswordBackgroundPainter extends CustomPainter {
 
     canvas.drawPath(topRight, strongerFill);
 
-    // -------------------------------------------------------------------------
-    // Top-right outline
-    // -------------------------------------------------------------------------
-
+    // Top-right curved outline.
     final topRightCurve = Path()
       ..moveTo(size.width * 0.78, 0)
       ..cubicTo(
@@ -696,16 +788,20 @@ class _ResetPasswordBackgroundPainter extends CustomPainter {
 
     canvas.drawPath(topRightCurve, linePaint);
 
-    // -------------------------------------------------------------------------
-    // Bottom-left soft curve
-    // -------------------------------------------------------------------------
+    // Small decorative circle.
+    canvas.drawCircle(
+      Offset(size.width * 0.10, size.height * 0.20),
+      12,
+      primaryFill,
+    );
 
+    // Bottom-left soft curve.
     final bottomLeft = Path()
       ..moveTo(0, size.height)
-      ..lineTo(0, size.height * 0.84)
+      ..lineTo(0, size.height * 0.83)
       ..cubicTo(
         size.width * 0.09,
-        size.height * 0.78,
+        size.height * 0.77,
         size.width * 0.18,
         size.height * 0.79,
         size.width * 0.27,
@@ -723,15 +819,12 @@ class _ResetPasswordBackgroundPainter extends CustomPainter {
 
     canvas.drawPath(bottomLeft, softFill);
 
-    // -------------------------------------------------------------------------
-    // Bottom-left outline
-    // -------------------------------------------------------------------------
-
+    // Bottom-left outline.
     final bottomLeftCurve = Path()
-      ..moveTo(0, size.height * 0.84)
+      ..moveTo(0, size.height * 0.83)
       ..cubicTo(
         size.width * 0.09,
-        size.height * 0.78,
+        size.height * 0.77,
         size.width * 0.18,
         size.height * 0.79,
         size.width * 0.27,
@@ -748,13 +841,10 @@ class _ResetPasswordBackgroundPainter extends CustomPainter {
 
     canvas.drawPath(bottomLeftCurve, linePaint);
 
-    // -------------------------------------------------------------------------
-    // Bottom-right large shape
-    // -------------------------------------------------------------------------
-
+    // Bottom-right soft organic shape.
     final bottomRight = Path()
       ..moveTo(size.width, size.height)
-      ..lineTo(size.width * 0.62, size.height)
+      ..lineTo(size.width * 0.61, size.height)
       ..cubicTo(
         size.width * 0.70,
         size.height * 0.95,
@@ -765,15 +855,29 @@ class _ResetPasswordBackgroundPainter extends CustomPainter {
       )
       ..cubicTo(
         size.width * 0.95,
-        size.height * 0.80,
+        size.height * 0.79,
         size.width * 0.98,
         size.height * 0.74,
         size.width,
-        size.height * 0.69,
+        size.height * 0.68,
       )
       ..close();
 
     canvas.drawPath(bottomRight, strongerFill);
+
+    // Very subtle center-bottom shading.
+    final centerBottom = Paint()
+      ..color = AppTheme.primary.withValues(alpha: 0.035)
+      ..style = PaintingStyle.fill;
+
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(size.width * 0.52, size.height * 0.98),
+        width: size.width * 0.72,
+        height: size.height * 0.18,
+      ),
+      centerBottom,
+    );
   }
 
   @override

@@ -45,35 +45,23 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       return;
     }
 
+    final email = _emailController.text.trim();
+
     setState(() {
       _isLoading = true;
       _emailSent = false;
     });
 
     try {
-      await _authRepository.sendPasswordResetEmail(
-        email: _emailController.text.trim(),
-      );
+      await _authRepository.sendPasswordResetEmail(email: email);
 
       if (!mounted) return;
 
-      setState(() {
-        _emailSent = true;
-      });
-
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: const Text('Reset link sent. Please check your email.'),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: AppTheme.success,
-            margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
-        );
+      Navigator.pushReplacementNamed(
+        context,
+        AppRouter.checkEmail,
+        arguments: email,
+      );
     } on AuthException catch (error) {
       if (!mounted) return;
 
@@ -147,11 +135,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         child: Stack(
           children: [
             const Positioned.fill(child: _ForgotPasswordBackground()),
-
             Column(
               children: [
                 _ForgotPasswordTopBar(onBack: () => Navigator.pop(context)),
-
                 Expanded(
                   child: SingleChildScrollView(
                     keyboardDismissBehavior:
