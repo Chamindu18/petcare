@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
@@ -7,6 +9,13 @@ import '../../features/auth/presentation/pages/onboarding_slides_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/reset_password_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
+import '../../features/pets/data/repositories/firebase_pet_repository.dart';
+import '../../features/pets/domain/usecases/create_pet.dart';
+import '../../features/pets/domain/usecases/delete_pet.dart';
+import '../../features/pets/domain/usecases/get_pets.dart';
+import '../../features/pets/domain/usecases/update_pet.dart';
+import '../../features/pets/presentation/pages/my_pets_page.dart';
+import '../../features/pets/presentation/providers/pets_controller.dart';
 
 class AppRouter {
   AppRouter._();
@@ -24,6 +33,7 @@ class AppRouter {
   static const String registrationSuccess = '/registration-success';
 
   static const String home = '/home';
+  static const String myPets = '/my-pets';
 
   static Map<String, WidgetBuilder> get routes => {
     splash: (_) => const SplashPage(),
@@ -48,6 +58,22 @@ class AppRouter {
         const _PlaceholderPage(title: 'Registration Success'),
 
     home: (_) => const _PlaceholderPage(title: 'Home'),
+
+    myPets: (_) {
+      final repository = FirebasePetRepository(
+        auth: FirebaseAuth.instance,
+        firestore: FirebaseFirestore.instance,
+      );
+
+      final controller = PetsController(
+        CreatePet(repository),
+        GetPets(repository),
+        UpdatePet(repository),
+        DeletePet(repository),
+      );
+
+      return MyPetsPage(controller: controller);
+    },
   };
 }
 
