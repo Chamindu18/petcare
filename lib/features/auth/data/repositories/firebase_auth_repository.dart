@@ -148,8 +148,7 @@ class FirebaseAuthRepository implements AuthRepository {
       );
 
       debugPrint(
-        'GOOGLE AUTH STEP 3: Google account email='
-        '${googleUser.email}',
+        'GOOGLE AUTH STEP 3: Google account email=${googleUser.email}',
       );
 
       // ---------------------------------------------------------------
@@ -270,8 +269,7 @@ class FirebaseAuthRepository implements AuthRepository {
       debugPrint('Firebase Auth error: $error');
       debugPrintStack(stackTrace: stackTrace);
 
-      // TEMPORARY:
-      // Expose the exact Firebase error code in the app.
+      // Temporary diagnostic message.
       throw AuthException('Google authentication failed: ${error.code}');
     } on FirebaseException catch (error, stackTrace) {
       debugPrint('============================================');
@@ -299,7 +297,18 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<void> sendPasswordResetEmail({required String email}) async {
     try {
-      await _auth.sendPasswordResetEmail(email: email.trim());
+      final actionCodeSettings = ActionCodeSettings(
+        url: 'https://petcare-d4413.firebaseapp.com/reset-password',
+        handleCodeInApp: true,
+        androidPackageName: 'com.petcareplus.app',
+        androidInstallApp: true,
+        androidMinimumVersion: '1',
+      );
+
+      await _auth.sendPasswordResetEmail(
+        email: email.trim(),
+        actionCodeSettings: actionCodeSettings,
+      );
     } on FirebaseAuthException catch (error) {
       throw AuthException(_firebaseAuthErrorMessage(error.code));
     }
