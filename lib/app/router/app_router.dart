@@ -7,6 +7,7 @@ import '../../features/auth/presentation/pages/onboarding_page.dart';
 import '../../features/auth/presentation/pages/onboarding_slides_page.dart';
 import '../../features/auth/presentation/pages/password_reset_success_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/auth/presentation/pages/registration_success_page.dart';
 import '../../features/auth/presentation/pages/reset_password_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
 
@@ -30,10 +31,13 @@ class AppRouter {
 
   static Map<String, WidgetBuilder> get routes => {
     splash: (_) => const SplashPage(),
+
     onboarding: (_) => const OnboardingPage(),
+
     onboardingSlides: (_) => const OnboardingSlidesPage(),
 
     login: (_) => const LoginPage(),
+
     register: (_) => const RegisterPage(),
 
     forgotPassword: (_) => const ForgotPasswordPage(),
@@ -52,8 +56,7 @@ class AppRouter {
 
     passwordResetSuccess: (_) => const PasswordResetSuccessPage(),
 
-    registrationSuccess: (_) =>
-        const _PlaceholderPage(title: 'Registration Success'),
+    registrationSuccess: (_) => const RegistrationSuccessPage(),
 
     home: (_) => const _PlaceholderPage(title: 'Home'),
   };
