@@ -51,9 +51,13 @@ class _RegisterPageState extends State<RegisterPage> {
 
   bool get _hasEightCharacters => _passwordController.text.length >= 8;
 
-  bool get _hasUppercase => RegExp(r'[A-Z]').hasMatch(_passwordController.text);
+  bool get _hasUppercase => RegExp(r'[A-Z]').hasMatch(
+        _passwordController.text,
+      );
 
-  bool get _hasNumber => RegExp(r'\d').hasMatch(_passwordController.text);
+  bool get _hasNumber => RegExp(r'\d').hasMatch(
+        _passwordController.text,
+      );
 
   bool get _passwordIsValid =>
       _hasEightCharacters && _hasUppercase && _hasNumber;
@@ -81,7 +85,11 @@ class _RegisterPageState extends State<RegisterPage> {
 
       if (!mounted) return;
 
-      Navigator.pushReplacementNamed(context, AppRouter.registrationSuccess);
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRouter.myPets,
+        (route) => false,
+      );
     } on AuthException catch (error) {
       if (!mounted) return;
       _showError(error.message);
@@ -112,7 +120,11 @@ class _RegisterPageState extends State<RegisterPage> {
 
       if (!mounted) return;
 
-      Navigator.pushReplacementNamed(context, AppRouter.registrationSuccess);
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRouter.myPets,
+        (route) => false,
+      );
     } on AuthException catch (error) {
       if (!mounted) return;
 
@@ -234,11 +246,11 @@ class _RegisterPageState extends State<RegisterPage> {
         child: Stack(
           children: [
             const Positioned.fill(child: _RegisterBackground()),
-
             Column(
               children: [
-                _RegisterTopBar(onBack: () => Navigator.pop(context)),
-
+                _RegisterTopBar(
+                  onBack: () => Navigator.pop(context),
+                ),
                 Expanded(
                   child: SingleChildScrollView(
                     keyboardDismissBehavior:
@@ -249,7 +261,6 @@ class _RegisterPageState extends State<RegisterPage> {
                       child: Column(
                         children: [
                           SizedBox(height: isCompact ? 0 : 2),
-
                           SizedBox(
                             width: isCompact ? 118 : 132,
                             child: Image.asset(
@@ -259,9 +270,7 @@ class _RegisterPageState extends State<RegisterPage> {
                               semanticLabel: 'PetCare+ logo',
                             ),
                           ),
-
                           SizedBox(height: isCompact ? 14 : 18),
-
                           Text(
                             'Create Your Account',
                             textAlign: TextAlign.center,
@@ -273,33 +282,34 @@ class _RegisterPageState extends State<RegisterPage> {
                               letterSpacing: 0.3,
                             ),
                           ),
-
                           const SizedBox(height: 5),
-
                           ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 315),
+                            constraints:
+                                const BoxConstraints(maxWidth: 315),
                             child: Text(
                               'Join PetCare+ and give your pets '
                               'a healthier, happier tomorrow.',
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: const Color.fromARGB(255, 142, 86, 56),
+                                color: const Color.fromARGB(
+                                  255,
+                                  142,
+                                  86,
+                                  56,
+                                ),
                                 fontSize: isCompact ? 14 : 15,
                                 fontWeight: FontWeight.w600,
                                 height: 1.35,
                               ),
                             ),
                           ),
-
                           SizedBox(height: isCompact ? 14 : 18),
-
                           const _FieldLabel(label: 'Full Name'),
-
                           const SizedBox(height: 6),
-
                           TextFormField(
                             controller: _fullNameController,
-                            textCapitalization: TextCapitalization.words,
+                            textCapitalization:
+                                TextCapitalization.words,
                             textInputAction: TextInputAction.next,
                             validator: _validateFullName,
                             decoration: const InputDecoration(
@@ -311,16 +321,13 @@ class _RegisterPageState extends State<RegisterPage> {
                               ),
                             ),
                           ),
-
                           const SizedBox(height: 10),
-
                           const _FieldLabel(label: 'Email'),
-
                           const SizedBox(height: 6),
-
                           TextFormField(
                             controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
+                            keyboardType:
+                                TextInputType.emailAddress,
                             textInputAction: TextInputAction.next,
                             autocorrect: false,
                             validator: _validateEmail,
@@ -333,13 +340,9 @@ class _RegisterPageState extends State<RegisterPage> {
                               ),
                             ),
                           ),
-
                           const SizedBox(height: 10),
-
                           const _FieldLabel(label: 'Phone Number'),
-
                           const SizedBox(height: 6),
-
                           TextFormField(
                             controller: _phoneController,
                             keyboardType: TextInputType.phone,
@@ -354,13 +357,9 @@ class _RegisterPageState extends State<RegisterPage> {
                               ),
                             ),
                           ),
-
                           const SizedBox(height: 10),
-
                           const _FieldLabel(label: 'Password'),
-
                           const SizedBox(height: 6),
-
                           TextFormField(
                             controller: _passwordController,
                             obscureText: !_isPasswordVisible,
@@ -382,7 +381,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                     : 'Show password',
                                 onPressed: () {
                                   setState(() {
-                                    _isPasswordVisible = !_isPasswordVisible;
+                                    _isPasswordVisible =
+                                        !_isPasswordVisible;
                                   });
                                 },
                                 icon: Icon(
@@ -395,27 +395,28 @@ class _RegisterPageState extends State<RegisterPage> {
                               ),
                             ),
                           ),
-
                           const SizedBox(height: 7),
-
                           _PasswordRequirements(
-                            hasEightCharacters: _hasEightCharacters,
+                            hasEightCharacters:
+                                _hasEightCharacters,
                             hasUppercase: _hasUppercase,
                             hasNumber: _hasNumber,
                           ),
-
                           const SizedBox(height: 10),
-
-                          const _FieldLabel(label: 'Confirm Password'),
-
+                          const _FieldLabel(
+                            label: 'Confirm Password',
+                          ),
                           const SizedBox(height: 6),
-
                           TextFormField(
-                            controller: _confirmPasswordController,
-                            obscureText: !_isConfirmPasswordVisible,
+                            controller:
+                                _confirmPasswordController,
+                            obscureText:
+                                !_isConfirmPasswordVisible,
                             textInputAction: TextInputAction.done,
-                            validator: _validateConfirmPassword,
-                            onFieldSubmitted: (_) => _createAccount(),
+                            validator:
+                                _validateConfirmPassword,
+                            onFieldSubmitted:
+                                (_) => _createAccount(),
                             decoration: InputDecoration(
                               hintText: 'Confirm your password',
                               prefixIcon: const Icon(
@@ -424,9 +425,10 @@ class _RegisterPageState extends State<RegisterPage> {
                                 color: AppTheme.espresso,
                               ),
                               suffixIcon: IconButton(
-                                tooltip: _isConfirmPasswordVisible
-                                    ? 'Hide password'
-                                    : 'Show password',
+                                tooltip:
+                                    _isConfirmPasswordVisible
+                                        ? 'Hide password'
+                                        : 'Show password',
                                 onPressed: () {
                                   setState(() {
                                     _isConfirmPasswordVisible =
@@ -443,34 +445,39 @@ class _RegisterPageState extends State<RegisterPage> {
                               ),
                             ),
                           ),
-
                           const SizedBox(height: 14),
-
                           SizedBox(
                             width: double.infinity,
                             height: 54,
                             child: ElevatedButton(
-                              onPressed: _isAnyLoading ? null : _createAccount,
+                              onPressed: _isAnyLoading
+                                  ? null
+                                  : _createAccount,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppTheme.primary,
                                 foregroundColor: AppTheme.white,
-                                disabledBackgroundColor: AppTheme.primary
-                                    .withValues(alpha: 0.55),
+                                disabledBackgroundColor:
+                                    AppTheme.primary.withValues(
+                                  alpha: 0.55,
+                                ),
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(28),
+                                  borderRadius:
+                                      BorderRadius.circular(28),
                                 ),
                               ),
                               child: _isLoading
                                   ? const SizedBox(
                                       width: 22,
                                       height: 22,
-                                      child: CircularProgressIndicator(
+                                      child:
+                                          CircularProgressIndicator(
                                         strokeWidth: 2.5,
                                         valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              AppTheme.white,
-                                            ),
+                                            AlwaysStoppedAnimation<
+                                                Color>(
+                                          AppTheme.white,
+                                        ),
                                       ),
                                     )
                                   : const Row(
@@ -481,7 +488,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                           'Create Account',
                                           style: TextStyle(
                                             fontSize: 16,
-                                            fontWeight: FontWeight.w800,
+                                            fontWeight:
+                                                FontWeight.w800,
                                           ),
                                         ),
                                         SizedBox(width: 10),
@@ -493,13 +501,13 @@ class _RegisterPageState extends State<RegisterPage> {
                                     ),
                             ),
                           ),
-
-                          SizedBox(height: isCompact ? 12 : 15),
-
+                          SizedBox(
+                            height: isCompact ? 12 : 15,
+                          ),
                           const _OrDivider(),
-
-                          SizedBox(height: isCompact ? 11 : 13),
-
+                          SizedBox(
+                            height: isCompact ? 11 : 13,
+                          ),
                           SizedBox(
                             width: double.infinity,
                             height: 48,
@@ -509,27 +517,32 @@ class _RegisterPageState extends State<RegisterPage> {
                                   : _continueWithGoogle,
                               style: OutlinedButton.styleFrom(
                                 backgroundColor: AppTheme.white,
-                                foregroundColor: AppTheme.espresso,
+                                foregroundColor:
+                                    AppTheme.espresso,
                                 side: BorderSide(
-                                  color: AppTheme.espresso.withValues(
+                                  color:
+                                      AppTheme.espresso.withValues(
                                     alpha: 0.10,
                                   ),
                                 ),
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(28),
+                                  borderRadius:
+                                      BorderRadius.circular(28),
                                 ),
                               ),
                               child: _isGoogleLoading
                                   ? const SizedBox(
                                       width: 21,
                                       height: 21,
-                                      child: CircularProgressIndicator(
+                                      child:
+                                          CircularProgressIndicator(
                                         strokeWidth: 2.2,
                                         valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              AppTheme.primary,
-                                            ),
+                                            AlwaysStoppedAnimation<
+                                                Color>(
+                                          AppTheme.primary,
+                                        ),
                                       ),
                                     )
                                   : Row(
@@ -540,41 +553,49 @@ class _RegisterPageState extends State<RegisterPage> {
                                         const SizedBox(width: 9),
                                         Text(
                                           'Continue with Google',
-                                          style: theme.textTheme.bodyMedium
+                                          style: theme.textTheme
+                                              .bodyMedium
                                               ?.copyWith(
-                                                color: AppTheme.espresso,
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w700,
-                                              ),
+                                            color:
+                                                AppTheme.espresso,
+                                            fontSize: 15,
+                                            fontWeight:
+                                                FontWeight.w700,
+                                          ),
                                         ),
                                       ],
                                     ),
                             ),
                           ),
-
                           const SizedBox(height: 7),
-
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisAlignment:
+                                MainAxisAlignment.center,
                             children: [
                               Text(
                                 'Already have an account?',
-                                style: theme.textTheme.bodySmall?.copyWith(
+                                style:
+                                    theme.textTheme.bodySmall
+                                        ?.copyWith(
                                   color: AppTheme.espresso,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                               TextButton(
-                                onPressed: _isAnyLoading ? null : _login,
+                                onPressed: _isAnyLoading
+                                    ? null
+                                    : _login,
                                 style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
+                                  padding:
+                                      const EdgeInsets.symmetric(
                                     horizontal: 5,
                                     vertical: 2,
                                   ),
                                   minimumSize: Size.zero,
                                   tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
+                                      MaterialTapTargetSize
+                                          .shrinkWrap,
                                 ),
                                 child: const Text(
                                   'Log In',
@@ -587,7 +608,6 @@ class _RegisterPageState extends State<RegisterPage> {
                               ),
                             ],
                           ),
-
                           const SizedBox(height: 15),
                         ],
                       ),
@@ -602,10 +622,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 }
-
-// -----------------------------------------------------------------------------
-// Top bar
-// -----------------------------------------------------------------------------
 
 class _RegisterTopBar extends StatelessWidget {
   const _RegisterTopBar({required this.onBack});
@@ -624,9 +640,11 @@ class _RegisterTopBar extends StatelessWidget {
             onPressed: onBack,
             tooltip: 'Back',
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+            constraints:
+                const BoxConstraints.tightFor(width: 48, height: 48),
             style: IconButton.styleFrom(
-              backgroundColor: AppTheme.secondary.withValues(alpha: 0.20),
+              backgroundColor:
+                  AppTheme.secondary.withValues(alpha: 0.20),
               shape: const CircleBorder(),
             ),
             icon: const Icon(
@@ -640,10 +658,6 @@ class _RegisterTopBar extends StatelessWidget {
     );
   }
 }
-
-// -----------------------------------------------------------------------------
-// Field label
-// -----------------------------------------------------------------------------
 
 class _FieldLabel extends StatelessWidget {
   const _FieldLabel({required this.label});
@@ -667,10 +681,6 @@ class _FieldLabel extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------------------
-// Password requirements
-// -----------------------------------------------------------------------------
-
 class _PasswordRequirements extends StatelessWidget {
   const _PasswordRequirements({
     required this.hasEightCharacters,
@@ -690,7 +700,9 @@ class _PasswordRequirements extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.white.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.22)),
+        border: Border.all(
+          color: AppTheme.secondary.withValues(alpha: 0.22),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -714,7 +726,10 @@ class _PasswordRequirements extends StatelessWidget {
             satisfied: hasUppercase,
           ),
           const SizedBox(height: 3),
-          _RequirementRow(text: 'One number', satisfied: hasNumber),
+          _RequirementRow(
+            text: 'One number',
+            satisfied: hasNumber,
+          ),
         ],
       ),
     );
@@ -722,7 +737,10 @@ class _PasswordRequirements extends StatelessWidget {
 }
 
 class _RequirementRow extends StatelessWidget {
-  const _RequirementRow({required this.text, required this.satisfied});
+  const _RequirementRow({
+    required this.text,
+    required this.satisfied,
+  });
 
   final String text;
   final bool satisfied;
@@ -753,10 +771,6 @@ class _RequirementRow extends StatelessWidget {
     );
   }
 }
-
-// -----------------------------------------------------------------------------
-// Divider
-// -----------------------------------------------------------------------------
 
 class _OrDivider extends StatelessWidget {
   const _OrDivider();
@@ -793,10 +807,6 @@ class _OrDivider extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------------------
-// Google logo
-// -----------------------------------------------------------------------------
-
 class _GoogleLogo extends StatelessWidget {
   const _GoogleLogo();
 
@@ -812,10 +822,6 @@ class _GoogleLogo extends StatelessWidget {
     );
   }
 }
-
-// -----------------------------------------------------------------------------
-// Background
-// -----------------------------------------------------------------------------
 
 class _RegisterBackground extends StatelessWidget {
   const _RegisterBackground();
@@ -845,7 +851,6 @@ class _RegisterBackgroundPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.4;
 
-    // Top-left organic shape.
     final topLeft = Path()
       ..moveTo(0, 0)
       ..lineTo(size.width * 0.30, 0)
@@ -861,7 +866,6 @@ class _RegisterBackgroundPainter extends CustomPainter {
 
     canvas.drawPath(topLeft, softFill);
 
-    // Top-right soft shape.
     final topRight = Path()
       ..moveTo(size.width, 0)
       ..lineTo(size.width, size.height * 0.20)
@@ -890,7 +894,6 @@ class _RegisterBackgroundPainter extends CustomPainter {
 
     canvas.drawPath(topRightCurve, linePaint);
 
-    // Bottom-left wave.
     final bottomLeft = Path()
       ..moveTo(0, size.height)
       ..lineTo(0, size.height * 0.84)
@@ -935,7 +938,6 @@ class _RegisterBackgroundPainter extends CustomPainter {
 
     canvas.drawPath(bottomLeftCurve, linePaint);
 
-    // Bottom-right wave.
     final bottomRight = Path()
       ..moveTo(size.width, size.height)
       ..lineTo(size.width * 0.62, size.height)

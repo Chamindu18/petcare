@@ -64,7 +64,7 @@ class _LoginPageState extends State<LoginPage> {
 
       Navigator.pushNamedAndRemoveUntil(
         context,
-        AppRouter.home,
+        AppRouter.myPets,
         (route) => false,
       );
     } on AuthException catch (error) {
@@ -98,7 +98,7 @@ class _LoginPageState extends State<LoginPage> {
 
       Navigator.pushNamedAndRemoveUntil(
         context,
-        AppRouter.home,
+        AppRouter.myPets,
         (route) => false,
       );
     } on AuthException catch (error) {
@@ -269,7 +269,8 @@ class _LoginPageState extends State<LoginPage> {
                                     : 'Show password',
                                 onPressed: () {
                                   setState(() {
-                                    _isPasswordVisible = !_isPasswordVisible;
+                                    _isPasswordVisible =
+                                        !_isPasswordVisible;
                                   });
                                 },
                                 icon: Icon(
@@ -293,7 +294,8 @@ class _LoginPageState extends State<LoginPage> {
                                   vertical: 4,
                                 ),
                                 minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                tapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
                               ),
                               child: const Text(
                                 'Forgot Password?',
@@ -329,8 +331,8 @@ class _LoginPageState extends State<LoginPage> {
                                         strokeWidth: 2.5,
                                         valueColor:
                                             AlwaysStoppedAnimation<Color>(
-                                              AppTheme.white,
-                                            ),
+                                          AppTheme.white,
+                                        ),
                                       ),
                                     )
                                   : const Row(
@@ -384,8 +386,8 @@ class _LoginPageState extends State<LoginPage> {
                                         strokeWidth: 2.2,
                                         valueColor:
                                             AlwaysStoppedAnimation<Color>(
-                                              AppTheme.primary,
-                                            ),
+                                          AppTheme.primary,
+                                        ),
                                       ),
                                     )
                                   : Row(
@@ -398,10 +400,10 @@ class _LoginPageState extends State<LoginPage> {
                                           'Continue with Google',
                                           style: theme.textTheme.bodyMedium
                                               ?.copyWith(
-                                                color: AppTheme.espresso,
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w800,
-                                              ),
+                                            color: AppTheme.espresso,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w800,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -417,14 +419,16 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           TextButton(
-                            onPressed: _isAnyLoading ? null : _createAccount,
+                            onPressed:
+                                _isAnyLoading ? null : _createAccount,
                             style: TextButton.styleFrom(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 2,
                               ),
                               minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              tapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
                             ),
                             child: const Text(
                               'Create Account',
@@ -455,7 +459,8 @@ class _LoginPageState extends State<LoginPage> {
                     fit: BoxFit.contain,
                     alignment: Alignment.bottomCenter,
                     filterQuality: FilterQuality.high,
-                    semanticLabel: 'PetCare+ dog and cat illustration',
+                    semanticLabel:
+                        'PetCare+ dog and cat illustration',
                   ),
                 ),
               ),
@@ -466,10 +471,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
-
-// -----------------------------------------------------------------------------
-// Top bar
-// -----------------------------------------------------------------------------
 
 class _LoginTopBar extends StatelessWidget {
   const _LoginTopBar({required this.onBack});
@@ -488,9 +489,11 @@ class _LoginTopBar extends StatelessWidget {
             onPressed: onBack,
             tooltip: 'Back',
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+            constraints:
+                const BoxConstraints.tightFor(width: 48, height: 48),
             style: IconButton.styleFrom(
-              backgroundColor: AppTheme.secondary.withValues(alpha: 0.20),
+              backgroundColor:
+                  AppTheme.secondary.withValues(alpha: 0.20),
               shape: const CircleBorder(),
             ),
             icon: const Icon(
@@ -504,10 +507,6 @@ class _LoginTopBar extends StatelessWidget {
     );
   }
 }
-
-// -----------------------------------------------------------------------------
-// Field label
-// -----------------------------------------------------------------------------
 
 class _FieldLabel extends StatelessWidget {
   const _FieldLabel({required this.label});
@@ -529,10 +528,6 @@ class _FieldLabel extends StatelessWidget {
     );
   }
 }
-
-// -----------------------------------------------------------------------------
-// Or divider
-// -----------------------------------------------------------------------------
 
 class _OrDivider extends StatelessWidget {
   const _OrDivider();
@@ -569,10 +564,6 @@ class _OrDivider extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------------------
-// Google logo
-// -----------------------------------------------------------------------------
-
 class _GoogleLogo extends StatelessWidget {
   const _GoogleLogo();
 
@@ -588,10 +579,6 @@ class _GoogleLogo extends StatelessWidget {
     );
   }
 }
-
-// -----------------------------------------------------------------------------
-// Background
-// -----------------------------------------------------------------------------
 
 class _LoginBackground extends StatelessWidget {
   const _LoginBackground();
