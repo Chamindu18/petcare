@@ -6,7 +6,7 @@ class CreatePet {
 
   final PetRepository _repository;
 
-  Future<void> call(Pet pet) {
+  Future<Pet> call(Pet pet) {
     return _repository.createPet(pet);
   }
 }
