@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:petcare/features/adoption/data/models/adoption_listing_model.dart';
 import 'package:petcare/features/adoption/domain/entities/adoption_listing.dart';
 import 'package:petcare/features/adoption/domain/repositories/adoption_listing_repository.dart';
 import 'package:petcare/features/adoption/presentation/pages/adoption_listings_page.dart';
 
 class _FakeAdoptionListingRepository implements AdoptionListingRepository {
-  _FakeAdoptionListingRepository({List<AdoptionListing> listings = const []})
-    : _listings = listings;
+  _FakeAdoptionListingRepository({this._listings = const []});
 
   final List<AdoptionListing> _listings;
 
@@ -40,6 +38,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No adoption listings found'), findsOneWidget);
+
     expect(
       find.text('Try changing your search or check back later for new pets.'),
       findsOneWidget,

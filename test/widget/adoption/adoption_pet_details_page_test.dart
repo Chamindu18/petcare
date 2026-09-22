@@ -2,16 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:petcare/features/adoption/data/models/adoption_listing_model.dart';
 import 'package:petcare/features/adoption/domain/entities/adoption_listing.dart';
 import 'package:petcare/features/adoption/domain/repositories/adoption_listing_repository.dart';
 import 'package:petcare/features/adoption/presentation/pages/adoption_pet_details_page.dart';
 
 class _FakeAdoptionListingRepository implements AdoptionListingRepository {
-  _FakeAdoptionListingRepository({AdoptionListing? listing, Object? error})
-    : _listing = listing,
-      _error = error;
+  _FakeAdoptionListingRepository({this._listing, this._error});
 
   final AdoptionListing? _listing;
   final Object? _error;
