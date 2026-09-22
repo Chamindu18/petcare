@@ -1,7 +1,7 @@
 import '../entities/pet.dart';
 
 abstract interface class PetRepository {
-  Future<void> createPet(Pet pet);
+  Future<Pet> createPet(Pet pet);
 
   Future<List<Pet>> getPets();
 
