@@ -12,6 +12,7 @@ import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/registration_success_page.dart';
 import '../../features/auth/presentation/pages/reset_password_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
+import '../../features/home/presentation/pages/owner_shell_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/pets/data/repositories/firebase_pet_repository.dart';
 import '../../features/pets/domain/usecases/create_pet.dart';
@@ -27,16 +28,13 @@ class AppRouter {
   static const String splash = '/';
   static const String onboarding = '/onboarding';
   static const String onboardingSlides = '/onboarding-slides';
-
   static const String login = '/login';
   static const String register = '/register';
-
   static const String forgotPassword = '/forgot-password';
   static const String checkEmail = '/check-email';
   static const String resetPassword = '/reset-password';
   static const String passwordResetSuccess = '/password-reset-success';
   static const String registrationSuccess = '/registration-success';
-
   static const String home = '/home';
   static const String notifications = '/notifications';
   static const String myPets = '/my-pets';
@@ -72,7 +70,8 @@ class AppRouter {
 
         registrationSuccess: (_) => const RegistrationSuccessPage(),
 
-        home: (_) => const _PlaceholderPage(title: 'Home'),
+        // Real Owner Dashboard + Bottom Navigation
+        home: (_) => OwnerShellPage(),
 
         notifications: (_) => const NotificationsPage(),
 
@@ -92,22 +91,4 @@ class AppRouter {
           return MyPetsPage(controller: controller);
         },
       };
-}
-
-class _PlaceholderPage extends StatelessWidget {
-  const _PlaceholderPage({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-      ),
-      body: Center(
-        child: Text(title),
-      ),
-    );
-  }
 }
