@@ -28,14 +28,15 @@ class _PetCareAppState extends State<PetCareApp> {
   final DeepLinkService _deepLinkService = DeepLinkService();
 
   String? _lastHandledLink;
+  Uri? _pendingDeepLink;
 
   @override
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeDeepLinks();
-    });
+    // Start listening as early as possible so cold-start
+    // links can be captured by app_links.
+    _initializeDeepLinks();
   }
 
   Future<void> _initializeDeepLinks() async {
@@ -45,21 +46,31 @@ class _PetCareAppState extends State<PetCareApp> {
       return;
     }
 
-    _handleDeepLink(initialUri);
+    // Wait until MaterialApp and Navigator are ready.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      _handleDeepLink(initialUri);
+    });
   }
 
   void _handleDeepLink(Uri uri) {
     const firebaseAuthHost = 'petcare-d4413.firebaseapp.com';
-    const firebaseAuthPath = '/__/auth/links';
+    const firebaseAuthPath = '/__/auth/action';
 
+    // Only handle links from our Firebase Auth domain.
     if (uri.host != firebaseAuthHost) {
       return;
     }
 
+    // Only handle Firebase Authentication action links.
     if (uri.path != firebaseAuthPath) {
       return;
     }
 
+    // Only handle password-reset links.
     if (uri.queryParameters['mode'] != 'resetPassword') {
       return;
     }
@@ -72,19 +83,39 @@ class _PetCareAppState extends State<PetCareApp> {
 
     final link = uri.toString();
 
+    // Prevent handling the same link more than once.
     if (_lastHandledLink == link) {
+      return;
+    }
+
+    final navigator = _navigatorKey.currentState;
+
+    // Android can deliver the link before the Navigator is ready.
+    // Store it and process it once Flutter has built the UI.
+    if (navigator == null) {
+      _pendingDeepLink = uri;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _pendingDeepLink == null) {
+          return;
+        }
+
+        final pendingUri = _pendingDeepLink;
+        _pendingDeepLink = null;
+
+        if (pendingUri != null) {
+          _handleDeepLink(pendingUri);
+        }
+      });
+
       return;
     }
 
     _lastHandledLink = link;
 
-    final navigator = _navigatorKey.currentState;
-
-    if (navigator == null) {
-      return;
-    }
-
-    navigator.pushNamed(AppRouter.resetPassword, arguments: code);
+    // Replace the splash route so its timer cannot later navigate
+    // the user to onboarding.
+    navigator.pushReplacementNamed(AppRouter.resetPassword, arguments: code);
   }
 
   @override
