@@ -35,8 +35,12 @@ class PetsController extends ChangeNotifier {
 
   Future<void> create(Pet pet) async {
     await _run(() async {
-      await _createPet(pet);
-      _pets = await _getPets();
+      final createdPet = await _createPet(pet);
+
+      _pets = [
+        ..._pets,
+        createdPet,
+      ];
     });
   }
 
