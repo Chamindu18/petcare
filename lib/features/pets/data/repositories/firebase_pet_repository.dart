@@ -6,9 +6,11 @@ import '../../domain/repositories/pet_repository.dart';
 import '../models/pet_model.dart';
 
 class FirebasePetRepository implements PetRepository {
-  FirebasePetRepository({FirebaseAuth? auth, FirebaseFirestore? firestore})
-    : _auth = auth ?? FirebaseAuth.instance,
-      _firestore = firestore ?? FirebaseFirestore.instance;
+  FirebasePetRepository({
+    FirebaseAuth? auth,
+    FirebaseFirestore? firestore,
+  }) : _auth = auth ?? FirebaseAuth.instance,
+       _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
@@ -29,26 +31,31 @@ class FirebasePetRepository implements PetRepository {
   }
 
   @override
-  Future<void> createPet(Pet pet) async {
+  Future<Pet> createPet(Pet pet) async {
     final ownerId = _currentUserId;
 
-    final petModel = PetModel.fromEntity(
-      Pet(
-        petId: pet.petId,
-        ownerId: ownerId,
-        name: pet.name,
-        species: pet.species,
-        breed: pet.breed,
-        dob: pet.dob,
-        gender: pet.gender,
-        weight: pet.weight,
-        imageUrl: pet.imageUrl,
-        notes: pet.notes,
-        status: pet.status,
-      ),
+    // Firestore is the source of truth for the document ID.
+    final document = _petsCollection.doc();
+
+    final persistedPet = Pet(
+      petId: document.id,
+      ownerId: ownerId,
+      name: pet.name,
+      species: pet.species,
+      breed: pet.breed,
+      dob: pet.dob,
+      gender: pet.gender,
+      weight: pet.weight,
+      imageUrl: pet.imageUrl,
+      notes: pet.notes,
+      status: pet.status,
     );
 
-    await _petsCollection.doc(pet.petId).set(petModel.toMap());
+    final petModel = PetModel.fromEntity(persistedPet);
+
+    await document.set(petModel.toMap());
+
+    return persistedPet;
   }
 
   @override
@@ -117,7 +124,7 @@ class FirebasePetRepository implements PetRepository {
       ),
     );
 
-    await _petsCollection.doc(pet.petId).update(petModel.toMap());
+    await document.reference.update(petModel.toMap());
   }
 
   @override
@@ -138,7 +145,7 @@ class FirebasePetRepository implements PetRepository {
       );
     }
 
-    await _petsCollection.doc(petId).delete();
+    await document.reference.delete();
   }
 }
 
