@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/router/app_router.dart';
 import '../../domain/entities/pet.dart';
 import '../providers/pets_controller.dart';
 
@@ -40,13 +41,17 @@ class _MyPetsPageState extends State<MyPetsPage> {
     }
   }
 
+  void _openAddPet() {
+    Navigator.pushNamed(context, AppRouter.addPet, arguments: _controller);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('My Pets')),
       body: _buildBody(),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {},
+        onPressed: _openAddPet,
         icon: const Icon(Icons.add),
         label: const Text('Add Pet'),
       ),
@@ -94,7 +99,7 @@ class _MyPetsPageState extends State<MyPetsPage> {
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: () {},
+              onPressed: _openAddPet,
               icon: const Icon(Icons.add),
               label: const Text('Add Your First Pet'),
             ),
