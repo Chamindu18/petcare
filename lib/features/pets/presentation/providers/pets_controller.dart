@@ -37,10 +37,7 @@ class PetsController extends ChangeNotifier {
     await _run(() async {
       final createdPet = await _createPet(pet);
 
-      _pets = [
-        ..._pets,
-        createdPet,
-      ];
+      _pets = [..._pets, createdPet];
     });
   }
 

@@ -7,12 +7,9 @@ import '../providers/notification_provider.dart';
 import '../../domain/repositories/notification_repository.dart';
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({
-  super.key,
-  this.notificationRepository,
-});
+  const NotificationsPage({super.key, this.notificationRepository});
 
-final NotificationRepository? notificationRepository;
+  final NotificationRepository? notificationRepository;
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
 }
@@ -25,10 +22,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
     super.initState();
 
     _notificationProvider = NotificationProvider(
-  repository:
-      widget.notificationRepository ?? FirebaseNotificationRepository(),
-);
-  
+      repository:
+          widget.notificationRepository ?? FirebaseNotificationRepository(),
+    );
 
     _notificationProvider.startListening();
   }
@@ -65,15 +61,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
         listenable: _notificationProvider,
         builder: (context, _) {
           if (_notificationProvider.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
 
           if (_notificationProvider.errorMessage != null) {
-            return _ErrorState(
-              onRetry: _notificationProvider.startListening,
-            );
+            return _ErrorState(onRetry: _notificationProvider.startListening);
           }
 
           if (_notificationProvider.notifications.isEmpty) {
@@ -85,15 +77,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
             itemCount: _notificationProvider.notifications.length,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
-              final notification =
-                  _notificationProvider.notifications[index];
+              final notification = _notificationProvider.notifications[index];
 
               return _NotificationCard(
                 notification: notification,
                 onTap: () {
-                  _notificationProvider.markAsRead(
-                    notification.notificationId,
-                  );
+                  _notificationProvider.markAsRead(notification.notificationId);
                 },
               );
             },
@@ -105,10 +94,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 }
 
 class _NotificationCard extends StatelessWidget {
-  const _NotificationCard({
-    required this.notification,
-    required this.onTap,
-  });
+  const _NotificationCard({required this.notification, required this.onTap});
 
   final notification_entity.Notification notification;
   final VoidCallback onTap;
@@ -155,9 +141,8 @@ class _NotificationCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       _formatDate(notification.createdAt),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppTheme.deepBrown,
-                      ),
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: AppTheme.deepBrown),
                     ),
                   ],
                 ),
@@ -241,9 +226,8 @@ class _EmptyState extends StatelessWidget {
             Text(
               'You’re all caught up. New updates will appear here.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.deepBrown,
-              ),
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: AppTheme.deepBrown),
             ),
           ],
         ),
@@ -253,9 +237,7 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({
-    required this.onRetry,
-  });
+  const _ErrorState({required this.onRetry});
 
   final VoidCallback onRetry;
 
@@ -284,15 +266,11 @@ class _ErrorState extends StatelessWidget {
             Text(
               'Please check your connection and try again.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.deepBrown,
-              ),
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: AppTheme.deepBrown),
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: onRetry,
-              child: const Text('Try again'),
-            ),
+            ElevatedButton(onPressed: onRetry, child: const Text('Try again')),
           ],
         ),
       ),
