@@ -46,7 +46,7 @@
                 <data
                     android:scheme="https"
                     android:host="petcare-d4413.firebaseapp.com"
-                    android:pathPrefix="/__/auth/action" />
+                    android:pathPrefix="/__/auth/links" />
             </intent-filter>
 
         </activity>

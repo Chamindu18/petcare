@@ -58,24 +58,48 @@ class _PetCareAppState extends State<PetCareApp> {
 
   void _handleDeepLink(Uri uri) {
     const firebaseAuthHost = 'petcare-d4413.firebaseapp.com';
-    const firebaseAuthPath = '/__/auth/action';
+    const firebaseAuthOuterPath = '/__/auth/links';
+    const firebaseAuthActionPath = '/__/auth/action';
 
-    // Only handle links from our Firebase Auth domain.
+    // Only handle links from our Firebase Auth domain (outer URI).
     if (uri.host != firebaseAuthHost) {
       return;
     }
 
-    // Only handle Firebase Authentication action links.
-    if (uri.path != firebaseAuthPath) {
+    // Only handle the outer Firebase Hosting App Link path.
+    if (uri.path != firebaseAuthOuterPath) {
+      return;
+    }
+
+    // Read the nested action link from the 'link' query parameter.
+    final innerLink = uri.queryParameters['link'];
+
+    if (innerLink == null || innerLink.isEmpty) {
+      return;
+    }
+
+    // Parse the inner Firebase Auth action URI.
+    final innerUri = Uri.tryParse(innerLink);
+
+    if (innerUri == null) {
+      return;
+    }
+
+    // Validate inner URI host and path.
+    if (innerUri.host != firebaseAuthHost) {
+      return;
+    }
+
+    if (innerUri.path != firebaseAuthActionPath) {
       return;
     }
 
     // Only handle password-reset links.
-    if (uri.queryParameters['mode'] != 'resetPassword') {
+    if (innerUri.queryParameters['mode'] != 'resetPassword') {
       return;
     }
 
-    final code = uri.queryParameters['oobCode']?.trim();
+    final code = innerUri.queryParameters['oobCode']?.trim();
 
     if (code == null || code.isEmpty) {
       return;
