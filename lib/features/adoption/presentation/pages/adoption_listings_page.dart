@@ -5,6 +5,7 @@ import '../../data/repositories/firebase_adoption_listing_repository.dart';
 import '../../domain/entities/adoption_listing.dart';
 import '../../domain/repositories/adoption_listing_repository.dart';
 import '../providers/adoption_listing_provider.dart';
+import '../../../../app/router/app_router.dart';
 
 class AdoptionListingsPage extends StatefulWidget {
   const AdoptionListingsPage({super.key, this.adoptionListingRepository});
@@ -82,7 +83,16 @@ class _AdoptionListingsPageState extends State<AdoptionListingsPage> {
       itemBuilder: (context, index) {
         final listing = _adoptionListingProvider.listings[index];
 
-        return _AdoptionListingCard(listing: listing, onTap: () {});
+        return _AdoptionListingCard(
+          listing: listing,
+          onTap: () {
+            Navigator.pushNamed(
+              context,
+              AppRouter.adoptionPetDetails,
+              arguments: listing.listingId,
+            );
+          },
+        );
       },
     );
   }
