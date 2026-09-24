@@ -5,9 +5,14 @@ import '../../domain/entities/pet.dart';
 import '../providers/pets_controller.dart';
 
 class MyPetsPage extends StatefulWidget {
-  const MyPetsPage({required this.controller, super.key});
+  const MyPetsPage({
+    required this.controller,
+    super.key,
+    this.ownsController = true,
+  });
 
   final PetsController controller;
+  final bool ownsController;
 
   @override
   State<MyPetsPage> createState() => _MyPetsPageState();
@@ -21,13 +26,20 @@ class _MyPetsPageState extends State<MyPetsPage> {
     super.initState();
 
     _controller.addListener(_onControllerChanged);
-    _loadPets();
+
+    if (_controller.pets.isEmpty) {
+      _loadPets();
+    }
   }
 
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
-    _controller.dispose();
+
+    if (widget.ownsController) {
+      _controller.dispose();
+    }
+
     super.dispose();
   }
 
@@ -42,7 +54,11 @@ class _MyPetsPageState extends State<MyPetsPage> {
   }
 
   void _openAddPet() {
-    Navigator.pushNamed(context, AppRouter.addPet, arguments: _controller);
+    Navigator.pushNamed(
+      context,
+      AppRouter.addPet,
+      arguments: _controller,
+    );
   }
 
   @override
@@ -60,7 +76,9 @@ class _MyPetsPageState extends State<MyPetsPage> {
 
   Widget _buildBody() {
     if (_controller.isLoading && _controller.pets.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
     }
 
     if (_controller.errorMessage != null && _controller.pets.isEmpty) {
@@ -116,14 +134,20 @@ class _MyPetsPageState extends State<MyPetsPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 56),
+            const Icon(
+              Icons.error_outline,
+              size: 56,
+            ),
             const SizedBox(height: 16),
             Text(
               'Unable to load pets',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
-            Text(_controller.errorMessage!, textAlign: TextAlign.center),
+            Text(
+              _controller.errorMessage!,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: _loadPets,
@@ -177,7 +201,9 @@ class _PetCard extends StatelessWidget {
         ),
         title: Text(
           pet.name,
-          style: const TextStyle(fontWeight: FontWeight.w600),
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+          ),
         ),
         subtitle: Text(
           '${pet.species} • ${pet.breed} • ${pet.ageInYears} years',

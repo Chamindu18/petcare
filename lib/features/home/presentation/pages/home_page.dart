@@ -5,37 +5,35 @@ import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../notifications/data/repositories/firebase_notification_repository.dart';
 import '../../../notifications/presentation/providers/notification_provider.dart';
-import '../../../pets/data/repositories/firebase_pet_repository.dart';
 import '../../../pets/domain/entities/pet.dart';
-import '../../../pets/domain/usecases/create_pet.dart';
-import '../../../pets/domain/usecases/delete_pet.dart';
-import '../../../pets/domain/usecases/get_pets.dart';
-import '../../../pets/domain/usecases/update_pet.dart';
 import '../../../pets/presentation/providers/pets_controller.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({
+    required this.petsController,
+    required this.onMyPetsTap,
+    required this.onAddPetTap,
+    super.key,
+  });
+
+  final PetsController petsController;
+  final VoidCallback onMyPetsTap;
+  final VoidCallback onAddPetTap;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  late final PetsController _petsController;
   late final NotificationProvider _notificationProvider;
+
+  PetsController get _petsController => widget.petsController;
 
   @override
   void initState() {
     super.initState();
 
-    final petsRepository = FirebasePetRepository();
-
-    _petsController = PetsController(
-      CreatePet(petsRepository),
-      GetPets(petsRepository),
-      UpdatePet(petsRepository),
-      DeletePet(petsRepository),
-    );
+    _petsController.addListener(_onPetsControllerChanged);
 
     _notificationProvider = NotificationProvider(
       repository: FirebaseNotificationRepository(),
@@ -47,9 +45,15 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _petsController.dispose();
+    _petsController.removeListener(_onPetsControllerChanged);
     _notificationProvider.dispose();
     super.dispose();
+  }
+
+  void _onPetsControllerChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _openNotifications() {
@@ -129,9 +133,15 @@ class _HomePageState extends State<HomePage> {
                           actionLabel: _petsController.pets.isNotEmpty
                               ? 'See All'
                               : null,
+                          onActionTap: _petsController.pets.isNotEmpty
+                              ? widget.onMyPetsTap
+                              : null,
                         ),
                         const SizedBox(height: 10),
-                        _PetsSection(controller: _petsController),
+                        _PetsSection(
+                          controller: _petsController,
+                          onAddPetTap: widget.onAddPetTap,
+                        ),
                         const SizedBox(height: 24),
                         const _SectionHeader(
                           title: 'Quick Actions',
@@ -386,10 +396,15 @@ class _GreetingSection extends StatelessWidget {
 // -----------------------------------------------------------------------------
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.actionLabel});
+  const _SectionHeader({
+    required this.title,
+    this.actionLabel,
+    this.onActionTap,
+  });
 
   final String title;
   final String? actionLabel;
+  final VoidCallback? onActionTap;
 
   @override
   Widget build(BuildContext context) {
@@ -407,17 +422,20 @@ class _SectionHeader extends StatelessWidget {
           ),
         ),
         if (actionLabel != null)
-          Text(
-            actionLabel!,
-            style: TextStyle(
-              color: const Color.fromARGB(
-                255,
-                117,
-                76,
-                50,
-              ).withValues(alpha: 0.72),
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
+          GestureDetector(
+            onTap: onActionTap,
+            child: Text(
+              actionLabel!,
+              style: TextStyle(
+                color: const Color.fromARGB(
+                  255,
+                  117,
+                  76,
+                  50,
+                ).withValues(alpha: 0.72),
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
       ],
@@ -430,9 +448,10 @@ class _SectionHeader extends StatelessWidget {
 // -----------------------------------------------------------------------------
 
 class _PetsSection extends StatelessWidget {
-  const _PetsSection({required this.controller});
+  const _PetsSection({required this.controller, required this.onAddPetTap});
 
   final PetsController controller;
+  final VoidCallback onAddPetTap;
 
   @override
   Widget build(BuildContext context) {
@@ -448,7 +467,7 @@ class _PetsSection extends StatelessWidget {
         }
 
         if (controller.pets.isEmpty) {
-          return const _NoPetsCard();
+          return _NoPetsCard(onAddPetTap: onAddPetTap);
         }
 
         return SizedBox(
@@ -462,7 +481,7 @@ class _PetsSection extends StatelessWidget {
             },
             itemBuilder: (context, index) {
               if (index == controller.pets.length) {
-                return const _AddPetSlot();
+                return _AddPetSlot(onTap: onAddPetTap);
               }
 
               return _PetCard(pet: controller.pets[index]);
@@ -537,7 +556,9 @@ class _PetsErrorCard extends StatelessWidget {
 }
 
 class _NoPetsCard extends StatelessWidget {
-  const _NoPetsCard();
+  const _NoPetsCard({required this.onAddPetTap});
+
+  final VoidCallback onAddPetTap;
 
   @override
   Widget build(BuildContext context) {
@@ -600,33 +621,36 @@ class _NoPetsCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 15,
-                    vertical: 9,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.add_rounded,
-                        color: AppTheme.primary,
-                        size: 19,
-                      ),
-                      SizedBox(width: 5),
-                      Text(
-                        'Add Pet',
-                        style: TextStyle(
+                GestureDetector(
+                  onTap: onAddPetTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 15,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.add_rounded,
                           color: AppTheme.primary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
+                          size: 19,
                         ),
-                      ),
-                    ],
+                        SizedBox(width: 5),
+                        Text(
+                          'Add Pet',
+                          style: TextStyle(
+                            color: AppTheme.primary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -639,57 +663,62 @@ class _NoPetsCard extends StatelessWidget {
 }
 
 class _AddPetSlot extends StatelessWidget {
-  const _AddPetSlot();
+  const _AddPetSlot({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 128,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.background.withValues(alpha: 0.50),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppTheme.primary.withValues(alpha: 0.30),
-          width: 1.2,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 128,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTheme.background.withValues(alpha: 0.50),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppTheme.primary.withValues(alpha: 0.30),
+            width: 1.2,
+          ),
         ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: AppTheme.primary.withValues(alpha: 0.10),
-              shape: BoxShape.circle,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: 0.10),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.add_rounded,
+                color: AppTheme.primary,
+                size: 27,
+              ),
             ),
-            child: const Icon(
-              Icons.add_rounded,
-              color: AppTheme.primary,
-              size: 27,
+            const SizedBox(height: 10),
+            Text(
+              'Add Pet',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppTheme.espresso,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Add Pet',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.espresso,
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
+            const SizedBox(height: 3),
+            Text(
+              'New companion',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppTheme.deepBrown.withValues(alpha: 0.70),
+                fontSize: 10.5,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            'New companion',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.deepBrown.withValues(alpha: 0.70),
-              fontSize: 10.5,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1011,8 +1040,8 @@ class _HelpfulResources extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: const [
+    return const Row(
+      children: [
         Expanded(
           child: _ResourceCard(
             icon: Icons.lightbulb_outline_rounded,

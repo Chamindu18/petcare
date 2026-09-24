@@ -1,6 +1,16 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../pets/data/repositories/firebase_pet_repository.dart';
+import '../../../pets/domain/usecases/create_pet.dart';
+import '../../../pets/domain/usecases/delete_pet.dart';
+import '../../../pets/domain/usecases/get_pets.dart';
+import '../../../pets/domain/usecases/update_pet.dart';
+import '../../../pets/presentation/pages/my_pets_page.dart';
+import '../../../pets/presentation/providers/pets_controller.dart';
 import 'home_page.dart';
 
 class OwnerShellPage extends StatefulWidget {
@@ -13,6 +23,31 @@ class OwnerShellPage extends StatefulWidget {
 class _OwnerShellPageState extends State<OwnerShellPage> {
   int _currentIndex = 0;
 
+  late final PetsController _petsController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final repository = FirebasePetRepository(
+      auth: FirebaseAuth.instance,
+      firestore: FirebaseFirestore.instance,
+    );
+
+    _petsController = PetsController(
+      CreatePet(repository),
+      GetPets(repository),
+      UpdatePet(repository),
+      DeletePet(repository),
+    );
+  }
+
+  @override
+  void dispose() {
+    _petsController.dispose();
+    super.dispose();
+  }
+
   void _onTabSelected(int index) {
     if (_currentIndex == index) {
       return;
@@ -23,21 +58,42 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
     });
   }
 
+  void _openAddPet() {
+    Navigator.pushNamed(
+      context,
+      AppRouter.addPet,
+      arguments: _petsController,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: IndexedStack(
         index: _currentIndex,
-        children: const [
-          HomePage(),
-          _ComingSoonTab(title: 'My Pets', icon: Icons.pets_rounded),
-          _ComingSoonTab(
+        children: [
+          HomePage(
+            petsController: _petsController,
+            onMyPetsTap: () => _onTabSelected(1),
+            onAddPetTap: _openAddPet,
+          ),
+          MyPetsPage(
+            controller: _petsController,
+            ownsController: false,
+          ),
+          const _ComingSoonTab(
             title: 'Appointments',
             icon: Icons.calendar_month_rounded,
           ),
-          _ComingSoonTab(title: 'AI Hub', icon: Icons.psychology_rounded),
-          _ComingSoonTab(title: 'Profile', icon: Icons.person_rounded),
+          const _ComingSoonTab(
+            title: 'AI Hub',
+            icon: Icons.psychology_rounded,
+          ),
+          const _ComingSoonTab(
+            title: 'Profile',
+            icon: Icons.person_rounded,
+          ),
         ],
       ),
       bottomNavigationBar: _OwnerBottomNavigation(
@@ -58,11 +114,26 @@ class _OwnerBottomNavigation extends StatelessWidget {
   final ValueChanged<int> onSelected;
 
   static const _items = [
-    _OwnerNavItem(label: 'Home', icon: Icons.home_rounded),
-    _OwnerNavItem(label: 'My Pets', icon: Icons.pets_rounded),
-    _OwnerNavItem(label: 'Appointments', icon: Icons.calendar_month_rounded),
-    _OwnerNavItem(label: 'AI Hub', icon: Icons.psychology_rounded),
-    _OwnerNavItem(label: 'Profile', icon: Icons.person_rounded),
+    _OwnerNavItem(
+      label: 'Home',
+      icon: Icons.home_rounded,
+    ),
+    _OwnerNavItem(
+      label: 'My Pets',
+      icon: Icons.pets_rounded,
+    ),
+    _OwnerNavItem(
+      label: 'Appointments',
+      icon: Icons.calendar_month_rounded,
+    ),
+    _OwnerNavItem(
+      label: 'AI Hub',
+      icon: Icons.psychology_rounded,
+    ),
+    _OwnerNavItem(
+      label: 'Profile',
+      icon: Icons.person_rounded,
+    ),
   ];
 
   @override
@@ -81,7 +152,10 @@ class _OwnerBottomNavigation extends StatelessWidget {
               ),
             ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 6,
+          ),
           child: Row(
             children: List.generate(_items.length, (index) {
               final item = _items[index];
@@ -126,7 +200,10 @@ class _OwnerNavigationItem extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 2,
+            vertical: 2,
+          ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -141,7 +218,11 @@ class _OwnerNavigationItem extends StatelessWidget {
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(item.icon, size: 22, color: color),
+                child: Icon(
+                  item.icon,
+                  size: 22,
+                  color: color,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
@@ -152,7 +233,9 @@ class _OwnerNavigationItem extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: color,
                   fontSize: 10.5,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  fontWeight: selected
+                      ? FontWeight.w800
+                      : FontWeight.w600,
                   height: 1.1,
                 ),
               ),
@@ -165,14 +248,20 @@ class _OwnerNavigationItem extends StatelessWidget {
 }
 
 class _OwnerNavItem {
-  const _OwnerNavItem({required this.label, required this.icon});
+  const _OwnerNavItem({
+    required this.label,
+    required this.icon,
+  });
 
   final String label;
   final IconData icon;
 }
 
 class _ComingSoonTab extends StatelessWidget {
-  const _ComingSoonTab({required this.title, required this.icon});
+  const _ComingSoonTab({
+    required this.title,
+    required this.icon,
+  });
 
   final String title;
   final IconData icon;
@@ -193,7 +282,11 @@ class _ComingSoonTab extends StatelessWidget {
                   color: AppTheme.secondary.withValues(alpha: 0.24),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 34, color: AppTheme.deepBrown),
+                child: Icon(
+                  icon,
+                  size: 34,
+                  color: AppTheme.deepBrown,
+                ),
               ),
               const SizedBox(height: 20),
               Text(
@@ -208,8 +301,10 @@ class _ComingSoonTab extends StatelessWidget {
               Text(
                 'This section will be available soon.',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium
-                    ?.copyWith(color: AppTheme.deepBrown, height: 1.45),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.deepBrown,
+                  height: 1.45,
+                ),
               ),
             ],
           ),
