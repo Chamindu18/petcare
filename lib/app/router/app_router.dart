@@ -21,6 +21,7 @@ import '../../features/pets/domain/usecases/get_pets.dart';
 import '../../features/pets/domain/usecases/update_pet.dart';
 import '../../features/pets/presentation/pages/my_pets_page.dart';
 import '../../features/pets/presentation/providers/pets_controller.dart';
+import '../../features/adoption/presentation/pages/adoption_pet_details_page.dart';
 
 class AppRouter {
   AppRouter._();
@@ -38,6 +39,7 @@ class AppRouter {
   static const String home = '/home';
   static const String notifications = '/notifications';
   static const String myPets = '/my-pets';
+  static const String adoptionPetDetails = '/adoption-pet-details';
 
   static Map<String, WidgetBuilder> get routes => {
     splash: (_) => const SplashPage(),
@@ -87,6 +89,18 @@ class AppRouter {
       );
 
       return MyPetsPage(controller: controller);
+    },
+
+    adoptionPetDetails: (context) {
+      final listingId = ModalRoute.of(context)?.settings.arguments as String?;
+
+      if (listingId == null || listingId.isEmpty) {
+        return const Scaffold(
+          body: Center(child: Text('Adoption listing ID is required.')),
+        );
+      }
+
+      return AdoptionPetDetailsPage(listingId: listingId);
     },
   };
 }
