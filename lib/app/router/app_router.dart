@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../features/adoption/presentation/pages/adoption_pet_details_page.dart';
 import '../../features/auth/presentation/pages/check_email_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
@@ -40,6 +41,7 @@ class AppRouter {
   static const String notifications = '/notifications';
   static const String myPets = '/my-pets';
   static const String addPet = '/add-pet';
+  static const String adoptionPetDetails = '/adoption-pet-details';
 
   static Map<String, WidgetBuilder> get routes => {
     splash: (_) => const SplashPage(),
@@ -70,8 +72,7 @@ class AppRouter {
 
     registrationSuccess: (_) => const RegistrationSuccessPage(),
 
-    // Real Owner Dashboard + Bottom Navigation
-    home: (_) => OwnerShellPage(),
+    home: (_) => const OwnerShellPage(),
 
     notifications: (_) => const NotificationsPage(),
 
@@ -102,6 +103,18 @@ class AppRouter {
       }
 
       return AddEditPetPage(controller: controller);
+    },
+
+    adoptionPetDetails: (context) {
+      final listingId = ModalRoute.of(context)?.settings.arguments as String?;
+
+      if (listingId == null || listingId.isEmpty) {
+        return const Scaffold(
+          body: Center(child: Text('Adoption listing ID is required.')),
+        );
+      }
+
+      return AdoptionPetDetailsPage(listingId: listingId);
     },
   };
 }

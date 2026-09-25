@@ -28,14 +28,15 @@ class _PetCareAppState extends State<PetCareApp> {
   final DeepLinkService _deepLinkService = DeepLinkService();
 
   String? _lastHandledLink;
+  Uri? _pendingDeepLink;
 
   @override
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeDeepLinks();
-    });
+    // Start listening as early as possible so cold-start
+    // links can be captured by app_links.
+    _initializeDeepLinks();
   }
 
   Future<void> _initializeDeepLinks() async {
@@ -45,26 +46,60 @@ class _PetCareAppState extends State<PetCareApp> {
       return;
     }
 
-    _handleDeepLink(initialUri);
+    // Wait until MaterialApp and Navigator are ready.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      _handleDeepLink(initialUri);
+    });
   }
 
   void _handleDeepLink(Uri uri) {
     const firebaseAuthHost = 'petcare-d4413.firebaseapp.com';
-    const firebaseAuthPath = '/__/auth/links';
+    const firebaseAuthOuterPath = '/__/auth/links';
+    const firebaseAuthActionPath = '/__/auth/action';
 
+    // Only handle links from our Firebase Auth domain (outer URI).
     if (uri.host != firebaseAuthHost) {
       return;
     }
 
-    if (uri.path != firebaseAuthPath) {
+    // Only handle the outer Firebase Hosting App Link path.
+    if (uri.path != firebaseAuthOuterPath) {
       return;
     }
 
-    if (uri.queryParameters['mode'] != 'resetPassword') {
+    // Read the nested action link from the 'link' query parameter.
+    final innerLink = uri.queryParameters['link'];
+
+    if (innerLink == null || innerLink.isEmpty) {
       return;
     }
 
-    final code = uri.queryParameters['oobCode']?.trim();
+    // Parse the inner Firebase Auth action URI.
+    final innerUri = Uri.tryParse(innerLink);
+
+    if (innerUri == null) {
+      return;
+    }
+
+    // Validate inner URI host and path.
+    if (innerUri.host != firebaseAuthHost) {
+      return;
+    }
+
+    if (innerUri.path != firebaseAuthActionPath) {
+      return;
+    }
+
+    // Only handle password-reset links.
+    if (innerUri.queryParameters['mode'] != 'resetPassword') {
+      return;
+    }
+
+    final code = innerUri.queryParameters['oobCode']?.trim();
 
     if (code == null || code.isEmpty) {
       return;
@@ -72,19 +107,39 @@ class _PetCareAppState extends State<PetCareApp> {
 
     final link = uri.toString();
 
+    // Prevent handling the same link more than once.
     if (_lastHandledLink == link) {
+      return;
+    }
+
+    final navigator = _navigatorKey.currentState;
+
+    // Android can deliver the link before the Navigator is ready.
+    // Store it and process it once Flutter has built the UI.
+    if (navigator == null) {
+      _pendingDeepLink = uri;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _pendingDeepLink == null) {
+          return;
+        }
+
+        final pendingUri = _pendingDeepLink;
+        _pendingDeepLink = null;
+
+        if (pendingUri != null) {
+          _handleDeepLink(pendingUri);
+        }
+      });
+
       return;
     }
 
     _lastHandledLink = link;
 
-    final navigator = _navigatorKey.currentState;
-
-    if (navigator == null) {
-      return;
-    }
-
-    navigator.pushNamed(AppRouter.resetPassword, arguments: code);
+    // Replace the splash route so its timer cannot later navigate
+    // the user to onboarding.
+    navigator.pushReplacementNamed(AppRouter.resetPassword, arguments: code);
   }
 
   @override

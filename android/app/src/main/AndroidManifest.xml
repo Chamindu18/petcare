@@ -23,8 +23,13 @@
             -->
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
-                android:resource="@style/NormalTheme"
-                />
+                android:resource="@style/NormalTheme" />
+
+            <!-- Disable Flutter's built-in deep-link handling.
+                 app_links is responsible for receiving app links. -->
+            <meta-data
+                android:name="flutter_deeplinking_enabled"
+                android:value="false" />
 
             <!-- Normal app launcher -->
             <intent-filter>
