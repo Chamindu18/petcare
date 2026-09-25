@@ -5,7 +5,9 @@ import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 
 class SplashPage extends StatefulWidget {
-  const SplashPage({super.key});
+  const SplashPage({super.key, this.auth});
+
+  final FirebaseAuth? auth;
 
   @override
   State<SplashPage> createState() => _SplashPageState();
@@ -19,10 +21,12 @@ class _SplashPageState extends State<SplashPage> {
   void initState() {
     super.initState();
 
+    final auth = widget.auth ?? FirebaseAuth.instance;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      final user = FirebaseAuth.instance.currentUser;
+      final user = auth.currentUser;
       final target = user != null ? AppRouter.home : AppRouter.onboarding;
 
       Navigator.pushNamedAndRemoveUntil(context, target, (route) => false);
