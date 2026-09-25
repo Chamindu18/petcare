@@ -18,7 +18,7 @@
           "client_type": 1,
           "android_info": {
             "package_name": "com.example.petcare",
-            "certificate_hash": "6d15585822d6776170023c3fe5bf2fe66e148db04"
+            "certificate_hash": "6d15585822d6776170023cfe5bf2fe66e148db04"
           }
         },
         {
@@ -62,16 +62,24 @@
           }
         },
         {
+          "client_id": "265273949414-o73j0ndcvq2q7ujd9fb3nfg0me3ku6g2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.petcareplus.app",
+            "certificate_hash": "710ed37a7e74bc16c8d17f0a82f742e80a5a94d2"
+          }
+        },
+        {
           "client_id": "265273949414-jvgg24gdvb1003uioum1sasnjp6tl716.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyDW0WQbII5zVEa6SdbwVVMqqAI24PExjpw"
+          "current_key": "AIzaSyBALHmiwTMP3qstSkRNY-EbwTqBjs_NfCQ"
         },
         {
-          "current_key": "AIzaSyBALHmiwTMP3qstSkRNY-EbwTqBjs_NfCQ"
+          "current_key": "AIzaSyDW0WQbII5zVEa6SdbwVVMqqAI24PExjpw"
         }
       ],
       "services": {
