@@ -1,5 +1,4 @@
-import 'dart:async';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
@@ -16,22 +15,22 @@ class _SplashPageState extends State<SplashPage> {
   static const String _logoAsset = 'assets/branding/petcare_logo.png';
   static const String _loadingMessage = "Preparing your pet's care...";
 
-  Timer? _navigationTimer;
-
   @override
   void initState() {
     super.initState();
 
-    _navigationTimer = Timer(const Duration(seconds: 6), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      Navigator.pushReplacementNamed(context, AppRouter.onboarding);
+      final user = FirebaseAuth.instance.currentUser;
+      final target = user != null ? AppRouter.home : AppRouter.onboarding;
+
+      Navigator.pushNamedAndRemoveUntil(context, target, (route) => false);
     });
   }
 
   @override
   void dispose() {
-    _navigationTimer?.cancel();
     super.dispose();
   }
 
