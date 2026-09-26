@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../features/pets/domain/entities/pet.dart';
+import '../../features/pets/presentation/pages/pet_profile_page.dart';
 import '../../features/adoption/presentation/pages/adoption_pet_details_page.dart';
 import '../../features/auth/presentation/pages/check_email_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
@@ -42,6 +44,7 @@ class AppRouter {
   static const String myPets = '/my-pets';
   static const String addPet = '/add-pet';
   static const String adoptionPetDetails = '/adoption-pet-details';
+  static const String petProfile = '/pet-profile';
 
   static Map<String, WidgetBuilder> get routes => {
     splash: (_) => const SplashPage(),
@@ -90,6 +93,18 @@ class AppRouter {
       );
 
       return MyPetsPage(controller: controller);
+    },
+
+    petProfile: (context) {
+      final pet = ModalRoute.of(context)?.settings.arguments as Pet?;
+
+      if (pet == null) {
+        return const Scaffold(
+          body: Center(child: Text('Unable to open pet profile.')),
+        );
+      }
+
+      return PetProfilePage(pet: pet);
     },
 
     addPet: (context) {
