@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../domain/entities/pet.dart';
@@ -18,6 +21,7 @@ class AddEditPetPage extends StatefulWidget {
 
 class _AddEditPetPageState extends State<AddEditPetPage> {
   final _formKey = GlobalKey<FormState>();
+  final ImagePicker _imagePicker = ImagePicker();
 
   late final TextEditingController _nameController;
   late final TextEditingController _speciesController;
@@ -27,6 +31,7 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
   late final TextEditingController _notesController;
 
   DateTime? _selectedDob;
+  Uint8List? _selectedImageBytes;
 
   static const List<String> _speciesOptions = [
     'Dog',
@@ -72,6 +77,7 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
     _genderController.dispose();
     _weightController.dispose();
     _notesController.dispose();
+
     super.dispose();
   }
 
@@ -79,6 +85,113 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
     return weight == weight.roundToDouble()
         ? weight.toStringAsFixed(0)
         : weight.toString();
+  }
+
+  Future<void> _pickPetImage() async {
+    FocusScope.of(context).unfocus();
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppTheme.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.secondary,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Add Pet Photo',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppTheme.espresso,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Choose how you want to add your pet photo.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: AppTheme.deepBrown),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _PhotoSourceOption(
+                        icon: Icons.photo_library_outlined,
+                        label: 'Gallery',
+                        onTap: () {
+                          Navigator.pop(context, ImageSource.gallery);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _PhotoSourceOption(
+                        icon: Icons.camera_alt_outlined,
+                        label: 'Camera',
+                        onTap: () {
+                          Navigator.pop(context, ImageSource.camera);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted || source == null) {
+      return;
+    }
+
+    try {
+      final image = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+
+      if (!mounted || image == null) {
+        return;
+      }
+
+      final bytes = await image.readAsBytes();
+
+      const maxImageSize = 5 * 1024 * 1024;
+
+      if (bytes.length > maxImageSize) {
+        _showError('Please choose an image smaller than 5 MB.');
+        return;
+      }
+
+      setState(() {
+        _selectedImageBytes = bytes;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      _showError('Unable to select the pet image. Please try again.');
+    }
   }
 
   Future<void> _selectDob() async {
@@ -140,8 +253,10 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
       gender: _genderController.text.trim(),
       weight: weight,
 
-      // Image upload will be implemented in the next slice.
-      // Existing image is preserved when editing.
+      // Firebase Storage upload will be implemented
+      // in the next slice.
+      //
+      // Existing image is preserved while editing.
       imageUrl: widget.pet?.imageUrl ?? '',
 
       notes: _notesController.text.trim(),
@@ -282,14 +397,15 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Photo placeholder.
-                    // Real picker + Firebase Storage upload
-                    // will be implemented in the next slice.
-                    const _PhotoPlaceholder(),
+                    _PetPhotoPicker(
+                      imageBytes: _selectedImageBytes,
+                      existingImageUrl: widget.pet?.imageUrl,
+                      enabled: !isLoading,
+                      onTap: _pickPetImage,
+                    ),
 
                     const SizedBox(height: 20),
 
-                    // Pet Name
                     const _FieldLabel(label: 'Pet Name', required: true),
                     const SizedBox(height: 6),
                     TextFormField(
@@ -309,7 +425,6 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
 
                     const SizedBox(height: 14),
 
-                    // Species + Breed
                     _TwoColumnFields(
                       left: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,7 +475,6 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
 
                     const SizedBox(height: 14),
 
-                    // DOB + Gender
                     _TwoColumnFields(
                       left: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -405,7 +519,6 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
 
                     const SizedBox(height: 14),
 
-                    // Weight + Initial Health Information
                     _TwoColumnFields(
                       left: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -448,7 +561,8 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
                             textCapitalization: TextCapitalization.sentences,
                             decoration: const InputDecoration(
                               hintText:
-                                  'Allergies, conditions or notes? (optional)',
+                                  'Allergies, conditions or notes? '
+                                  '(optional)',
                               prefixIcon: Icon(
                                 Icons.description_outlined,
                                 color: AppTheme.deepBrown,
@@ -467,7 +581,6 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
 
                     const SizedBox(height: 24),
 
-                    // Create / Save button
                     SizedBox(
                       width: double.infinity,
                       height: 52,
@@ -545,72 +658,150 @@ class _FieldLabel extends StatelessWidget {
   }
 }
 
-class _PhotoPlaceholder extends StatelessWidget {
-  const _PhotoPlaceholder();
+class _PetPhotoPicker extends StatelessWidget {
+  const _PetPhotoPicker({
+    required this.imageBytes,
+    required this.existingImageUrl,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final Uint8List? imageBytes;
+  final String? existingImageUrl;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  bool get _hasExistingImage =>
+      existingImageUrl != null && existingImageUrl!.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.background,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.55)),
+    final hasImage = imageBytes != null || _hasExistingImage;
+
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.background,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.55)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 82,
+              height: 82,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: AppTheme.secondary.withValues(alpha: 0.28),
+                shape: BoxShape.circle,
+              ),
+              child: imageBytes != null
+                  ? Image.memory(imageBytes!, fit: BoxFit.cover)
+                  : _hasExistingImage
+                  ? Image.network(
+                      existingImageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const Icon(
+                        Icons.pets_rounded,
+                        size: 40,
+                        color: AppTheme.deepBrown,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.pets_rounded,
+                      size: 40,
+                      color: AppTheme.deepBrown,
+                    ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hasImage ? 'Change photo' : 'Add a photo',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppTheme.espresso,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    hasImage
+                        ? 'Tap to choose a different photo'
+                        : 'Tap to upload from gallery or camera',
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: AppTheme.deepBrown),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.secondary.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'Use a clear photo of your pet.',
+                      style: Theme.of(context).textTheme.labelSmall
+                          ?.copyWith(color: AppTheme.deepBrown, height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.add_a_photo_outlined, color: AppTheme.deepBrown),
+          ],
+        ),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 82,
-            height: 82,
-            decoration: BoxDecoration(
-              color: AppTheme.secondary.withValues(alpha: 0.28),
-              shape: BoxShape.circle,
+    );
+  }
+}
+
+class _PhotoSourceOption extends StatelessWidget {
+  const _PhotoSourceOption({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        decoration: BoxDecoration(
+          color: AppTheme.background,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.55)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 2),
+            Icon(icon, size: 30, color: AppTheme.deepBrown),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: AppTheme.espresso,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-            child: const Icon(
-              Icons.pets_rounded,
-              size: 40,
-              color: AppTheme.deepBrown,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Add a photo',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppTheme.espresso,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Tap to upload',
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: AppTheme.deepBrown),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.secondary.withValues(alpha: 0.22),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    'A clear photo helps us create a better pet profile.',
-                    style: Theme.of(context).textTheme.labelSmall
-                        ?.copyWith(color: AppTheme.deepBrown, height: 1.3),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
