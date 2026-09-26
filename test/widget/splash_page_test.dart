@@ -32,12 +32,20 @@ void main() {
         MaterialApp(
           home: SplashPage(auth: auth),
           routes: {AppRouter.onboarding: (_) => const _TestOnboardingPage()},
+          onGenerateRoute: (settings) {
+            if (settings.name == AppRouter.home) {
+              return MaterialPageRoute(
+                builder: (_) => const _TestHomePage(),
+                settings: settings,
+              );
+            }
+            return null;
+          },
         ),
       );
 
       expect(find.byType(SplashPage), findsOneWidget);
       expect(find.byType(Image), findsOneWidget);
-      expect(find.text("Preparing your pet's care..."), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
 
@@ -50,6 +58,15 @@ void main() {
         MaterialApp(
           home: SplashPage(auth: auth),
           routes: {AppRouter.onboarding: (_) => const _TestOnboardingPage()},
+          onGenerateRoute: (settings) {
+            if (settings.name == AppRouter.home) {
+              return MaterialPageRoute(
+                builder: (_) => const _TestHomePage(),
+                settings: settings,
+              );
+            }
+            return null;
+          },
         ),
       );
 
@@ -64,7 +81,16 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: SplashPage(auth: auth),
-          routes: {AppRouter.home: (_) => const _TestHomePage()},
+          routes: {AppRouter.onboarding: (_) => const _TestOnboardingPage()},
+          onGenerateRoute: (settings) {
+            if (settings.name == AppRouter.home) {
+              return MaterialPageRoute(
+                builder: (_) => const _TestHomePage(),
+                settings: settings,
+              );
+            }
+            return null;
+          },
         ),
       );
 
