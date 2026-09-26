@@ -1,7 +1,7 @@
 import '../entities/appointment.dart';
 
 abstract interface class AppointmentRepository {
-  Future<void> createAppointment(Appointment appointment);
+  Future<Appointment> createAppointment(Appointment appointment);
 
   Future<List<Appointment>> getAppointments();
 
