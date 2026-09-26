@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
@@ -13,12 +12,16 @@ class HomePage extends StatefulWidget {
     required this.petsController,
     required this.onMyPetsTap,
     required this.onAddPetTap,
+    required this.userName,
+    required this.photoUrl,
     super.key,
   });
 
   final PetsController petsController;
   final VoidCallback onMyPetsTap;
   final VoidCallback onAddPetTap;
+  final String userName;
+  final String? photoUrl;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -60,27 +63,6 @@ class _HomePageState extends State<HomePage> {
     Navigator.pushNamed(context, AppRouter.notifications);
   }
 
-  String get _userName {
-    final user = FirebaseAuth.instance.currentUser;
-    final displayName = user?.displayName?.trim();
-
-    if (displayName == null || displayName.isEmpty) {
-      return 'Pet Owner';
-    }
-
-    return displayName;
-  }
-
-  String? get _photoUrl {
-    final photoUrl = FirebaseAuth.instance.currentUser?.photoURL?.trim();
-
-    if (photoUrl == null || photoUrl.isEmpty) {
-      return null;
-    }
-
-    return photoUrl;
-  }
-
   String get _greeting {
     final hour = DateTime.now().hour;
 
@@ -117,15 +99,15 @@ class _HomePageState extends State<HomePage> {
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
                         _HomeHeader(
-                          userName: _userName,
-                          photoUrl: _photoUrl,
+                          userName: widget.userName,
+                          photoUrl: widget.photoUrl,
                           unreadCount: _notificationProvider.unreadCount,
                           onNotificationsTap: _openNotifications,
                         ),
                         const SizedBox(height: 22),
                         _GreetingSection(
                           greeting: _greeting,
-                          userName: _userName,
+                          userName: widget.userName,
                         ),
                         const SizedBox(height: 22),
                         _SectionHeader(
