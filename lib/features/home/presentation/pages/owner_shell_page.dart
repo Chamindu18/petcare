@@ -59,15 +59,17 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
   }
 
   void _openAddPet() {
-    Navigator.pushNamed(
-      context,
-      AppRouter.addPet,
-      arguments: _petsController,
-    );
+    Navigator.pushNamed(context, AppRouter.addPet, arguments: _petsController);
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final userName = user?.displayName?.trim().isNotEmpty == true
+        ? user!.displayName!.trim()
+        : 'Pet Owner';
+    final photoUrl = user?.photoURL?.trim();
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: IndexedStack(
@@ -77,23 +79,16 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             petsController: _petsController,
             onMyPetsTap: () => _onTabSelected(1),
             onAddPetTap: _openAddPet,
+            userName: userName,
+            photoUrl: photoUrl,
           ),
-          MyPetsPage(
-            controller: _petsController,
-            ownsController: false,
-          ),
+          MyPetsPage(controller: _petsController, ownsController: false),
           const _ComingSoonTab(
             title: 'Appointments',
             icon: Icons.calendar_month_rounded,
           ),
-          const _ComingSoonTab(
-            title: 'AI Hub',
-            icon: Icons.psychology_rounded,
-          ),
-          const _ComingSoonTab(
-            title: 'Profile',
-            icon: Icons.person_rounded,
-          ),
+          const _ComingSoonTab(title: 'AI Hub', icon: Icons.psychology_rounded),
+          const _ComingSoonTab(title: 'Profile', icon: Icons.person_rounded),
         ],
       ),
       bottomNavigationBar: _OwnerBottomNavigation(
@@ -114,26 +109,11 @@ class _OwnerBottomNavigation extends StatelessWidget {
   final ValueChanged<int> onSelected;
 
   static const _items = [
-    _OwnerNavItem(
-      label: 'Home',
-      icon: Icons.home_rounded,
-    ),
-    _OwnerNavItem(
-      label: 'My Pets',
-      icon: Icons.pets_rounded,
-    ),
-    _OwnerNavItem(
-      label: 'Appointments',
-      icon: Icons.calendar_month_rounded,
-    ),
-    _OwnerNavItem(
-      label: 'AI Hub',
-      icon: Icons.psychology_rounded,
-    ),
-    _OwnerNavItem(
-      label: 'Profile',
-      icon: Icons.person_rounded,
-    ),
+    _OwnerNavItem(label: 'Home', icon: Icons.home_rounded),
+    _OwnerNavItem(label: 'My Pets', icon: Icons.pets_rounded),
+    _OwnerNavItem(label: 'Appointments', icon: Icons.calendar_month_rounded),
+    _OwnerNavItem(label: 'AI Hub', icon: Icons.psychology_rounded),
+    _OwnerNavItem(label: 'Profile', icon: Icons.person_rounded),
   ];
 
   @override
@@ -152,10 +132,7 @@ class _OwnerBottomNavigation extends StatelessWidget {
               ),
             ),
           ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 6,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Row(
             children: List.generate(_items.length, (index) {
               final item = _items[index];
@@ -200,10 +177,7 @@ class _OwnerNavigationItem extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 2,
-            vertical: 2,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -218,11 +192,7 @@ class _OwnerNavigationItem extends StatelessWidget {
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(
-                  item.icon,
-                  size: 22,
-                  color: color,
-                ),
+                child: Icon(item.icon, size: 22, color: color),
               ),
               const SizedBox(height: 2),
               Text(
@@ -233,9 +203,7 @@ class _OwnerNavigationItem extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: color,
                   fontSize: 10.5,
-                  fontWeight: selected
-                      ? FontWeight.w800
-                      : FontWeight.w600,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                   height: 1.1,
                 ),
               ),
@@ -248,20 +216,14 @@ class _OwnerNavigationItem extends StatelessWidget {
 }
 
 class _OwnerNavItem {
-  const _OwnerNavItem({
-    required this.label,
-    required this.icon,
-  });
+  const _OwnerNavItem({required this.label, required this.icon});
 
   final String label;
   final IconData icon;
 }
 
 class _ComingSoonTab extends StatelessWidget {
-  const _ComingSoonTab({
-    required this.title,
-    required this.icon,
-  });
+  const _ComingSoonTab({required this.title, required this.icon});
 
   final String title;
   final IconData icon;
@@ -282,11 +244,7 @@ class _ComingSoonTab extends StatelessWidget {
                   color: AppTheme.secondary.withValues(alpha: 0.24),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  icon,
-                  size: 34,
-                  color: AppTheme.deepBrown,
-                ),
+                child: Icon(icon, size: 34, color: AppTheme.deepBrown),
               ),
               const SizedBox(height: 20),
               Text(
@@ -301,10 +259,8 @@ class _ComingSoonTab extends StatelessWidget {
               Text(
                 'This section will be available soon.',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.deepBrown,
-                  height: 1.45,
-                ),
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: AppTheme.deepBrown, height: 1.45),
               ),
             ],
           ),
