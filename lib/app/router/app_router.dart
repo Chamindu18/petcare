@@ -46,90 +46,152 @@ class AppRouter {
   static const String adoptionPetDetails = '/adoption-pet-details';
   static const String petProfile = '/pet-profile';
 
+  // Public routes are handled here.
+  // Protected routes are handled in onGenerateRoute()
+  // so that authentication checks cannot be bypassed.
   static Map<String, WidgetBuilder> get routes => {
-    splash: (_) => const SplashPage(),
+        splash: (_) => const SplashPage(),
 
-    onboarding: (_) => const OnboardingPage(),
+        onboarding: (_) => const OnboardingPage(),
 
-    onboardingSlides: (_) => const OnboardingSlidesPage(),
+        onboardingSlides: (_) => const OnboardingSlidesPage(),
 
-    login: (_) => const LoginPage(),
+        login: (_) => const LoginPage(),
 
-    register: (_) => const RegisterPage(),
+        register: (_) => const RegisterPage(),
 
-    forgotPassword: (_) => const ForgotPasswordPage(),
+        forgotPassword: (_) => const ForgotPasswordPage(),
 
-    checkEmail: (context) {
-      final email = ModalRoute.of(context)?.settings.arguments as String? ?? '';
+        checkEmail: (context) {
+          final email =
+              ModalRoute.of(context)?.settings.arguments as String? ?? '';
 
-      return CheckEmailPage(email: email);
-    },
+          return CheckEmailPage(email: email);
+        },
 
-    resetPassword: (context) {
-      final code = ModalRoute.of(context)?.settings.arguments as String?;
+        resetPassword: (context) {
+          final code =
+              ModalRoute.of(context)?.settings.arguments as String?;
 
-      return ResetPasswordPage(code: code);
-    },
+          return ResetPasswordPage(code: code);
+        },
 
-    passwordResetSuccess: (_) => const PasswordResetSuccessPage(),
+        passwordResetSuccess: (_) => const PasswordResetSuccessPage(),
 
-    registrationSuccess: (_) => const RegistrationSuccessPage(),
+        registrationSuccess: (_) => const RegistrationSuccessPage(),
+      };
 
-    home: (_) => const OwnerShellPage(),
+  static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
+    final isAuthenticated = FirebaseAuth.instance.currentUser != null;
 
-    notifications: (_) => const NotificationsPage(),
+    final protectedRoutes = {
+      home,
+      myPets,
+      notifications,
+      addPet,
+      adoptionPetDetails,
+      petProfile,
+    };
 
-    myPets: (_) {
-      final repository = FirebasePetRepository(
-        auth: FirebaseAuth.instance,
-        firestore: FirebaseFirestore.instance,
+    // Protect routes that require authentication.
+    if (protectedRoutes.contains(settings.name) && !isAuthenticated) {
+      return MaterialPageRoute(
+        builder: (_) => const LoginPage(),
+        settings: settings,
       );
+    }
 
-      final controller = PetsController(
-        CreatePet(repository),
-        GetPets(repository),
-        UpdatePet(repository),
-        DeletePet(repository),
-      );
-
-      return MyPetsPage(controller: controller);
-    },
-
-    petProfile: (context) {
-      final pet = ModalRoute.of(context)?.settings.arguments as Pet?;
-
-      if (pet == null) {
-        return const Scaffold(
-          body: Center(child: Text('Unable to open pet profile.')),
+    switch (settings.name) {
+      case home:
+        return MaterialPageRoute(
+          builder: (_) => OwnerShellPage(),
+          settings: settings,
         );
-      }
 
-      return PetProfilePage(pet: pet);
-    },
-
-    addPet: (context) {
-      final controller =
-          ModalRoute.of(context)?.settings.arguments as PetsController?;
-
-      if (controller == null) {
-        return const Scaffold(
-          body: Center(child: Text('Unable to open Add Pet.')),
+      case notifications:
+        return MaterialPageRoute(
+          builder: (_) => const NotificationsPage(),
+          settings: settings,
         );
-      }
 
-      return AddEditPetPage(controller: controller);
-    },
+      case myPets:
+        return MaterialPageRoute(
+          builder: (_) {
+            final repository = FirebasePetRepository(
+              auth: FirebaseAuth.instance,
+              firestore: FirebaseFirestore.instance,
+            );
 
-    adoptionPetDetails: (context) {
-      final listingId = ModalRoute.of(context)?.settings.arguments as String?;
+            final controller = PetsController(
+              CreatePet(repository),
+              GetPets(repository),
+              UpdatePet(repository),
+              DeletePet(repository),
+            );
 
-      if (listingId == null || listingId.isEmpty) {
-        return const Scaffold(
-          body: Center(child: Text('Adoption listing ID is required.')),
+            return MyPetsPage(controller: controller);
+          },
+          settings: settings,
         );
-      }
 
-      return AdoptionPetDetailsPage(listingId: listingId);
-    },
-  };
+      case petProfile:
+        final pet = settings.arguments as Pet?;
+
+        return MaterialPageRoute(
+          builder: (_) {
+            if (pet == null) {
+              return const Scaffold(
+                body: Center(
+                  child: Text('Unable to open pet profile.'),
+                ),
+              );
+            }
+
+            return PetProfilePage(pet: pet);
+          },
+          settings: settings,
+        );
+
+      case addPet:
+        final controller = settings.arguments as PetsController?;
+
+        return MaterialPageRoute(
+          builder: (_) {
+            if (controller == null) {
+              return const Scaffold(
+                body: Center(
+                  child: Text('Unable to open Add Pet.'),
+                ),
+              );
+            }
+
+            return AddEditPetPage(controller: controller);
+          },
+          settings: settings,
+        );
+
+      case adoptionPetDetails:
+        final listingId = settings.arguments as String?;
+
+        return MaterialPageRoute(
+          builder: (_) {
+            if (listingId == null || listingId.isEmpty) {
+              return const Scaffold(
+                body: Center(
+                  child: Text('Adoption listing ID is required.'),
+                ),
+              );
+            }
+
+            return AdoptionPetDetailsPage(
+              listingId: listingId,
+            );
+          },
+          settings: settings,
+        );
+
+      default:
+        return null;
+    }
+  }
 }
