@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
-import '../../features/pets/domain/entities/pet.dart';
 import '../../features/pets/presentation/pages/pet_profile_page.dart';
 import '../../features/adoption/presentation/pages/adoption_pet_details_page.dart';
 import '../../features/auth/presentation/pages/check_email_page.dart';
@@ -25,6 +25,9 @@ import '../../features/pets/domain/usecases/update_pet.dart';
 import '../../features/pets/presentation/pages/add_edit_pet_page.dart';
 import '../../features/pets/presentation/pages/my_pets_page.dart';
 import '../../features/pets/presentation/providers/pets_controller.dart';
+import '../../features/pets/data/repositories/firebase_pet_image_repository.dart';
+import '../../features/pets/domain/usecases/delete_pet_image.dart';
+import '../../features/pets/domain/usecases/upload_pet_image.dart';
 
 class AppRouter {
   AppRouter._();
@@ -85,39 +88,55 @@ class AppRouter {
         firestore: FirebaseFirestore.instance,
       );
 
+      final imageRepository = FirebasePetImageRepository(
+        auth: FirebaseAuth.instance,
+        storage: FirebaseStorage.instance,
+      );
+
       final controller = PetsController(
         CreatePet(repository),
         GetPets(repository),
         UpdatePet(repository),
         DeletePet(repository),
+        UploadPetImage(imageRepository),
+        DeletePetImage(imageRepository),
       );
-
       return MyPetsPage(controller: controller);
     },
 
     petProfile: (context) {
-      final pet = ModalRoute.of(context)?.settings.arguments as Pet?;
+      final arguments = ModalRoute.of(context)?.settings.arguments;
 
-      if (pet == null) {
+      if (arguments is! PetProfileRouteArgs) {
         return const Scaffold(
           body: Center(child: Text('Unable to open pet profile.')),
         );
       }
 
-      return PetProfilePage(pet: pet);
+      return PetProfilePage(
+        pet: arguments.pet,
+        controller: arguments.controller,
+      );
     },
 
     addPet: (context) {
-      final controller =
-          ModalRoute.of(context)?.settings.arguments as PetsController?;
+      final arguments = ModalRoute.of(context)?.settings.arguments;
 
-      if (controller == null) {
-        return const Scaffold(
-          body: Center(child: Text('Unable to open Add Pet.')),
+      if (arguments is AddEditPetRouteArgs) {
+        return AddEditPetPage(
+          controller: arguments.controller,
+          pet: arguments.pet,
         );
       }
 
-      return AddEditPetPage(controller: controller);
+      // Keep the existing add-pet navigation working.
+      if (arguments is PetsController) {
+        return AddEditPetPage(controller: arguments);
+      }
+
+      return const Scaffold(
+        body: Center(child: Text('Unable to open Add Pet.')),
+      );
     },
 
     adoptionPetDetails: (context) {

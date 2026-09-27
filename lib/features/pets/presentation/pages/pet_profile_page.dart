@@ -1,12 +1,138 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../domain/entities/pet.dart';
+import '../providers/pets_controller.dart';
+import 'add_edit_pet_page.dart';
 
-class PetProfilePage extends StatelessWidget {
-  const PetProfilePage({required this.pet, super.key});
+class PetProfileRouteArgs {
+  const PetProfileRouteArgs({required this.pet, required this.controller});
 
   final Pet pet;
+  final PetsController controller;
+}
+
+class PetProfilePage extends StatefulWidget {
+  const PetProfilePage({
+    required this.pet,
+    required this.controller,
+    super.key,
+  });
+
+  final Pet pet;
+  final PetsController controller;
+
+  @override
+  State<PetProfilePage> createState() => _PetProfilePageState();
+}
+
+class _PetProfilePageState extends State<PetProfilePage> {
+  late Pet _pet;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _pet = widget.pet;
+    widget.controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onControllerChanged);
+    super.dispose();
+  }
+
+  void _onControllerChanged() {
+    final pets = widget.controller.pets;
+
+    for (final pet in pets) {
+      if (pet.petId == _pet.petId) {
+        if (mounted) {
+          setState(() {
+            _pet = pet;
+          });
+        }
+        return;
+      }
+    }
+  }
+
+  Future<void> _editPet() async {
+    await Navigator.pushNamed(
+      context,
+      AppRouter.addPet,
+      arguments: AddEditPetRouteArgs(controller: widget.controller, pet: _pet),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    _refreshFromController();
+  }
+
+  void _refreshFromController() {
+    for (final pet in widget.controller.pets) {
+      if (pet.petId == _pet.petId) {
+        setState(() {
+          _pet = pet;
+        });
+        return;
+      }
+    }
+  }
+
+  Future<void> _deletePet() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete Pet?'),
+          content: Text(
+            'Are you sure you want to delete ${_pet.name}? '
+            'This will remove the pet from your account.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    final petId = _pet.petId;
+
+    await widget.controller.delete(petId);
+
+    if (!mounted) {
+      return;
+    }
+
+    final stillExists = widget.controller.pets.any((pet) => pet.petId == petId);
+
+    if (stillExists) {
+      final message =
+          widget.controller.errorMessage ?? 'Unable to delete the pet.';
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+      return;
+    }
+
+    Navigator.pop(context, true);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,14 +145,16 @@ class PetProfilePage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _PetHeader(pet: pet),
+              _PetHeader(pet: _pet),
+              const SizedBox(height: 16),
+              _PetActions(onEdit: _editPet, onDelete: _deletePet),
               const SizedBox(height: 24),
               const _SectionTitle(
                 title: 'Pet Information',
                 icon: Icons.pets_outlined,
               ),
               const SizedBox(height: 12),
-              _PetInformationCard(pet: pet),
+              _PetInformationCard(pet: _pet),
               const SizedBox(height: 24),
               const _SectionTitle(
                 title: 'Health Overview',
@@ -38,6 +166,36 @@ class PetProfilePage extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PetActions extends StatelessWidget {
+  const _PetActions({required this.onEdit, required this.onDelete});
+
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Edit Pet'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Delete'),
+          ),
+        ),
+      ],
     );
   }
 }
