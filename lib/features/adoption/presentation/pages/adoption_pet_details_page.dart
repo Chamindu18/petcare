@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../data/repositories/firebase_adoption_listing_repository.dart';
 import '../../domain/entities/adoption_listing.dart';
@@ -187,7 +188,10 @@ class _DetailsContent extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.of(context)
+                      .pushNamed(AppRouter.adoptionRequest, arguments: listing);
+                },
                 child: const Text('Request Adoption'),
               ),
             ),
