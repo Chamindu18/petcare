@@ -76,6 +76,9 @@ class _FakeAuthRepository implements AuthRepository {
       throw AuthException('Failed to reset password');
     }
   }
+
+  @override
+  Future<void> signOut() async {}
 }
 
 // Helper to scroll to and tap a widget
