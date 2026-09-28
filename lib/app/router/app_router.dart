@@ -83,7 +83,19 @@ class AppRouter {
   };
 
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
-    final isAuthenticated = FirebaseAuth.instance.currentUser != null;
+    return _onGenerateRoute(settings, FirebaseAuth.instance);
+  }
+
+  static RouteFactory routeGenerator({FirebaseAuth? auth}) {
+    return (settings) =>
+        _onGenerateRoute(settings, auth ?? FirebaseAuth.instance);
+  }
+
+  static Route<dynamic>? _onGenerateRoute(
+    RouteSettings settings,
+    FirebaseAuth auth,
+  ) {
+    final isAuthenticated = auth.currentUser != null;
 
     final protectedRoutes = {
       home,
