@@ -1,6 +1,16 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../pets/data/repositories/firebase_pet_repository.dart';
+import '../../../pets/domain/usecases/create_pet.dart';
+import '../../../pets/domain/usecases/delete_pet.dart';
+import '../../../pets/domain/usecases/get_pets.dart';
+import '../../../pets/domain/usecases/update_pet.dart';
+import '../../../pets/presentation/pages/my_pets_page.dart';
+import '../../../pets/presentation/providers/pets_controller.dart';
 import 'home_page.dart';
 
 class OwnerShellPage extends StatefulWidget {
@@ -13,6 +23,31 @@ class OwnerShellPage extends StatefulWidget {
 class _OwnerShellPageState extends State<OwnerShellPage> {
   int _currentIndex = 0;
 
+  late final PetsController _petsController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final repository = FirebasePetRepository(
+      auth: FirebaseAuth.instance,
+      firestore: FirebaseFirestore.instance,
+    );
+
+    _petsController = PetsController(
+      CreatePet(repository),
+      GetPets(repository),
+      UpdatePet(repository),
+      DeletePet(repository),
+    );
+  }
+
+  @override
+  void dispose() {
+    _petsController.dispose();
+    super.dispose();
+  }
+
   void _onTabSelected(int index) {
     if (_currentIndex == index) {
       return;
@@ -23,21 +58,37 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
     });
   }
 
+  void _openAddPet() {
+    Navigator.pushNamed(context, AppRouter.addPet, arguments: _petsController);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final userName = user?.displayName?.trim().isNotEmpty == true
+        ? user!.displayName!.trim()
+        : 'Pet Owner';
+    final photoUrl = user?.photoURL?.trim();
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: IndexedStack(
         index: _currentIndex,
-        children: const [
-          HomePage(),
-          _ComingSoonTab(title: 'My Pets', icon: Icons.pets_rounded),
-          _ComingSoonTab(
+        children: [
+          HomePage(
+            petsController: _petsController,
+            onMyPetsTap: () => _onTabSelected(1),
+            onAddPetTap: _openAddPet,
+            userName: userName,
+            photoUrl: photoUrl,
+          ),
+          MyPetsPage(controller: _petsController, ownsController: false),
+          const _ComingSoonTab(
             title: 'Appointments',
             icon: Icons.calendar_month_rounded,
           ),
-          _ComingSoonTab(title: 'AI Hub', icon: Icons.psychology_rounded),
-          _ComingSoonTab(title: 'Profile', icon: Icons.person_rounded),
+          const _ComingSoonTab(title: 'AI Hub', icon: Icons.psychology_rounded),
+          const _ComingSoonTab(title: 'Profile', icon: Icons.person_rounded),
         ],
       ),
       bottomNavigationBar: _OwnerBottomNavigation(

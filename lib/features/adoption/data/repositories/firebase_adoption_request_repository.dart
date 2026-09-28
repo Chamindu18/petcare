@@ -32,9 +32,12 @@ class FirebaseAdoptionRequestRepository implements AdoptionRequestRepository {
     required String providerId,
     String? message,
   }) async {
-    _ensureSignedIn();
-
-    final user = _auth.currentUser!;
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw const AdoptionRequestRepositoryException(
+        'You must be signed in to submit an adoption request.',
+      );
+    }
 
     final now = FieldValue.serverTimestamp();
 

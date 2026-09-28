@@ -157,6 +157,7 @@ class _PetCareAppState extends State<PetCareApp> {
       navigatorKey: _navigatorKey,
       initialRoute: AppRouter.splash,
       routes: AppRouter.routes,
+      onGenerateRoute: AppRouter.onGenerateRoute,
     );
   }
 }

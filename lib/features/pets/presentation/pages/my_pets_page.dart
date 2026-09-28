@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/router/app_router.dart';
 import '../../domain/entities/pet.dart';
 import '../providers/pets_controller.dart';
 
 class MyPetsPage extends StatefulWidget {
-  const MyPetsPage({required this.controller, super.key});
+  const MyPetsPage({
+    required this.controller,
+    super.key,
+    this.ownsController = true,
+  });
 
   final PetsController controller;
+  final bool ownsController;
 
   @override
   State<MyPetsPage> createState() => _MyPetsPageState();
@@ -20,13 +26,20 @@ class _MyPetsPageState extends State<MyPetsPage> {
     super.initState();
 
     _controller.addListener(_onControllerChanged);
-    _loadPets();
+
+    if (_controller.pets.isEmpty) {
+      _loadPets();
+    }
   }
 
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
-    _controller.dispose();
+
+    if (widget.ownsController) {
+      _controller.dispose();
+    }
+
     super.dispose();
   }
 
@@ -40,13 +53,17 @@ class _MyPetsPageState extends State<MyPetsPage> {
     }
   }
 
+  void _openAddPet() {
+    Navigator.pushNamed(context, AppRouter.addPet, arguments: _controller);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('My Pets')),
       body: _buildBody(),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {},
+        onPressed: _openAddPet,
         icon: const Icon(Icons.add),
         label: const Text('Add Pet'),
       ),
@@ -94,7 +111,7 @@ class _MyPetsPageState extends State<MyPetsPage> {
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: () {},
+              onPressed: _openAddPet,
               icon: const Icon(Icons.add),
               label: const Text('Add Your First Pet'),
             ),
@@ -155,6 +172,9 @@ class _PetCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
+        onTap: () {
+          Navigator.pushNamed(context, AppRouter.petProfile, arguments: pet);
+        },
         contentPadding: const EdgeInsets.all(16),
         leading: CircleAvatar(
           radius: 28,
