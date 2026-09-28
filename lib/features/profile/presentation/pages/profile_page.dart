@@ -148,7 +148,11 @@ class _ProfileContent extends StatelessWidget {
               subtitle: profile.notificationEnabled
                   ? 'Notifications are enabled'
                   : 'Notifications are disabled',
-              onTap: () {},
+              onTap: () {
+                Navigator.of(
+                  context,
+                ).pushNamed(AppRouter.notificationSettings, arguments: profile);
+              },
             ),
             const _SettingsDivider(),
             _SettingsTile(

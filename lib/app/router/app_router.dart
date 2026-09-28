@@ -28,6 +28,7 @@ import '../../features/pets/presentation/pages/add_edit_pet_page.dart';
 import '../../features/pets/presentation/pages/my_pets_page.dart';
 import '../../features/pets/presentation/providers/pets_controller.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
+import '../../features/profile/presentation/pages/notification_settings_page.dart';
 import '../../features/profile/domain/entities/user_profile.dart';
 
 class AppRouter {
@@ -50,6 +51,7 @@ class AppRouter {
   static const String adoptionPetDetails = '/adoption-pet-details';
   static const String adoptionRequest = '/adoption-request';
   static const String editProfile = '/edit-profile';
+  static const String notificationSettings = '/notification-settings';
   static const String petProfile = '/pet-profile';
 
   // Public routes are handled here.
@@ -96,6 +98,7 @@ class AppRouter {
       adoptionPetDetails,
       adoptionRequest,
       editProfile,
+      notificationSettings,
       petProfile,
     };
 
@@ -216,6 +219,24 @@ class AppRouter {
             }
 
             return EditProfilePage(profile: profile);
+          },
+          settings: settings,
+        );
+
+      case notificationSettings:
+        final profile = settings.arguments as UserProfile?;
+
+        return MaterialPageRoute(
+          builder: (_) {
+            if (profile == null) {
+              return const Scaffold(
+                body: Center(
+                  child: Text('Unable to open Notification Settings.'),
+                ),
+              );
+            }
+
+            return NotificationSettingsPage(profile: profile);
           },
           settings: settings,
         );
