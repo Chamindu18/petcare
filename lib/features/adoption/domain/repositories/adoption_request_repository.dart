@@ -7,5 +7,7 @@ abstract interface class AdoptionRequestRepository {
     String? message,
   });
 
+  Stream<List<AdoptionRequest>> watchMyRequests();
+
   Stream<AdoptionRequest?> watchRequest({required String requestId});
 }
