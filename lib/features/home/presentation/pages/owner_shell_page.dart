@@ -12,6 +12,7 @@ import '../../../pets/domain/usecases/update_pet.dart';
 import '../../../pets/presentation/pages/my_pets_page.dart';
 import '../../../pets/presentation/providers/pets_controller.dart';
 import 'home_page.dart';
+import '../../../profile/presentation/pages/profile_page.dart';
 
 class OwnerShellPage extends StatefulWidget {
   const OwnerShellPage({super.key});
@@ -88,7 +89,7 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             icon: Icons.calendar_month_rounded,
           ),
           const _ComingSoonTab(title: 'AI Hub', icon: Icons.psychology_rounded),
-          const _ComingSoonTab(title: 'Profile', icon: Icons.person_rounded),
+          const ProfilePage(),
         ],
       ),
       bottomNavigationBar: _OwnerBottomNavigation(

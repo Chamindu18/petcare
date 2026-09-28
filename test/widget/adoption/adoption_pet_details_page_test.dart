@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:petcare/app/router/app_router.dart';
 import 'package:petcare/features/adoption/data/models/adoption_listing_model.dart';
 import 'package:petcare/features/adoption/domain/entities/adoption_listing.dart';
 import 'package:petcare/features/adoption/domain/repositories/adoption_listing_repository.dart';
@@ -70,6 +71,52 @@ void main() {
     expect(find.text('Colombo'), findsOneWidget);
     expect(find.text('Request Adoption'), findsOneWidget);
     expect(find.text('Available'), findsOneWidget);
+  });
+
+  testWidgets('opens adoption request route when request is tapped', (
+    tester,
+  ) async {
+    final listing = _createListing();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AdoptionPetDetailsPage(
+          listingId: 'listing-1',
+          adoptionListingRepository: _FakeAdoptionListingRepository(
+            listing: listing,
+          ),
+        ),
+        routes: {
+          AppRouter.adoptionRequest: (context) {
+            return const Scaffold(
+              body: Center(child: Text('Adoption Request')),
+            );
+          },
+        },
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Request Adoption'), findsOneWidget);
+
+    final button = find.ancestor(
+      of: find.text('Request Adoption'),
+      matching: find.byType(ElevatedButton),
+    );
+
+    expect(button, findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      button,
+      300,
+      scrollable: find.byType(Scrollable),
+    );
+
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Adoption Request'), findsOneWidget);
   });
 
   testWidgets('shows unavailable state when listing no longer exists', (
