@@ -104,6 +104,15 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<void> signOut() async {
+    try {
+      await _auth.signOut();
+    } on FirebaseAuthException catch (error) {
+      throw AuthException(_firebaseAuthErrorMessage(error.code));
+    }
+  }
+
+  @override
   Future<void> signInWithGoogle() async {
     debugPrint('============================================');
     debugPrint('PETCARE+ GOOGLE SIGN-IN STARTED');
