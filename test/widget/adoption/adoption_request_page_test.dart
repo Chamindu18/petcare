@@ -26,6 +26,11 @@ class _FakeAdoptionRequestRepository implements AdoptionRequestRepository {
   }
 
   @override
+  Stream<List<AdoptionRequest>> watchMyRequests() {
+    return const Stream.empty();
+  }
+
+  @override
   Stream<AdoptionRequest?> watchRequest({required String requestId}) {
     return const Stream.empty();
   }
