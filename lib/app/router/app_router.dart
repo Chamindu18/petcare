@@ -27,6 +27,8 @@ import '../../features/pets/domain/usecases/update_pet.dart';
 import '../../features/pets/presentation/pages/add_edit_pet_page.dart';
 import '../../features/pets/presentation/pages/my_pets_page.dart';
 import '../../features/pets/presentation/providers/pets_controller.dart';
+import '../../features/profile/presentation/pages/edit_profile_page.dart';
+import '../../features/profile/domain/entities/user_profile.dart';
 
 class AppRouter {
   AppRouter._();
@@ -47,6 +49,7 @@ class AppRouter {
   static const String addPet = '/add-pet';
   static const String adoptionPetDetails = '/adoption-pet-details';
   static const String adoptionRequest = '/adoption-request';
+  static const String editProfile = '/edit-profile';
   static const String petProfile = '/pet-profile';
 
   // Public routes are handled here.
@@ -104,6 +107,7 @@ class AppRouter {
       addPet,
       adoptionPetDetails,
       adoptionRequest,
+      editProfile,
       petProfile,
     };
 
@@ -208,6 +212,22 @@ class AppRouter {
             }
 
             return AdoptionRequestPage(listing: listing);
+          },
+          settings: settings,
+        );
+
+      case editProfile:
+        final profile = settings.arguments as UserProfile?;
+
+        return MaterialPageRoute(
+          builder: (_) {
+            if (profile == null) {
+              return const Scaffold(
+                body: Center(child: Text('Unable to open Edit Profile.')),
+              );
+            }
+
+            return EditProfilePage(profile: profile);
           },
           settings: settings,
         );
