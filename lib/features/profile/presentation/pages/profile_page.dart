@@ -159,7 +159,9 @@ class _ProfileContent extends StatelessWidget {
               icon: Icons.lock_outline_rounded,
               title: 'Privacy & Security',
               subtitle: 'Manage security and privacy information',
-              onTap: () {},
+              onTap: () {
+                Navigator.of(context).pushNamed(AppRouter.privacySecurity);
+              },
             ),
             const _SettingsDivider(),
             _SettingsTile(

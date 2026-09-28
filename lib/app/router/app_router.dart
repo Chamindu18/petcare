@@ -30,6 +30,7 @@ import '../../features/pets/presentation/providers/pets_controller.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/notification_settings_page.dart';
 import '../../features/profile/domain/entities/user_profile.dart';
+import '../../features/profile/presentation/pages/privacy_security_page.dart';
 
 class AppRouter {
   AppRouter._();
@@ -52,6 +53,7 @@ class AppRouter {
   static const String adoptionRequest = '/adoption-request';
   static const String editProfile = '/edit-profile';
   static const String notificationSettings = '/notification-settings';
+  static const String privacySecurity = '/privacy-security';
   static const String petProfile = '/pet-profile';
 
   // Public routes are handled here.
@@ -99,6 +101,7 @@ class AppRouter {
       adoptionRequest,
       editProfile,
       notificationSettings,
+      privacySecurity,
       petProfile,
     };
 
@@ -241,6 +244,11 @@ class AppRouter {
           settings: settings,
         );
 
+      case privacySecurity:
+        return MaterialPageRoute(
+          builder: (_) => const PrivacySecurityPage(),
+          settings: settings,
+        );
       default:
         return null;
     }
