@@ -31,6 +31,7 @@ import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/notification_settings_page.dart';
 import '../../features/profile/domain/entities/user_profile.dart';
 import '../../features/profile/presentation/pages/privacy_security_page.dart';
+import '../../features/profile/presentation/pages/help_support_page.dart';
 
 class AppRouter {
   AppRouter._();
@@ -54,6 +55,7 @@ class AppRouter {
   static const String editProfile = '/edit-profile';
   static const String notificationSettings = '/notification-settings';
   static const String privacySecurity = '/privacy-security';
+  static const String helpSupport = '/help-support';
   static const String petProfile = '/pet-profile';
 
   // Public routes are handled here.
@@ -114,6 +116,7 @@ class AppRouter {
       editProfile,
       notificationSettings,
       privacySecurity,
+      helpSupport,
       petProfile,
     };
 
@@ -259,6 +262,12 @@ class AppRouter {
       case privacySecurity:
         return MaterialPageRoute(
           builder: (_) => const PrivacySecurityPage(),
+          settings: settings,
+        );
+
+      case helpSupport:
+        return MaterialPageRoute(
+          builder: (_) => const HelpSupportPage(),
           settings: settings,
         );
       default:

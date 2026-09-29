@@ -168,7 +168,9 @@ class _ProfileContent extends StatelessWidget {
               icon: Icons.help_outline_rounded,
               title: 'Help & Support',
               subtitle: 'Get help and contact support',
-              onTap: () {},
+              onTap: () {
+                Navigator.pushNamed(context, AppRouter.helpSupport);
+              },
             ),
             const _SettingsDivider(),
             _SettingsTile(
