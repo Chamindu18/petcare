@@ -177,7 +177,9 @@ class _ProfileContent extends StatelessWidget {
               icon: Icons.info_outline_rounded,
               title: 'About PetCare+',
               subtitle: 'App information',
-              onTap: () {},
+              onTap: () {
+                Navigator.pushNamed(context, AppRouter.aboutPetCare);
+              },
             ),
           ],
         ),
