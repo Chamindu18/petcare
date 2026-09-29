@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../notifications/data/repositories/firebase_notification_repository.dart';
+import '../../../notifications/domain/repositories/notification_repository.dart';
 import '../../../notifications/presentation/providers/notification_provider.dart';
 import '../../../pets/domain/entities/pet.dart';
 import '../../../pets/presentation/providers/pets_controller.dart';
@@ -14,6 +15,7 @@ class HomePage extends StatefulWidget {
     required this.onAddPetTap,
     required this.userName,
     required this.photoUrl,
+    this.notificationRepository,
     super.key,
   });
 
@@ -22,6 +24,7 @@ class HomePage extends StatefulWidget {
   final VoidCallback onAddPetTap;
   final String userName;
   final String? photoUrl;
+  final NotificationRepository? notificationRepository;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -39,7 +42,8 @@ class _HomePageState extends State<HomePage> {
     _petsController.addListener(_onPetsControllerChanged);
 
     _notificationProvider = NotificationProvider(
-      repository: FirebaseNotificationRepository(),
+      repository:
+          widget.notificationRepository ?? FirebaseNotificationRepository(),
     );
 
     _petsController.loadPets();

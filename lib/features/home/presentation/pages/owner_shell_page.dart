@@ -19,7 +19,10 @@ import 'home_page.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
 
 class OwnerShellPage extends StatefulWidget {
-  const OwnerShellPage({super.key});
+  const OwnerShellPage({super.key, this.petsController, this.auth});
+
+  final PetsController? petsController;
+  final FirebaseAuth? auth;
 
   @override
   State<OwnerShellPage> createState() => _OwnerShellPageState();
@@ -29,16 +32,29 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
   int _currentIndex = 0;
 
   late final PetsController _petsController;
+  bool _ownsPetsController = false;
 
   @override
   void initState() {
     super.initState();
 
-    final repository = FirebasePetRepository(
-      auth: FirebaseAuth.instance,
-      firestore: FirebaseFirestore.instance,
-    );
+    if (widget.petsController != null) {
+      _petsController = widget.petsController!;
+      _ownsPetsController = false;
+    } else {
+      final repository = FirebasePetRepository(
+        auth: FirebaseAuth.instance,
+        firestore: FirebaseFirestore.instance,
+      );
 
+      _petsController = PetsController(
+        CreatePet(repository),
+        GetPets(repository),
+        UpdatePet(repository),
+        DeletePet(repository),
+      );
+      _ownsPetsController = true;
+    }
     final imageRepository = FirebasePetImageRepository(
       auth: FirebaseAuth.instance,
       storage: FirebaseStorage.instance,
@@ -56,7 +72,9 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
 
   @override
   void dispose() {
-    _petsController.dispose();
+    if (_ownsPetsController) {
+      _petsController.dispose();
+    }
     super.dispose();
   }
 
@@ -76,7 +94,8 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final auth = widget.auth ?? FirebaseAuth.instance;
+    final user = auth.currentUser;
     final userName = user?.displayName?.trim().isNotEmpty == true
         ? user!.displayName!.trim()
         : 'Pet Owner';
