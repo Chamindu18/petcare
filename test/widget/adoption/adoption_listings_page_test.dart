@@ -21,6 +21,11 @@ class _FakeAdoptionListingRepository implements AdoptionListingRepository {
       _listings.where((listing) => listing.listingId == listingId).firstOrNull,
     );
   }
+
+  @override
+  Stream<List<AdoptionListing>> watchMyListings() {
+    return Stream.value(_listings);
+  }
 }
 
 void main() {

@@ -20,6 +20,11 @@ class _FakeAdoptionListingRepository implements AdoptionListingRepository {
   }
 
   @override
+  Stream<List<AdoptionListing>> watchMyListings() {
+    return Stream.value(_listing == null ? const [] : [_listing]);
+  }
+
+  @override
   Stream<AdoptionListing?> watchListing({required String listingId}) {
     if (_error != null) {
       return Stream<AdoptionListing?>.error(_error);

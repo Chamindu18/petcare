@@ -45,6 +45,28 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
   }
 
   @override
+  Stream<List<AdoptionListing>> watchMyListings() {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      return Stream.error(
+        const AdoptionListingRepositoryException(
+          'You must be signed in to view your adoption listings.',
+        ),
+      );
+    }
+
+    return _listingsCollection
+        .where('providerId', isEqualTo: user.uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map(AdoptionListingModel.fromFirestore).toList(),
+        );
+  }
+
+  @override
   Stream<AdoptionListing?> watchListing({required String listingId}) {
     try {
       _ensureSignedIn();
