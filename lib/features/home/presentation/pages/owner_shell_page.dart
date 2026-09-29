@@ -1,14 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../pets/data/repositories/firebase_pet_image_repository.dart';
 import '../../../pets/data/repositories/firebase_pet_repository.dart';
 import '../../../pets/domain/usecases/create_pet.dart';
 import '../../../pets/domain/usecases/delete_pet.dart';
+import '../../../pets/domain/usecases/delete_pet_image.dart';
 import '../../../pets/domain/usecases/get_pets.dart';
 import '../../../pets/domain/usecases/update_pet.dart';
+import '../../../pets/domain/usecases/upload_pet_image.dart';
 import '../../../pets/presentation/pages/my_pets_page.dart';
 import '../../../pets/presentation/providers/pets_controller.dart';
 import 'home_page.dart';
@@ -51,6 +55,19 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
       );
       _ownsPetsController = true;
     }
+    final imageRepository = FirebasePetImageRepository(
+      auth: FirebaseAuth.instance,
+      storage: FirebaseStorage.instance,
+    );
+
+    _petsController = PetsController(
+      CreatePet(repository),
+      GetPets(repository),
+      UpdatePet(repository),
+      DeletePet(repository),
+      UploadPetImage(imageRepository),
+      DeletePetImage(imageRepository),
+    );
   }
 
   @override

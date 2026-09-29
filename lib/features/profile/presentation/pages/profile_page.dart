@@ -7,6 +7,7 @@ import '../../data/repositories/firebase_profile_repository.dart';
 import '../../domain/entities/user_profile.dart';
 import '../../domain/repositories/profile_repository.dart';
 import '../providers/profile_provider.dart';
+import '../../../../app/router/app_router.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key, this.profileRepository, this.authRepository});
@@ -135,7 +136,10 @@ class _ProfileContent extends StatelessWidget {
               icon: Icons.person_outline_rounded,
               title: 'Personal Information',
               subtitle: 'Update your name and contact details',
-              onTap: () {},
+              onTap: () {
+                Navigator.of(context)
+                    .pushNamed(AppRouter.editProfile, arguments: profile);
+              },
             ),
             const _SettingsDivider(),
             _SettingsTile(
@@ -144,7 +148,11 @@ class _ProfileContent extends StatelessWidget {
               subtitle: profile.notificationEnabled
                   ? 'Notifications are enabled'
                   : 'Notifications are disabled',
-              onTap: () {},
+              onTap: () {
+                Navigator.of(
+                  context,
+                ).pushNamed(AppRouter.notificationSettings, arguments: profile);
+              },
             ),
             const _SettingsDivider(),
             _SettingsTile(
