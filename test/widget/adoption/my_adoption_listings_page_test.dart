@@ -14,13 +14,12 @@ class _FakeAdoptionListingRepository implements AdoptionListingRepository {
   final Object? error;
 
   @override
-  Future<void> createListing(AdoptionListing listing) async {}
+  Future<AdoptionListing> createListing(AdoptionListing listing) {
+    return Future.value(listing);
+  }
 
   @override
   Future<void> updateListing(AdoptionListing listing) async {}
-
-  @override
-  Future<void> deleteListing({required String listingId}) async {}
 
   @override
   Stream<List<AdoptionListing>> watchAvailableListings() {

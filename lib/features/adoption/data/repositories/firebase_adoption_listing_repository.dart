@@ -27,6 +27,90 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
   }
 
   @override
+  Future<AdoptionListing> createListing(AdoptionListing listing) async {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      throw const AdoptionListingRepositoryException(
+        'You must be signed in to create an adoption listing.',
+      );
+    }
+
+    final document = _listingsCollection.doc();
+
+    final persistedListing = AdoptionListing(
+      listingId: document.id,
+      providerId: user.uid,
+      petName: listing.petName,
+      species: listing.species,
+      breed: listing.breed,
+      ageDescription: listing.ageDescription,
+      gender: listing.gender,
+      description: listing.description,
+      location: listing.location,
+      imageAsset: listing.imageAsset,
+      status: listing.status,
+      contactNote: listing.contactNote,
+      createdAt: listing.createdAt,
+      updatedAt: listing.updatedAt,
+    );
+
+    final listingModel = AdoptionListingModel.fromEntity(persistedListing);
+
+    await document.set(listingModel.toMap());
+
+    return persistedListing;
+  }
+
+  @override
+  Future<void> updateListing(AdoptionListing listing) async {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      throw const AdoptionListingRepositoryException(
+        'You must be signed in to update an adoption listing.',
+      );
+    }
+
+    final document = await _listingsCollection.doc(listing.listingId).get();
+
+    if (!document.exists) {
+      throw const AdoptionListingRepositoryException(
+        'Adoption listing was not found.',
+      );
+    }
+
+    final existingData = document.data();
+
+    if (existingData == null || existingData['providerId'] != user.uid) {
+      throw const AdoptionListingRepositoryException(
+        'You are not authorized to update this adoption listing.',
+      );
+    }
+
+    final persistedListing = AdoptionListing(
+      listingId: listing.listingId,
+      providerId: user.uid,
+      petName: listing.petName,
+      species: listing.species,
+      breed: listing.breed,
+      ageDescription: listing.ageDescription,
+      gender: listing.gender,
+      description: listing.description,
+      location: listing.location,
+      imageAsset: listing.imageAsset,
+      status: listing.status,
+      contactNote: listing.contactNote,
+      createdAt: listing.createdAt,
+      updatedAt: listing.updatedAt,
+    );
+
+    final listingModel = AdoptionListingModel.fromEntity(persistedListing);
+
+    await document.reference.update(listingModel.toMap());
+  }
+
+  @override
   Stream<List<AdoptionListing>> watchAvailableListings() {
     try {
       _ensureSignedIn();

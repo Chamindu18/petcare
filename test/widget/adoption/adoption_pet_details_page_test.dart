@@ -25,6 +25,14 @@ class _FakeAdoptionListingRepository implements AdoptionListingRepository {
   }
 
   @override
+  Future<AdoptionListing> createListing(AdoptionListing listing) {
+    return Future.value(listing);
+  }
+
+  @override
+  Future<void> updateListing(AdoptionListing listing) async {}
+
+  @override
   Stream<AdoptionListing?> watchListing({required String listingId}) {
     if (_error != null) {
       return Stream<AdoptionListing?>.error(_error);
