@@ -33,6 +33,9 @@ import '../../features/pets/domain/usecases/upload_pet_image.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/notification_settings_page.dart';
 import '../../features/profile/domain/entities/user_profile.dart';
+import '../../features/profile/presentation/pages/privacy_security_page.dart';
+import '../../features/profile/presentation/pages/help_support_page.dart';
+import '../../features/profile/presentation/pages/about_petcare_page.dart';
 
 class AppRouter {
   AppRouter._();
@@ -55,6 +58,9 @@ class AppRouter {
   static const String adoptionRequest = '/adoption-request';
   static const String editProfile = '/edit-profile';
   static const String notificationSettings = '/notification-settings';
+  static const String privacySecurity = '/privacy-security';
+  static const String helpSupport = '/help-support';
+  static const String aboutPetCare = '/about-petcare';
   static const String petProfile = '/pet-profile';
 
   // Public routes are handled here.
@@ -114,6 +120,9 @@ class AppRouter {
       adoptionRequest,
       editProfile,
       notificationSettings,
+      privacySecurity,
+      helpSupport,
+      aboutPetCare,
       petProfile,
     };
 
@@ -256,6 +265,23 @@ class AppRouter {
           settings: settings,
         );
 
+      case privacySecurity:
+        return MaterialPageRoute(
+          builder: (_) => const PrivacySecurityPage(),
+          settings: settings,
+        );
+
+      case helpSupport:
+        return MaterialPageRoute(
+          builder: (_) => const HelpSupportPage(),
+          settings: settings,
+        );
+
+      case aboutPetCare:
+        return MaterialPageRoute(
+          builder: (_) => const AboutPetCarePage(),
+          settings: settings,
+        );
       default:
         return null;
     }

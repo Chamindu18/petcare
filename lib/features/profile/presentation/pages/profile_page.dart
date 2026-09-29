@@ -159,21 +159,27 @@ class _ProfileContent extends StatelessWidget {
               icon: Icons.lock_outline_rounded,
               title: 'Privacy & Security',
               subtitle: 'Manage security and privacy information',
-              onTap: () {},
+              onTap: () {
+                Navigator.of(context).pushNamed(AppRouter.privacySecurity);
+              },
             ),
             const _SettingsDivider(),
             _SettingsTile(
               icon: Icons.help_outline_rounded,
               title: 'Help & Support',
               subtitle: 'Get help and contact support',
-              onTap: () {},
+              onTap: () {
+                Navigator.pushNamed(context, AppRouter.helpSupport);
+              },
             ),
             const _SettingsDivider(),
             _SettingsTile(
               icon: Icons.info_outline_rounded,
               title: 'About PetCare+',
               subtitle: 'App information',
-              onTap: () {},
+              onTap: () {
+                Navigator.pushNamed(context, AppRouter.aboutPetCare);
+              },
             ),
           ],
         ),
