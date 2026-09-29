@@ -7,6 +7,13 @@ import '../../../../app/theme/app_theme.dart';
 import '../../domain/entities/pet.dart';
 import '../providers/pets_controller.dart';
 
+class AddEditPetRouteArgs {
+  const AddEditPetRouteArgs({required this.controller, this.pet});
+
+  final PetsController controller;
+  final Pet? pet;
+}
+
 class AddEditPetPage extends StatefulWidget {
   const AddEditPetPage({required this.controller, super.key, this.pet});
 
@@ -31,7 +38,10 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
   late final TextEditingController _notesController;
 
   DateTime? _selectedDob;
+
   Uint8List? _selectedImageBytes;
+
+  bool _removeExistingImage = false;
 
   static const List<String> _speciesOptions = [
     'Dog',
@@ -184,6 +194,7 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
 
       setState(() {
         _selectedImageBytes = bytes;
+        _removeExistingImage = false;
       });
     } catch (_) {
       if (!mounted) {
@@ -192,6 +203,16 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
 
       _showError('Unable to select the pet image. Please try again.');
     }
+  }
+
+  void _removePetImage() {
+    setState(() {
+      _selectedImageBytes = null;
+
+      if (_isEditing && widget.pet?.imageUrl.trim().isNotEmpty == true) {
+        _removeExistingImage = true;
+      }
+    });
   }
 
   Future<void> _selectDob() async {
@@ -253,10 +274,9 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
       gender: _genderController.text.trim(),
       weight: weight,
 
-      // Firebase Storage upload will be implemented
-      // in the next slice.
-      //
-      // Existing image is preserved while editing.
+      // Keep the existing URL when editing unless:
+      // - a new image is selected, or
+      // - the user removes the existing image.
       imageUrl: widget.pet?.imageUrl ?? '',
 
       notes: _notesController.text.trim(),
@@ -264,9 +284,13 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
     );
 
     if (_isEditing) {
-      await widget.controller.update(pet);
+      await widget.controller.update(
+        pet,
+        imageBytes: _selectedImageBytes,
+        removeImage: _removeExistingImage,
+      );
     } else {
-      await widget.controller.create(pet);
+      await widget.controller.create(pet, imageBytes: _selectedImageBytes);
     }
 
     if (!mounted) {
@@ -402,6 +426,8 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
                       existingImageUrl: widget.pet?.imageUrl,
                       enabled: !isLoading,
                       onTap: _pickPetImage,
+                      onRemove: _removePetImage,
+                      removeExistingImage: _removeExistingImage,
                     ),
 
                     const SizedBox(height: 20),
@@ -561,8 +587,7 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
                             textCapitalization: TextCapitalization.sentences,
                             decoration: const InputDecoration(
                               hintText:
-                                  'Allergies, conditions or notes? '
-                                  '(optional)',
+                                  'Allergies, conditions or notes? (optional)',
                               prefixIcon: Icon(
                                 Icons.description_outlined,
                                 color: AppTheme.deepBrown,
@@ -664,104 +689,123 @@ class _PetPhotoPicker extends StatelessWidget {
     required this.existingImageUrl,
     required this.enabled,
     required this.onTap,
+    required this.onRemove,
+    required this.removeExistingImage,
   });
 
   final Uint8List? imageBytes;
   final String? existingImageUrl;
   final bool enabled;
   final VoidCallback onTap;
+  final VoidCallback onRemove;
+  final bool removeExistingImage;
 
   bool get _hasExistingImage =>
-      existingImageUrl != null && existingImageUrl!.isNotEmpty;
+      existingImageUrl != null && existingImageUrl!.trim().isNotEmpty;
+
+  bool get _hasImage =>
+      imageBytes != null || (_hasExistingImage && !removeExistingImage);
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = imageBytes != null || _hasExistingImage;
-
-    return InkWell(
-      onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.background,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.55)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 82,
-              height: 82,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: AppTheme.secondary.withValues(alpha: 0.28),
-                shape: BoxShape.circle,
-              ),
-              child: imageBytes != null
-                  ? Image.memory(imageBytes!, fit: BoxFit.cover)
-                  : _hasExistingImage
-                  ? Image.network(
-                      existingImageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const Icon(
-                        Icons.pets_rounded,
-                        size: 40,
-                        color: AppTheme.deepBrown,
-                      ),
-                    )
-                  : const Icon(
-                      Icons.pets_rounded,
-                      size: 40,
-                      color: AppTheme.deepBrown,
-                    ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.background,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.55)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 84,
+            height: 84,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: AppTheme.secondary.withValues(alpha: 0.28),
+              shape: BoxShape.circle,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    hasImage ? 'Change photo' : 'Add a photo',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppTheme.espresso,
-                      fontWeight: FontWeight.w700,
-                    ),
+            child: _buildImage(),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _hasImage ? 'Pet photo' : 'Add a photo',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppTheme.espresso,
+                    fontWeight: FontWeight.w700,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    hasImage
-                        ? 'Tap to choose a different photo'
-                        : 'Tap to upload from gallery or camera',
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: AppTheme.deepBrown),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _hasImage
+                      ? 'Change or remove your pet photo'
+                      : 'Choose a photo from your gallery or camera',
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: AppTheme.deepBrown, height: 1.35),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Maximum size: 5 MB',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppTheme.deepBrown.withValues(alpha: 0.70),
                   ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.secondary.withValues(alpha: 0.22),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      'Use a clear photo of your pet.',
-                      style: Theme.of(context).textTheme.labelSmall
-                          ?.copyWith(color: AppTheme.deepBrown, height: 1.3),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            const Icon(Icons.add_a_photo_outlined, color: AppTheme.deepBrown),
-          ],
-        ),
+          ),
+          const SizedBox(width: 4),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                onPressed: enabled ? onTap : null,
+                tooltip: _hasImage ? 'Change photo' : 'Add photo',
+                icon: const Icon(
+                  Icons.add_a_photo_outlined,
+                  color: AppTheme.deepBrown,
+                ),
+              ),
+              if (_hasImage)
+                IconButton(
+                  onPressed: enabled ? onRemove : null,
+                  tooltip: 'Remove photo',
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppTheme.error,
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _buildImage() {
+    if (imageBytes != null) {
+      return Image.memory(imageBytes!, fit: BoxFit.cover);
+    }
+
+    if (_hasExistingImage && !removeExistingImage) {
+      return Image.network(
+        existingImageUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) {
+          return const Icon(
+            Icons.pets_rounded,
+            size: 40,
+            color: AppTheme.deepBrown,
+          );
+        },
+      );
+    }
+
+    return const Icon(Icons.pets_rounded, size: 40, color: AppTheme.deepBrown);
   }
 }
 
