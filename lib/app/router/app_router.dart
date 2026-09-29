@@ -5,6 +5,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../features/pets/presentation/pages/pet_profile_page.dart';
 import '../../features/adoption/presentation/pages/adoption_pet_details_page.dart';
+import '../../features/adoption/domain/entities/adoption_listing.dart';
+import '../../features/adoption/presentation/pages/adoption_request_page.dart';
 import '../../features/auth/presentation/pages/check_email_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
@@ -28,6 +30,9 @@ import '../../features/pets/presentation/providers/pets_controller.dart';
 import '../../features/pets/data/repositories/firebase_pet_image_repository.dart';
 import '../../features/pets/domain/usecases/delete_pet_image.dart';
 import '../../features/pets/domain/usecases/upload_pet_image.dart';
+import '../../features/profile/presentation/pages/edit_profile_page.dart';
+import '../../features/profile/presentation/pages/notification_settings_page.dart';
+import '../../features/profile/domain/entities/user_profile.dart';
 
 class AppRouter {
   AppRouter._();
@@ -47,8 +52,14 @@ class AppRouter {
   static const String myPets = '/my-pets';
   static const String addPet = '/add-pet';
   static const String adoptionPetDetails = '/adoption-pet-details';
+  static const String adoptionRequest = '/adoption-request';
+  static const String editProfile = '/edit-profile';
+  static const String notificationSettings = '/notification-settings';
   static const String petProfile = '/pet-profile';
 
+  // Public routes are handled here.
+  // Protected routes are handled in onGenerateRoute()
+  // so that authentication checks cannot be bypassed.
   static Map<String, WidgetBuilder> get routes => {
     splash: (_) => const SplashPage(),
 
@@ -77,78 +88,176 @@ class AppRouter {
     passwordResetSuccess: (_) => const PasswordResetSuccessPage(),
 
     registrationSuccess: (_) => const RegistrationSuccessPage(),
-
-    home: (_) => const OwnerShellPage(),
-
-    notifications: (_) => const NotificationsPage(),
-
-    myPets: (_) {
-      final repository = FirebasePetRepository(
-        auth: FirebaseAuth.instance,
-        firestore: FirebaseFirestore.instance,
-      );
-
-      final imageRepository = FirebasePetImageRepository(
-        auth: FirebaseAuth.instance,
-        storage: FirebaseStorage.instance,
-      );
-
-      final controller = PetsController(
-        CreatePet(repository),
-        GetPets(repository),
-        UpdatePet(repository),
-        DeletePet(repository),
-        UploadPetImage(imageRepository),
-        DeletePetImage(imageRepository),
-      );
-      return MyPetsPage(controller: controller);
-    },
-
-    petProfile: (context) {
-      final arguments = ModalRoute.of(context)?.settings.arguments;
-
-      if (arguments is! PetProfileRouteArgs) {
-        return const Scaffold(
-          body: Center(child: Text('Unable to open pet profile.')),
-        );
-      }
-
-      return PetProfilePage(
-        pet: arguments.pet,
-        controller: arguments.controller,
-      );
-    },
-
-    addPet: (context) {
-      final arguments = ModalRoute.of(context)?.settings.arguments;
-
-      if (arguments is AddEditPetRouteArgs) {
-        return AddEditPetPage(
-          controller: arguments.controller,
-          pet: arguments.pet,
-        );
-      }
-
-      // Keep the existing add-pet navigation working.
-      if (arguments is PetsController) {
-        return AddEditPetPage(controller: arguments);
-      }
-
-      return const Scaffold(
-        body: Center(child: Text('Unable to open Add Pet.')),
-      );
-    },
-
-    adoptionPetDetails: (context) {
-      final listingId = ModalRoute.of(context)?.settings.arguments as String?;
-
-      if (listingId == null || listingId.isEmpty) {
-        return const Scaffold(
-          body: Center(child: Text('Adoption listing ID is required.')),
-        );
-      }
-
-      return AdoptionPetDetailsPage(listingId: listingId);
-    },
   };
+
+  static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
+    return _onGenerateRoute(settings, FirebaseAuth.instance);
+  }
+
+  static RouteFactory routeGenerator({FirebaseAuth? auth}) {
+    return (settings) =>
+        _onGenerateRoute(settings, auth ?? FirebaseAuth.instance);
+  }
+
+  static Route<dynamic>? _onGenerateRoute(
+    RouteSettings settings,
+    FirebaseAuth auth,
+  ) {
+    final isAuthenticated = auth.currentUser != null;
+
+    final protectedRoutes = {
+      home,
+      myPets,
+      notifications,
+      addPet,
+      adoptionPetDetails,
+      adoptionRequest,
+      editProfile,
+      notificationSettings,
+      petProfile,
+    };
+
+    // Protect routes that require authentication.
+    if (protectedRoutes.contains(settings.name) && !isAuthenticated) {
+      return MaterialPageRoute(
+        builder: (_) => const LoginPage(),
+        settings: settings,
+      );
+    }
+
+    switch (settings.name) {
+      case home:
+        return MaterialPageRoute(
+          builder: (_) => OwnerShellPage(),
+          settings: settings,
+        );
+
+      case notifications:
+        return MaterialPageRoute(
+          builder: (_) => const NotificationsPage(),
+          settings: settings,
+        );
+
+      case myPets:
+        return MaterialPageRoute(
+          builder: (_) {
+            final repository = FirebasePetRepository(
+              auth: FirebaseAuth.instance,
+              firestore: FirebaseFirestore.instance,
+            );
+
+            final controller = PetsController(
+              CreatePet(repository),
+              GetPets(repository),
+              UpdatePet(repository),
+              DeletePet(repository),
+            );
+
+            return MyPetsPage(controller: controller);
+          },
+          settings: settings,
+        );
+
+      case petProfile:
+        final pet = settings.arguments as Pet?;
+
+        return MaterialPageRoute(
+          builder: (_) {
+            if (pet == null) {
+              return const Scaffold(
+                body: Center(child: Text('Unable to open pet profile.')),
+              );
+            }
+
+            return PetProfilePage(pet: pet);
+          },
+          settings: settings,
+        );
+
+      case addPet:
+        final controller = settings.arguments as PetsController?;
+
+        return MaterialPageRoute(
+          builder: (_) {
+            if (controller == null) {
+              return const Scaffold(
+                body: Center(child: Text('Unable to open Add Pet.')),
+              );
+            }
+
+            return AddEditPetPage(controller: controller);
+          },
+          settings: settings,
+        );
+
+      case adoptionPetDetails:
+        final listingId = settings.arguments as String?;
+
+        return MaterialPageRoute(
+          builder: (_) {
+            if (listingId == null || listingId.isEmpty) {
+              return const Scaffold(
+                body: Center(child: Text('Adoption listing ID is required.')),
+              );
+            }
+
+            return AdoptionPetDetailsPage(listingId: listingId);
+          },
+          settings: settings,
+        );
+
+      case adoptionRequest:
+        final listing = settings.arguments as AdoptionListing?;
+
+        return MaterialPageRoute(
+          builder: (_) {
+            if (listing == null) {
+              return const Scaffold(
+                body: Center(child: Text('Adoption listing is required.')),
+              );
+            }
+
+            return AdoptionRequestPage(listing: listing);
+          },
+          settings: settings,
+        );
+
+      case editProfile:
+        final profile = settings.arguments as UserProfile?;
+
+        return MaterialPageRoute(
+          builder: (_) {
+            if (profile == null) {
+              return const Scaffold(
+                body: Center(child: Text('Unable to open Edit Profile.')),
+              );
+            }
+
+            return EditProfilePage(profile: profile);
+          },
+          settings: settings,
+        );
+
+      case notificationSettings:
+        final profile = settings.arguments as UserProfile?;
+
+        return MaterialPageRoute(
+          builder: (_) {
+            if (profile == null) {
+              return const Scaffold(
+                body: Center(
+                  child: Text('Unable to open Notification Settings.'),
+                ),
+              );
+            }
+
+            return NotificationSettingsPage(profile: profile);
+          },
+          settings: settings,
+        );
+
+      default:
+        return null;
+    }
+  }
 }

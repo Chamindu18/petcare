@@ -32,9 +32,12 @@ class FirebaseAdoptionRequestRepository implements AdoptionRequestRepository {
     required String providerId,
     String? message,
   }) async {
-    _ensureSignedIn();
-
-    final user = _auth.currentUser!;
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw const AdoptionRequestRepositoryException(
+        'You must be signed in to submit an adoption request.',
+      );
+    }
 
     final now = FieldValue.serverTimestamp();
 
@@ -48,6 +51,28 @@ class FirebaseAdoptionRequestRepository implements AdoptionRequestRepository {
       'submittedAt': now,
       'updatedAt': now,
     });
+  }
+
+  @override
+  Stream<List<AdoptionRequest>> watchMyRequests() {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      return Stream.error(
+        const AdoptionRequestRepositoryException(
+          'You must be signed in to view your adoption requests.',
+        ),
+      );
+    }
+
+    return _requestsCollection
+        .where('requesterId', isEqualTo: user.uid)
+        .orderBy('submittedAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map(AdoptionRequestModel.fromFirestore).toList(),
+        );
   }
 
   @override

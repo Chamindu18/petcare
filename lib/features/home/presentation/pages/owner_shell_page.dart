@@ -16,6 +16,7 @@ import '../../../pets/domain/usecases/upload_pet_image.dart';
 import '../../../pets/presentation/pages/my_pets_page.dart';
 import '../../../pets/presentation/providers/pets_controller.dart';
 import 'home_page.dart';
+import '../../../profile/presentation/pages/profile_page.dart';
 
 class OwnerShellPage extends StatefulWidget {
   const OwnerShellPage({super.key});
@@ -75,6 +76,12 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final userName = user?.displayName?.trim().isNotEmpty == true
+        ? user!.displayName!.trim()
+        : 'Pet Owner';
+    final photoUrl = user?.photoURL?.trim();
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: IndexedStack(
@@ -84,6 +91,8 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             petsController: _petsController,
             onMyPetsTap: () => _onTabSelected(1),
             onAddPetTap: _openAddPet,
+            userName: userName,
+            photoUrl: photoUrl,
           ),
           MyPetsPage(controller: _petsController, ownsController: false),
           const _ComingSoonTab(
@@ -91,7 +100,7 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             icon: Icons.calendar_month_rounded,
           ),
           const _ComingSoonTab(title: 'AI Hub', icon: Icons.psychology_rounded),
-          const _ComingSoonTab(title: 'Profile', icon: Icons.person_rounded),
+          const ProfilePage(),
         ],
       ),
       bottomNavigationBar: _OwnerBottomNavigation(
