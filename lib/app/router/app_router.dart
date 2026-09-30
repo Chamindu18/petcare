@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../features/pets/presentation/pages/pet_profile_page.dart';
+import '../../features/pets/presentation/providers/pets_controller.dart';
 import '../../features/adoption/presentation/pages/adoption_pet_details_page.dart';
 import '../../features/adoption/domain/entities/adoption_listing.dart';
 import '../../features/adoption/presentation/pages/adoption_request_page.dart';
@@ -25,7 +26,6 @@ import '../../features/pets/domain/usecases/get_pets.dart';
 import '../../features/pets/domain/usecases/update_pet.dart';
 import '../../features/pets/presentation/pages/add_edit_pet_page.dart';
 import '../../features/pets/presentation/pages/my_pets_page.dart';
-import '../../features/pets/presentation/providers/pets_controller.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/notification_settings_page.dart';
 import '../../features/profile/domain/entities/user_profile.dart';
@@ -164,20 +164,17 @@ class AppRouter {
         );
 
       case petProfile:
-        return MaterialPageRoute(
-          builder: (context) {
-            final arguments = ModalRoute.of(context)?.settings.arguments;
+        final args = settings.arguments;
 
-            if (arguments is! PetProfileRouteArgs) {
+        return MaterialPageRoute(
+          builder: (_) {
+            if (args is! PetProfileRouteArgs) {
               return const Scaffold(
                 body: Center(child: Text('Unable to open pet profile.')),
               );
             }
 
-            return PetProfilePage(
-              pet: arguments.pet,
-              controller: arguments.controller,
-            );
+            return PetProfilePage(pet: args.pet, controller: args.controller);
           },
           settings: settings,
         );
