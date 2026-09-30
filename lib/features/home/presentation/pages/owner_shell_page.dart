@@ -47,27 +47,21 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
         firestore: FirebaseFirestore.instance,
       );
 
+      final imageRepository = FirebasePetImageRepository(
+        auth: FirebaseAuth.instance,
+        storage: FirebaseStorage.instance,
+      );
+
       _petsController = PetsController(
         CreatePet(repository),
         GetPets(repository),
         UpdatePet(repository),
         DeletePet(repository),
+        UploadPetImage(imageRepository),
+        DeletePetImage(imageRepository),
       );
       _ownsPetsController = true;
     }
-    final imageRepository = FirebasePetImageRepository(
-      auth: FirebaseAuth.instance,
-      storage: FirebaseStorage.instance,
-    );
-
-    _petsController = PetsController(
-      CreatePet(repository),
-      GetPets(repository),
-      UpdatePet(repository),
-      DeletePet(repository),
-      UploadPetImage(imageRepository),
-      DeletePetImage(imageRepository),
-    );
   }
 
   @override
