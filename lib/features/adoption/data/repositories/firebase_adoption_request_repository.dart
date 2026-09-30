@@ -76,6 +76,28 @@ class FirebaseAdoptionRequestRepository implements AdoptionRequestRepository {
   }
 
   @override
+  Stream<List<AdoptionRequest>> watchReceivedRequests() {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      return Stream.error(
+        const AdoptionRequestRepositoryException(
+          'You must be signed in to view received adoption requests.',
+        ),
+      );
+    }
+
+    return _requestsCollection
+        .where('providerId', isEqualTo: user.uid)
+        .orderBy('submittedAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map(AdoptionRequestModel.fromFirestore).toList(),
+        );
+  }
+
+  @override
   Stream<AdoptionRequest?> watchRequest({required String requestId}) {
     try {
       _ensureSignedIn();
