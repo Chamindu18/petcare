@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../features/pets/presentation/pages/pet_profile_page.dart';
+import '../../features/pets/presentation/providers/pets_controller.dart';
 import '../../features/adoption/presentation/pages/adoption_pet_details_page.dart';
 import '../../features/adoption/domain/entities/adoption_listing.dart';
 import '../../features/adoption/presentation/pages/adoption_request_page.dart';
@@ -26,10 +26,6 @@ import '../../features/pets/domain/usecases/get_pets.dart';
 import '../../features/pets/domain/usecases/update_pet.dart';
 import '../../features/pets/presentation/pages/add_edit_pet_page.dart';
 import '../../features/pets/presentation/pages/my_pets_page.dart';
-import '../../features/pets/presentation/providers/pets_controller.dart';
-import '../../features/pets/data/repositories/firebase_pet_image_repository.dart';
-import '../../features/pets/domain/usecases/delete_pet_image.dart';
-import '../../features/pets/domain/usecases/upload_pet_image.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/notification_settings_page.dart';
 import '../../features/profile/domain/entities/user_profile.dart';
@@ -168,17 +164,17 @@ class AppRouter {
         );
 
       case petProfile:
-        final pet = settings.arguments as Pet?;
+        final args = settings.arguments;
 
         return MaterialPageRoute(
           builder: (_) {
-            if (pet == null) {
+            if (args is! PetProfileRouteArgs) {
               return const Scaffold(
                 body: Center(child: Text('Unable to open pet profile.')),
               );
             }
 
-            return PetProfilePage(pet: pet);
+            return PetProfilePage(pet: args.pet, controller: args.controller);
           },
           settings: settings,
         );
