@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../notifications/domain/repositories/notification_repository.dart';
 import '../../../pets/data/repositories/firebase_pet_image_repository.dart';
 import '../../../pets/data/repositories/firebase_pet_repository.dart';
 import '../../../pets/domain/usecases/create_pet.dart';
@@ -15,14 +16,26 @@ import '../../../pets/domain/usecases/update_pet.dart';
 import '../../../pets/domain/usecases/upload_pet_image.dart';
 import '../../../pets/presentation/pages/my_pets_page.dart';
 import '../../../pets/presentation/providers/pets_controller.dart';
+import '../../../profile/domain/repositories/profile_repository.dart';
+import '../../../auth/domain/repositories/auth_repository.dart';
 import 'home_page.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
 
 class OwnerShellPage extends StatefulWidget {
-  const OwnerShellPage({super.key, this.petsController, this.auth});
+  const OwnerShellPage({
+    super.key,
+    this.petsController,
+    this.auth,
+    this.notificationRepository,
+    this.profileRepository,
+    this.authRepository,
+  });
 
   final PetsController? petsController;
   final FirebaseAuth? auth;
+  final NotificationRepository? notificationRepository;
+  final ProfileRepository? profileRepository;
+  final AuthRepository? authRepository;
 
   @override
   State<OwnerShellPage> createState() => _OwnerShellPageState();
@@ -105,6 +118,7 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             onAddPetTap: _openAddPet,
             userName: userName,
             photoUrl: photoUrl,
+            notificationRepository: widget.notificationRepository,
           ),
           MyPetsPage(controller: _petsController, ownsController: false),
           const _ComingSoonTab(
@@ -112,7 +126,10 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             icon: Icons.calendar_month_rounded,
           ),
           const _ComingSoonTab(title: 'AI Hub', icon: Icons.psychology_rounded),
-          const ProfilePage(),
+          ProfilePage(
+            profileRepository: widget.profileRepository,
+            authRepository: widget.authRepository,
+          ),
         ],
       ),
       bottomNavigationBar: _OwnerBottomNavigation(
