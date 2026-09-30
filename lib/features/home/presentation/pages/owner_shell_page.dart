@@ -51,11 +51,6 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
         storage: FirebaseStorage.instance,
       );
 
-      final imageRepository = FirebasePetImageRepository(
-        auth: FirebaseAuth.instance,
-        storage: FirebaseStorage.instance,
-      );
-
       _petsController = PetsController(
         CreatePet(repository),
         GetPets(repository),
