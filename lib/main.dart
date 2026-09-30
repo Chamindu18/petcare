@@ -15,17 +15,27 @@ Future<void> main() async {
 }
 
 class PetCareApp extends StatefulWidget {
-  const PetCareApp({super.key});
+  const PetCareApp({
+    super.key,
+    this.deepLinkService,
+    this.navigatorKey,
+    this.onGenerateRoute,
+    this.routes,
+  });
+
+  final DeepLinkService? deepLinkService;
+  final GlobalKey<NavigatorState>? navigatorKey;
+  final RouteFactory? onGenerateRoute;
+  final Map<String, WidgetBuilder>? routes;
 
   @override
   State<PetCareApp> createState() => _PetCareAppState();
 }
 
 class _PetCareAppState extends State<PetCareApp> {
-  static final GlobalKey<NavigatorState> _navigatorKey =
-      GlobalKey<NavigatorState>();
+  late final GlobalKey<NavigatorState> _navigatorKey;
 
-  final DeepLinkService _deepLinkService = DeepLinkService();
+  late final DeepLinkService _deepLinkService;
 
   String? _lastHandledLink;
   Uri? _pendingDeepLink;
@@ -33,6 +43,10 @@ class _PetCareAppState extends State<PetCareApp> {
   @override
   void initState() {
     super.initState();
+
+    _navigatorKey = widget.navigatorKey ?? GlobalKey<NavigatorState>();
+
+    _deepLinkService = widget.deepLinkService ?? DeepLinkService();
 
     // Start listening as early as possible so cold-start
     // links can be captured by app_links.
@@ -156,8 +170,8 @@ class _PetCareAppState extends State<PetCareApp> {
       theme: AppTheme.lightTheme,
       navigatorKey: _navigatorKey,
       initialRoute: AppRouter.splash,
-      routes: AppRouter.routes,
-      onGenerateRoute: AppRouter.routeGenerator(),
+      routes: widget.routes ?? AppRouter.routes,
+      onGenerateRoute: widget.onGenerateRoute ?? AppRouter.routeGenerator(),
     );
   }
 }
