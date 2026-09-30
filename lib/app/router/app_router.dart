@@ -180,17 +180,24 @@ class AppRouter {
         );
 
       case addPet:
-        final controller = settings.arguments as PetsController?;
-
         return MaterialPageRoute(
-          builder: (_) {
-            if (controller == null) {
-              return const Scaffold(
-                body: Center(child: Text('Unable to open Add Pet.')),
+          builder: (context) {
+            final arguments = ModalRoute.of(context)?.settings.arguments;
+
+            if (arguments is AddEditPetRouteArgs) {
+              return AddEditPetPage(
+                controller: arguments.controller,
+                pet: arguments.pet,
               );
             }
 
-            return AddEditPetPage(controller: controller);
+            if (arguments is PetsController) {
+              return AddEditPetPage(controller: arguments);
+            }
+
+            return const Scaffold(
+              body: Center(child: Text('Unable to open Add Pet.')),
+            );
           },
           settings: settings,
         );
