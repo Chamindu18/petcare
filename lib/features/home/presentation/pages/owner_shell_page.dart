@@ -1,12 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/config/cloudinary_config.dart';
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../notifications/domain/repositories/notification_repository.dart';
-import '../../../pets/data/repositories/firebase_pet_image_repository.dart';
+import '../../../pets/data/repositories/cloudinary_pet_image_repository.dart';
 import '../../../pets/data/repositories/firebase_pet_repository.dart';
 import '../../../pets/domain/usecases/create_pet.dart';
 import '../../../pets/domain/usecases/delete_pet.dart';
@@ -59,9 +59,9 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
         auth: FirebaseAuth.instance,
         firestore: FirebaseFirestore.instance,
       );
-      final imageRepository = FirebasePetImageRepository(
-        auth: FirebaseAuth.instance,
-        storage: FirebaseStorage.instance,
+      final imageRepository = CloudinaryPetImageRepository(
+        cloudName: CloudinaryConfig.cloudName,
+        uploadPreset: CloudinaryConfig.uploadPreset,
       );
 
       _petsController = PetsController(

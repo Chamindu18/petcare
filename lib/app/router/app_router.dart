@@ -20,11 +20,15 @@ import '../../features/auth/presentation/pages/reset_password_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/home/presentation/pages/owner_shell_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
+import '../../../../core/config/cloudinary_config.dart';
+import '../../features/pets/data/repositories/cloudinary_pet_image_repository.dart';
 import '../../features/pets/data/repositories/firebase_pet_repository.dart';
 import '../../features/pets/domain/usecases/create_pet.dart';
 import '../../features/pets/domain/usecases/delete_pet.dart';
+import '../../features/pets/domain/usecases/delete_pet_image.dart';
 import '../../features/pets/domain/usecases/get_pets.dart';
 import '../../features/pets/domain/usecases/update_pet.dart';
+import '../../features/pets/domain/usecases/upload_pet_image.dart';
 import '../../features/pets/presentation/pages/add_edit_pet_page.dart';
 import '../../features/pets/presentation/pages/my_pets_page.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
@@ -154,11 +158,18 @@ class AppRouter {
               firestore: FirebaseFirestore.instance,
             );
 
+            final imageRepository = CloudinaryPetImageRepository(
+              cloudName: CloudinaryConfig.cloudName,
+              uploadPreset: CloudinaryConfig.uploadPreset,
+            );
+
             final controller = PetsController(
               CreatePet(repository),
               GetPets(repository),
               UpdatePet(repository),
               DeletePet(repository),
+              UploadPetImage(imageRepository),
+              DeletePetImage(imageRepository),
             );
 
             return MyPetsPage(controller: controller);
