@@ -26,9 +26,7 @@ class _FakeProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<void> updateNotificationPreference({
-    required bool enabled,
-  }) async {}
+  Future<void> updateNotificationPreference({required bool enabled}) async {}
 }
 
 void main() {
@@ -76,10 +74,7 @@ void main() {
       ),
     );
 
-    await tester.enterText(
-      find.byType(TextFormField).first,
-      '',
-    );
+    await tester.enterText(find.byType(TextFormField).first, '');
 
     await tester.tap(find.text('Save Changes'));
     await tester.pump();
@@ -100,15 +95,9 @@ void main() {
       ),
     );
 
-    await tester.enterText(
-      find.byType(TextFormField).first,
-      'Updated User',
-    );
+    await tester.enterText(find.byType(TextFormField).first, 'Updated User');
 
-    await tester.enterText(
-      find.byType(TextFormField).last,
-      '0771234567',
-    );
+    await tester.enterText(find.byType(TextFormField).last, '0771234567');
 
     await tester.tap(find.text('Save Changes'));
     await tester.pumpAndSettle();

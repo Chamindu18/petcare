@@ -213,7 +213,8 @@ void main() {
         home: OwnerShellPage(
           petsController: petsController,
           auth: auth ?? signedInAuth,
-          notificationRepository: notificationRepository ?? _FakeNotificationRepository(),
+          notificationRepository:
+              notificationRepository ?? _FakeNotificationRepository(),
           profileRepository: profileRepository ?? _FakeProfileRepository(),
           authRepository: authRepository ?? _FakeAuthRepository(),
         ),

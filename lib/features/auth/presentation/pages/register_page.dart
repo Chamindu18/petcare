@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../shared/widgets/auth_shared.dart';
 import '../../data/repositories/firebase_auth_repository.dart';
 import '../../domain/repositories/auth_repository.dart';
 
@@ -145,19 +146,7 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppTheme.error,
-          margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-      );
+    showAuthErrorSnackBar(context, message);
   }
 
   String? _validateFullName(String? value) {
@@ -244,7 +233,15 @@ class _RegisterPageState extends State<RegisterPage> {
             const Positioned.fill(child: _RegisterBackground()),
             Column(
               children: [
-                _RegisterTopBar(onBack: () => Navigator.pop(context)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 10, 20, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: AuthBackButton(
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                ),
                 Expanded(
                   child: SingleChildScrollView(
                     keyboardDismissBehavior:
@@ -292,7 +289,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                           SizedBox(height: isCompact ? 14 : 18),
-                          const _FieldLabel(label: 'Full Name'),
+                          const AuthFieldLabel(label: 'Full Name'),
                           const SizedBox(height: 6),
                           TextFormField(
                             controller: _fullNameController,
@@ -309,7 +306,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          const _FieldLabel(label: 'Email'),
+                          const AuthFieldLabel(label: 'Email'),
                           const SizedBox(height: 6),
                           TextFormField(
                             controller: _emailController,
@@ -327,7 +324,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          const _FieldLabel(label: 'Phone Number'),
+                          const AuthFieldLabel(label: 'Phone Number'),
                           const SizedBox(height: 6),
                           TextFormField(
                             controller: _phoneController,
@@ -344,7 +341,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          const _FieldLabel(label: 'Password'),
+                          const AuthFieldLabel(label: 'Password'),
                           const SizedBox(height: 6),
                           TextFormField(
                             controller: _passwordController,
@@ -381,13 +378,13 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                           const SizedBox(height: 7),
-                          _PasswordRequirements(
+                          AuthPasswordRequirements(
                             hasEightCharacters: _hasEightCharacters,
                             hasUppercase: _hasUppercase,
                             hasNumber: _hasNumber,
                           ),
                           const SizedBox(height: 10),
-                          const _FieldLabel(label: 'Confirm Password'),
+                          const AuthFieldLabel(label: 'Confirm Password'),
                           const SizedBox(height: 6),
                           TextFormField(
                             controller: _confirmPasswordController,
@@ -471,7 +468,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                           SizedBox(height: isCompact ? 12 : 15),
-                          const _OrDivider(),
+                          const AuthOrDivider(),
                           SizedBox(height: isCompact ? 11 : 13),
                           SizedBox(
                             width: double.infinity,
@@ -509,7 +506,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                       mainAxisAlignment:
                                           MainAxisAlignment.center,
                                       children: [
-                                        const _GoogleLogo(),
+                                        const AuthGoogleLogo(),
                                         const SizedBox(width: 9),
                                         Text(
                                           'Continue with Google',
@@ -573,195 +570,9 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 }
 
-class _RegisterTopBar extends StatelessWidget {
-  const _RegisterTopBar({required this.onBack});
-
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 10, 20, 0),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Transform.translate(
-          offset: const Offset(-4, 0),
-          child: IconButton(
-            onPressed: onBack,
-            tooltip: 'Back',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-            style: IconButton.styleFrom(
-              backgroundColor: AppTheme.secondary.withValues(alpha: 0.20),
-              shape: const CircleBorder(),
-            ),
-            icon: const Icon(
-              Icons.arrow_back_rounded,
-              size: 28,
-              color: AppTheme.espresso,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: AppTheme.espresso,
-          fontSize: 14,
-          fontWeight: FontWeight.w800,
-          height: 1.2,
-        ),
-      ),
-    );
-  }
-}
-
-class _PasswordRequirements extends StatelessWidget {
-  const _PasswordRequirements({
-    required this.hasEightCharacters,
-    required this.hasUppercase,
-    required this.hasNumber,
-  });
-
-  final bool hasEightCharacters;
-  final bool hasUppercase;
-  final bool hasNumber;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 9),
-      decoration: BoxDecoration(
-        color: AppTheme.white.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.22)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Password must include:',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.espresso,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 5),
-          _RequirementRow(
-            text: 'At least 8 characters',
-            satisfied: hasEightCharacters,
-          ),
-          const SizedBox(height: 3),
-          _RequirementRow(
-            text: 'One uppercase letter',
-            satisfied: hasUppercase,
-          ),
-          const SizedBox(height: 3),
-          _RequirementRow(text: 'One number', satisfied: hasNumber),
-        ],
-      ),
-    );
-  }
-}
-
-class _RequirementRow extends StatelessWidget {
-  const _RequirementRow({required this.text, required this.satisfied});
-
-  final String text;
-  final bool satisfied;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(
-          satisfied
-              ? Icons.check_circle_rounded
-              : Icons.radio_button_unchecked_rounded,
-          size: 15,
-          color: satisfied
-              ? AppTheme.success
-              : AppTheme.espresso.withValues(alpha: 0.50),
-        ),
-        const SizedBox(width: 7),
-        Text(
-          text,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: AppTheme.espresso,
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _OrDivider extends StatelessWidget {
-  const _OrDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Divider(
-            color: AppTheme.secondary.withValues(alpha: 0.35),
-            thickness: 1,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            'or continue with',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.espresso.withValues(alpha: 0.65),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Divider(
-            color: AppTheme.secondary.withValues(alpha: 0.35),
-            thickness: 1,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _GoogleLogo extends StatelessWidget {
-  const _GoogleLogo();
-
-  @override
-  Widget build(BuildContext context) {
-    return Image.asset(
-      'assets/images/auth/google_logo.png',
-      width: 21,
-      height: 21,
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.high,
-      semanticLabel: 'Google logo',
-    );
-  }
-}
+// -----------------------------------------------------------------------------
+// Background
+// -----------------------------------------------------------------------------
 
 class _RegisterBackground extends StatelessWidget {
   const _RegisterBackground();

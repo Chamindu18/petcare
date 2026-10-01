@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../shared/widgets/auth_shared.dart';
 import '../../data/repositories/firebase_auth_repository.dart';
 import '../../domain/repositories/auth_repository.dart';
 
@@ -109,19 +110,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppTheme.error,
-          margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-      );
+    showAuthErrorSnackBar(context, message);
   }
 
   String? _validatePassword(String? value) {
@@ -164,7 +153,13 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
             const Positioned.fill(child: _ResetPasswordBackground()),
             Column(
               children: [
-                _ResetPasswordTopBar(onBack: _backToLogin),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 10, 20, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: AuthBackButton(onPressed: _backToLogin),
+                  ),
+                ),
                 Expanded(
                   child: SingleChildScrollView(
                     keyboardDismissBehavior:
@@ -224,7 +219,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                           SizedBox(height: isCompact ? 16 : 20),
 
                           // New password
-                          const _FieldLabel(label: 'New Password'),
+                          const AuthFieldLabel(label: 'New Password'),
 
                           const SizedBox(height: 7),
 
@@ -270,16 +265,18 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                           const SizedBox(height: 8),
 
                           // Password requirements
-                          _PasswordRequirements(
+                          AuthPasswordRequirements(
                             hasEightCharacters: _hasEightCharacters,
                             hasUppercase: _hasUppercase,
                             hasNumber: _hasNumber,
+                            variant:
+                                AuthPasswordRequirementsVariant.resetPassword,
                           ),
 
                           const SizedBox(height: 16),
 
                           // Confirm password
-                          const _FieldLabel(label: 'Confirm New Password'),
+                          const AuthFieldLabel(label: 'Confirm New Password'),
 
                           const SizedBox(height: 7),
 
@@ -392,70 +389,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 }
 
 // -----------------------------------------------------------------------------
-// Top bar
-// -----------------------------------------------------------------------------
-
-class _ResetPasswordTopBar extends StatelessWidget {
-  const _ResetPasswordTopBar({required this.onBack});
-
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 10, 20, 0),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Transform.translate(
-          offset: const Offset(-4, 0),
-          child: IconButton(
-            onPressed: onBack,
-            tooltip: 'Back',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-            style: IconButton.styleFrom(
-              backgroundColor: AppTheme.secondary.withValues(alpha: 0.20),
-              shape: const CircleBorder(),
-            ),
-            icon: const Icon(
-              Icons.arrow_back_rounded,
-              size: 28,
-              color: AppTheme.espresso,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// -----------------------------------------------------------------------------
-// Field label
-// -----------------------------------------------------------------------------
-
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: AppTheme.espresso,
-          fontSize: 14,
-          fontWeight: FontWeight.w800,
-          height: 1.2,
-        ),
-      ),
-    );
-  }
-}
-
-// -----------------------------------------------------------------------------
 // Verified email information card
 // -----------------------------------------------------------------------------
 
@@ -532,108 +465,6 @@ class _VerifiedEmailCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-// -----------------------------------------------------------------------------
-// Password requirements
-// -----------------------------------------------------------------------------
-
-class _PasswordRequirements extends StatelessWidget {
-  const _PasswordRequirements({
-    required this.hasEightCharacters,
-    required this.hasUppercase,
-    required this.hasNumber,
-  });
-
-  final bool hasEightCharacters;
-  final bool hasUppercase;
-  final bool hasNumber;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 11),
-      decoration: BoxDecoration(
-        color: AppTheme.white.withValues(alpha: 0.70),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(14),
-          bottomRight: Radius.circular(14),
-        ),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Password must include:',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.espresso,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 7),
-          _RequirementRow(
-            text: 'At least 8 characters',
-            satisfied: hasEightCharacters,
-          ),
-          const SizedBox(height: 5),
-          _RequirementRow(
-            text: 'One uppercase letter',
-            satisfied: hasUppercase,
-          ),
-          const SizedBox(height: 5),
-          _RequirementRow(text: 'One number', satisfied: hasNumber),
-        ],
-      ),
-    );
-  }
-}
-
-class _RequirementRow extends StatelessWidget {
-  const _RequirementRow({required this.text, required this.satisfied});
-
-  final String text;
-  final bool satisfied;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          width: 18,
-          height: 18,
-          decoration: BoxDecoration(
-            color: satisfied
-                ? AppTheme.success
-                : AppTheme.secondary.withValues(alpha: 0.35),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.check_rounded,
-            color: satisfied
-                ? AppTheme.white
-                : AppTheme.deepBrown.withValues(alpha: 0.55),
-            size: 13,
-          ),
-        ),
-        const SizedBox(width: 7),
-        Expanded(
-          child: Text(
-            text,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.espresso,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w500,
-              height: 1.2,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
