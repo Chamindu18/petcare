@@ -90,6 +90,17 @@ void main() {
           expect(widget, isA<LoginPage>());
         });
 
+        test('myAdoptionListings returns LoginPage route', () {
+          final route = routeGenerator(
+            const RouteSettings(name: AppRouter.myAdoptionListings),
+          );
+          expect(route, isA<MaterialPageRoute>());
+          final materialRoute = route as MaterialPageRoute;
+          expect(materialRoute.settings.name, AppRouter.myAdoptionListings);
+          final widget = materialRoute.builder(const _BuildContextStub());
+          expect(widget, isA<LoginPage>());
+        });
+
         test('petProfile returns LoginPage route with null arguments', () {
           final route = routeGenerator(
             const RouteSettings(name: AppRouter.petProfile, arguments: null),
@@ -250,6 +261,16 @@ void main() {
           expect(materialRoute.settings.arguments, testPet);
         },
       );
+
+      test('myAdoptionListings returns route for /my-adoption-listings', () {
+        final route = signedInRouteGenerator(
+          const RouteSettings(name: AppRouter.myAdoptionListings),
+        );
+        expect(route, isA<MaterialPageRoute>());
+        final materialRoute = route as MaterialPageRoute;
+        expect(materialRoute.settings.name, AppRouter.myAdoptionListings);
+        expect(materialRoute.settings.arguments, isNull);
+      });
 
       test('adoptionPetDetails returns route for /adoption-pet-details with preserved listingId', () {
         const listingId = 'adoption-listing-456';
