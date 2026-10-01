@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/router/app_router.dart';
 import '../../domain/entities/pet.dart';
 import '../providers/pets_controller.dart';
+import 'pet_profile_page.dart';
 
 class MyPetsPage extends StatefulWidget {
   const MyPetsPage({
@@ -55,6 +56,14 @@ class _MyPetsPageState extends State<MyPetsPage> {
 
   void _openAddPet() {
     Navigator.pushNamed(context, AppRouter.addPet, arguments: _controller);
+  }
+
+  void _openPetProfile(Pet pet) {
+    Navigator.pushNamed(
+      context,
+      AppRouter.petProfile,
+      arguments: PetProfileRouteArgs(pet: pet, controller: _controller),
+    );
   }
 
   @override
@@ -156,7 +165,9 @@ class _MyPetsPageState extends State<MyPetsPage> {
         itemCount: pets.length,
         separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
-          return _PetCard(pet: pets[index]);
+          final pet = pets[index];
+
+          return _PetCard(pet: pet, onTap: () => _openPetProfile(pet));
         },
       ),
     );
@@ -164,17 +175,16 @@ class _MyPetsPageState extends State<MyPetsPage> {
 }
 
 class _PetCard extends StatelessWidget {
-  const _PetCard({required this.pet});
+  const _PetCard({required this.pet, required this.onTap});
 
   final Pet pet;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        onTap: () {
-          Navigator.pushNamed(context, AppRouter.petProfile, arguments: pet);
-        },
+        onTap: onTap,
         contentPadding: const EdgeInsets.all(16),
         leading: CircleAvatar(
           radius: 28,

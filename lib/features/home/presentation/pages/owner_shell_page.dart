@@ -1,21 +1,41 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../notifications/domain/repositories/notification_repository.dart';
+import '../../../pets/data/repositories/firebase_pet_image_repository.dart';
 import '../../../pets/data/repositories/firebase_pet_repository.dart';
 import '../../../pets/domain/usecases/create_pet.dart';
 import '../../../pets/domain/usecases/delete_pet.dart';
+import '../../../pets/domain/usecases/delete_pet_image.dart';
 import '../../../pets/domain/usecases/get_pets.dart';
 import '../../../pets/domain/usecases/update_pet.dart';
+import '../../../pets/domain/usecases/upload_pet_image.dart';
 import '../../../pets/presentation/pages/my_pets_page.dart';
 import '../../../pets/presentation/providers/pets_controller.dart';
+import '../../../profile/domain/repositories/profile_repository.dart';
+import '../../../auth/domain/repositories/auth_repository.dart';
 import 'home_page.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
 
 class OwnerShellPage extends StatefulWidget {
-  const OwnerShellPage({super.key});
+  const OwnerShellPage({
+    super.key,
+    this.petsController,
+    this.auth,
+    this.notificationRepository,
+    this.profileRepository,
+    this.authRepository,
+  });
+
+  final PetsController? petsController;
+  final FirebaseAuth? auth;
+  final NotificationRepository? notificationRepository;
+  final ProfileRepository? profileRepository;
+  final AuthRepository? authRepository;
 
   @override
   State<OwnerShellPage> createState() => _OwnerShellPageState();
@@ -25,27 +45,42 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
   int _currentIndex = 0;
 
   late final PetsController _petsController;
+  bool _ownsPetsController = false;
 
   @override
   void initState() {
     super.initState();
 
-    final repository = FirebasePetRepository(
-      auth: FirebaseAuth.instance,
-      firestore: FirebaseFirestore.instance,
-    );
+    if (widget.petsController != null) {
+      _petsController = widget.petsController!;
+      _ownsPetsController = false;
+    } else {
+      final repository = FirebasePetRepository(
+        auth: FirebaseAuth.instance,
+        firestore: FirebaseFirestore.instance,
+      );
+      final imageRepository = FirebasePetImageRepository(
+        auth: FirebaseAuth.instance,
+        storage: FirebaseStorage.instance,
+      );
 
-    _petsController = PetsController(
-      CreatePet(repository),
-      GetPets(repository),
-      UpdatePet(repository),
-      DeletePet(repository),
-    );
+      _petsController = PetsController(
+        CreatePet(repository),
+        GetPets(repository),
+        UpdatePet(repository),
+        DeletePet(repository),
+        UploadPetImage(imageRepository),
+        DeletePetImage(imageRepository),
+      );
+      _ownsPetsController = true;
+    }
   }
 
   @override
   void dispose() {
-    _petsController.dispose();
+    if (_ownsPetsController) {
+      _petsController.dispose();
+    }
     super.dispose();
   }
 
@@ -65,7 +100,8 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final auth = widget.auth ?? FirebaseAuth.instance;
+    final user = auth.currentUser;
     final userName = user?.displayName?.trim().isNotEmpty == true
         ? user!.displayName!.trim()
         : 'Pet Owner';
@@ -82,6 +118,7 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             onAddPetTap: _openAddPet,
             userName: userName,
             photoUrl: photoUrl,
+            notificationRepository: widget.notificationRepository,
           ),
           MyPetsPage(controller: _petsController, ownsController: false),
           const _ComingSoonTab(
@@ -89,7 +126,10 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             icon: Icons.calendar_month_rounded,
           ),
           const _ComingSoonTab(title: 'AI Hub', icon: Icons.psychology_rounded),
-          const ProfilePage(),
+          ProfilePage(
+            profileRepository: widget.profileRepository,
+            authRepository: widget.authRepository,
+          ),
         ],
       ),
       bottomNavigationBar: _OwnerBottomNavigation(
