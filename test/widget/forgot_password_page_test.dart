@@ -205,5 +205,113 @@ void main() {
       expect(capturedRouteSettings!.name, AppRouter.checkEmail);
       expect(capturedRouteSettings!.arguments, testEmail);
     });
+
+    testWidgets('bottom artwork hides when keyboard is visible', (
+      tester,
+    ) async {
+      final repo = _FakeAuthRepository();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          routes: {
+            AppRouter.login: (_) => const Scaffold(body: Text('Login')),
+            AppRouter.register: (_) => const Scaffold(body: Text('Register')),
+            AppRouter.forgotPassword: (_) =>
+                const Scaffold(body: Text('Forgot Password')),
+            AppRouter.onboarding: (_) =>
+                const Scaffold(body: Text('Onboarding')),
+            AppRouter.checkEmail: (_) =>
+                const Scaffold(body: Text('Check Email')),
+          },
+          onGenerateRoute: (_) => null,
+          home: ForgotPasswordPage(authRepository: repo),
+        ),
+      );
+
+      // Initially keyboard is hidden - artwork should be present
+      expect(
+        find.bySemanticsLabel('Golden retriever and cat together'),
+        findsOneWidget,
+      );
+
+      // Simulate keyboard open by pumping with viewInsets
+      await tester.pumpWidget(
+        MediaQuery(
+          data: MediaQuery.of(tester.element(find.byType(Scaffold)))
+              .copyWith(viewInsets: const EdgeInsets.only(bottom: 300)),
+          child: MaterialApp(
+            routes: {
+              AppRouter.login: (_) => const Scaffold(body: Text('Login')),
+              AppRouter.register: (_) => const Scaffold(body: Text('Register')),
+              AppRouter.forgotPassword: (_) =>
+                  const Scaffold(body: Text('Forgot Password')),
+              AppRouter.onboarding: (_) =>
+                  const Scaffold(body: Text('Onboarding')),
+              AppRouter.checkEmail: (_) =>
+                  const Scaffold(body: Text('Check Email')),
+            },
+            onGenerateRoute: (_) => null,
+            home: ForgotPasswordPage(authRepository: repo),
+          ),
+        ),
+      );
+
+      // Artwork should be hidden when keyboard is visible
+      expect(
+        find.bySemanticsLabel('Golden retriever and cat together'),
+        findsNothing,
+      );
+    });
+
+    testWidgets('bottom artwork shows when keyboard is hidden', (tester) async {
+      final repo = _FakeAuthRepository();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          routes: {
+            AppRouter.login: (_) => const Scaffold(body: Text('Login')),
+            AppRouter.register: (_) => const Scaffold(body: Text('Register')),
+            AppRouter.forgotPassword: (_) =>
+                const Scaffold(body: Text('Forgot Password')),
+            AppRouter.onboarding: (_) =>
+                const Scaffold(body: Text('Onboarding')),
+            AppRouter.checkEmail: (_) =>
+                const Scaffold(body: Text('Check Email')),
+          },
+          onGenerateRoute: (_) => null,
+          home: ForgotPasswordPage(authRepository: repo),
+        ),
+      );
+
+      // Keyboard hidden - artwork should be present
+      expect(
+        find.bySemanticsLabel('Golden retriever and cat together'),
+        findsOneWidget,
+      );
+
+      // Simulate keyboard dismissed
+      await tester.pumpWidget(
+        MaterialApp(
+          routes: {
+            AppRouter.login: (_) => const Scaffold(body: Text('Login')),
+            AppRouter.register: (_) => const Scaffold(body: Text('Register')),
+            AppRouter.forgotPassword: (_) =>
+                const Scaffold(body: Text('Forgot Password')),
+            AppRouter.onboarding: (_) =>
+                const Scaffold(body: Text('Onboarding')),
+            AppRouter.checkEmail: (_) =>
+                const Scaffold(body: Text('Check Email')),
+          },
+          onGenerateRoute: (_) => null,
+          home: ForgotPasswordPage(authRepository: repo),
+        ),
+      );
+
+      // Artwork should be present after keyboard dismissed
+      expect(
+        find.bySemanticsLabel('Golden retriever and cat together'),
+        findsOneWidget,
+      );
+    });
   });
 }

@@ -332,16 +332,18 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               right: 0,
               bottom: 0,
               child: IgnorePointer(
-                child: SizedBox(
-                  height: isCompact ? 180 : 220,
-                  child: Image.asset(
-                    'assets/images/auth/forgot_password_pets.png',
-                    fit: BoxFit.contain,
-                    alignment: Alignment.bottomCenter,
-                    filterQuality: FilterQuality.high,
-                    semanticLabel: 'Golden retriever and cat together',
-                  ),
-                ),
+                child: MediaQuery.of(context).viewInsets.bottom > 0
+                    ? const SizedBox.shrink()
+                    : SizedBox(
+                        height: isCompact ? 180 : 220,
+                        child: Image.asset(
+                          'assets/images/auth/forgot_password_pets.png',
+                          fit: BoxFit.contain,
+                          alignment: Alignment.bottomCenter,
+                          filterQuality: FilterQuality.high,
+                          semanticLabel: 'Golden retriever and cat together',
+                        ),
+                      ),
               ),
             ),
           ],

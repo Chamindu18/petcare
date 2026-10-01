@@ -445,16 +445,18 @@ class _LoginPageState extends State<LoginPage> {
               right: 0,
               bottom: 0,
               child: IgnorePointer(
-                child: SizedBox(
-                  height: isCompact ? 115 : 145,
-                  child: Image.asset(
-                    'assets/images/auth/login_bottom_pets.png',
-                    fit: BoxFit.contain,
-                    alignment: Alignment.bottomCenter,
-                    filterQuality: FilterQuality.high,
-                    semanticLabel: 'PetCare+ dog and cat illustration',
-                  ),
-                ),
+                child: MediaQuery.of(context).viewInsets.bottom > 0
+                    ? const SizedBox.shrink()
+                    : SizedBox(
+                        height: isCompact ? 115 : 145,
+                        child: Image.asset(
+                          'assets/images/auth/login_bottom_pets.png',
+                          fit: BoxFit.contain,
+                          alignment: Alignment.bottomCenter,
+                          filterQuality: FilterQuality.high,
+                          semanticLabel: 'PetCare+ dog and cat illustration',
+                        ),
+                      ),
               ),
             ),
           ],
