@@ -306,6 +306,51 @@ void main() {
       expect(routeCapture.settings!.arguments, same(fakeController));
     });
 
+    testWidgets('bottom navigation items meet 48x48 minimum tap target', (
+      tester,
+    ) async {
+      final fakeController = _FakePetsController();
+
+      await tester.pumpWidget(buildTestApp(petsController: fakeController));
+      await tester.pumpAndSettle();
+
+      final labels = ['Home', 'My Pets', 'Appointments', 'AI Hub', 'Profile'];
+
+      for (final label in labels) {
+        // Find the text widget for this label
+        final textFinder = find.text(label);
+        expect(
+          textFinder,
+          findsAtLeast(1),
+          reason: 'Bottom nav label "$label" not found',
+        );
+
+        // Find the ancestor InkWell (the tappable area)
+        final inkWellFinder = find.ancestor(
+          of: textFinder.first,
+          matching: find.byType(InkWell),
+        );
+        expect(
+          inkWellFinder,
+          findsOneWidget,
+          reason: 'InkWell ancestor not found for "$label"',
+        );
+
+        final renderBox = tester.renderObject<RenderBox>(inkWellFinder);
+
+        expect(
+          renderBox.size.width,
+          greaterThanOrEqualTo(48),
+          reason: 'Bottom nav item "$label" width below 48dp',
+        );
+        expect(
+          renderBox.size.height,
+          greaterThanOrEqualTo(48),
+          reason: 'Bottom nav item "$label" height below 48dp',
+        );
+      }
+    });
+
     // TEST 5 and TEST 6 intentionally omitted:
     // - 'renders without an injected PetsController' requires OwnerShellPage to
     //   create FirebasePetRepository with FirebaseAuth.instance/FirebaseFirestore.instance
