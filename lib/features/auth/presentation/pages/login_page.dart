@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../shared/widgets/auth_shared.dart';
 import '../../data/repositories/firebase_auth_repository.dart';
 import '../../domain/repositories/auth_repository.dart';
 
@@ -129,19 +130,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppTheme.error,
-          margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-      );
+    showAuthErrorSnackBar(context, message);
   }
 
   String? _validateEmail(String? value) {
@@ -186,7 +175,15 @@ class _LoginPageState extends State<LoginPage> {
             const Positioned.fill(child: _LoginBackground()),
             Column(
               children: [
-                _LoginTopBar(onBack: () => Navigator.pop(context)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 10, 20, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: AuthBackButton(
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                ),
                 Expanded(
                   child: SingleChildScrollView(
                     keyboardDismissBehavior:
@@ -230,7 +227,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           SizedBox(height: isCompact ? 18 : 24),
-                          const _FieldLabel(label: 'Email'),
+                          const AuthFieldLabel(label: 'Email'),
                           const SizedBox(height: 7),
                           TextFormField(
                             controller: _emailController,
@@ -248,7 +245,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           const SizedBox(height: 14),
-                          const _FieldLabel(label: 'Password'),
+                          const AuthFieldLabel(label: 'Password'),
                           const SizedBox(height: 7),
                           TextFormField(
                             controller: _passwordController,
@@ -354,7 +351,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           SizedBox(height: isCompact ? 16 : 20),
-                          const _OrDivider(),
+                          const AuthOrDivider(),
                           SizedBox(height: isCompact ? 14 : 16),
                           SizedBox(
                             width: double.infinity,
@@ -392,7 +389,7 @@ class _LoginPageState extends State<LoginPage> {
                                       mainAxisAlignment:
                                           MainAxisAlignment.center,
                                       children: [
-                                        const _GoogleLogo(),
+                                        const AuthGoogleLogo(),
                                         const SizedBox(width: 10),
                                         Text(
                                           'Continue with Google',
@@ -448,16 +445,18 @@ class _LoginPageState extends State<LoginPage> {
               right: 0,
               bottom: 0,
               child: IgnorePointer(
-                child: SizedBox(
-                  height: isCompact ? 115 : 145,
-                  child: Image.asset(
-                    'assets/images/auth/login_bottom_pets.png',
-                    fit: BoxFit.contain,
-                    alignment: Alignment.bottomCenter,
-                    filterQuality: FilterQuality.high,
-                    semanticLabel: 'PetCare+ dog and cat illustration',
-                  ),
-                ),
+                child: MediaQuery.of(context).viewInsets.bottom > 0
+                    ? const SizedBox.shrink()
+                    : SizedBox(
+                        height: isCompact ? 115 : 145,
+                        child: Image.asset(
+                          'assets/images/auth/login_bottom_pets.png',
+                          fit: BoxFit.contain,
+                          alignment: Alignment.bottomCenter,
+                          filterQuality: FilterQuality.high,
+                          semanticLabel: 'PetCare+ dog and cat illustration',
+                        ),
+                      ),
               ),
             ),
           ],
@@ -467,111 +466,9 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-class _LoginTopBar extends StatelessWidget {
-  const _LoginTopBar({required this.onBack});
-
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 10, 20, 0),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Transform.translate(
-          offset: const Offset(-4, 0),
-          child: IconButton(
-            onPressed: onBack,
-            tooltip: 'Back',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-            style: IconButton.styleFrom(
-              backgroundColor: AppTheme.secondary.withValues(alpha: 0.20),
-              shape: const CircleBorder(),
-            ),
-            icon: const Icon(
-              Icons.arrow_back_rounded,
-              size: 28,
-              color: AppTheme.espresso,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: AppTheme.espresso,
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _OrDivider extends StatelessWidget {
-  const _OrDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Divider(
-            color: AppTheme.secondary.withValues(alpha: 0.35),
-            thickness: 1,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            'or continue with',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.espresso.withValues(alpha: 0.65),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Divider(
-            color: AppTheme.secondary.withValues(alpha: 0.35),
-            thickness: 1,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _GoogleLogo extends StatelessWidget {
-  const _GoogleLogo();
-
-  @override
-  Widget build(BuildContext context) {
-    return Image.asset(
-      'assets/images/auth/google_logo.png',
-      width: 25,
-      height: 25,
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.high,
-      semanticLabel: 'Google logo',
-    );
-  }
-}
+// -----------------------------------------------------------------------------
+// Background
+// -----------------------------------------------------------------------------
 
 class _LoginBackground extends StatelessWidget {
   const _LoginBackground();

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../shared/widgets/auth_shared.dart';
 import '../../data/repositories/firebase_auth_repository.dart';
 import '../../domain/repositories/auth_repository.dart';
 
@@ -92,19 +93,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppTheme.error,
-          margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-      );
+    showAuthErrorSnackBar(context, message);
   }
 
   String? _validateEmail(String? value) {
@@ -137,7 +126,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             const Positioned.fill(child: _ForgotPasswordBackground()),
             Column(
               children: [
-                _ForgotPasswordTopBar(onBack: () => Navigator.pop(context)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 10, 20, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: AuthBackButton(
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                ),
                 Expanded(
                   child: SingleChildScrollView(
                     keyboardDismissBehavior:
@@ -196,7 +193,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           SizedBox(height: isCompact ? 24 : 32),
 
                           // Email label
-                          const _FieldLabel(label: 'Email'),
+                          const AuthFieldLabel(label: 'Email'),
 
                           const SizedBox(height: 8),
 
@@ -276,7 +273,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           const SizedBox(height: 26),
 
                           // Divider
-                          const _OrDivider(),
+                          const AuthOrDivider(
+                            text: 'or',
+                            dividerAlpha: 0.38,
+                            horizontalPadding: 14,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
 
                           const SizedBox(height: 22),
 
@@ -329,124 +332,23 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               right: 0,
               bottom: 0,
               child: IgnorePointer(
-                child: SizedBox(
-                  height: isCompact ? 180 : 220,
-                  child: Image.asset(
-                    'assets/images/auth/forgot_password_pets.png',
-                    fit: BoxFit.contain,
-                    alignment: Alignment.bottomCenter,
-                    filterQuality: FilterQuality.high,
-                    semanticLabel: 'Golden retriever and cat together',
-                  ),
-                ),
+                child: MediaQuery.of(context).viewInsets.bottom > 0
+                    ? const SizedBox.shrink()
+                    : SizedBox(
+                        height: isCompact ? 180 : 220,
+                        child: Image.asset(
+                          'assets/images/auth/forgot_password_pets.png',
+                          fit: BoxFit.contain,
+                          alignment: Alignment.bottomCenter,
+                          filterQuality: FilterQuality.high,
+                          semanticLabel: 'Golden retriever and cat together',
+                        ),
+                      ),
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-// -----------------------------------------------------------------------------
-// Top bar
-// -----------------------------------------------------------------------------
-
-class _ForgotPasswordTopBar extends StatelessWidget {
-  const _ForgotPasswordTopBar({required this.onBack});
-
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 10, 20, 0),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Transform.translate(
-          offset: const Offset(-4, 0),
-          child: IconButton(
-            onPressed: onBack,
-            tooltip: 'Back',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-            style: IconButton.styleFrom(
-              backgroundColor: AppTheme.secondary.withValues(alpha: 0.20),
-              shape: const CircleBorder(),
-            ),
-            icon: const Icon(
-              Icons.arrow_back_rounded,
-              size: 28,
-              color: AppTheme.espresso,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// -----------------------------------------------------------------------------
-// Field label
-// -----------------------------------------------------------------------------
-
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: AppTheme.espresso,
-          fontSize: 14,
-          fontWeight: FontWeight.w800,
-          height: 1.2,
-        ),
-      ),
-    );
-  }
-}
-
-// -----------------------------------------------------------------------------
-// Or divider
-// -----------------------------------------------------------------------------
-
-class _OrDivider extends StatelessWidget {
-  const _OrDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Divider(
-            color: AppTheme.secondary.withValues(alpha: 0.38),
-            thickness: 1,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Text(
-            'or',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.espresso,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Divider(
-            color: AppTheme.secondary.withValues(alpha: 0.38),
-            thickness: 1,
-          ),
-        ),
-      ],
     );
   }
 }
