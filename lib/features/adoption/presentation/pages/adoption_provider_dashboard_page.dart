@@ -155,7 +155,11 @@ class _DashboardContent extends StatelessWidget {
           _SectionHeader(
             title: 'Recent Listing',
             actionLabel: listings.isEmpty ? null : 'View all',
-            onAction: listings.isEmpty ? null : () {},
+            onAction: listings.isEmpty
+                ? null
+                : () {
+                    Navigator.pushNamed(context, AppRouter.myAdoptionListings);
+                  },
           ),
           const SizedBox(height: 12),
           if (recentListing == null)

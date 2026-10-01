@@ -7,6 +7,7 @@ import '../../features/pets/presentation/pages/pet_profile_page.dart';
 import '../../features/adoption/presentation/pages/adoption_pet_details_page.dart';
 import '../../features/adoption/domain/entities/adoption_listing.dart';
 import '../../features/adoption/presentation/pages/adoption_request_page.dart';
+import '../../features/adoption/presentation/pages/my_adoption_listings_page.dart';
 import '../../features/auth/presentation/pages/check_email_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
@@ -53,6 +54,7 @@ class AppRouter {
   static const String addPet = '/add-pet';
   static const String adoptionPetDetails = '/adoption-pet-details';
   static const String adoptionRequest = '/adoption-request';
+  static const String myAdoptionListings = '/my-adoption-listings';
   static const String editProfile = '/edit-profile';
   static const String notificationSettings = '/notification-settings';
   static const String privacySecurity = '/privacy-security';
@@ -115,6 +117,7 @@ class AppRouter {
       addPet,
       adoptionPetDetails,
       adoptionRequest,
+      myAdoptionListings,
       editProfile,
       notificationSettings,
       privacySecurity,
@@ -209,6 +212,12 @@ class AppRouter {
 
             return AdoptionPetDetailsPage(listingId: listingId);
           },
+          settings: settings,
+        );
+
+      case myAdoptionListings:
+        return MaterialPageRoute(
+          builder: (_) => const MyAdoptionListingsPage(),
           settings: settings,
         );
 
