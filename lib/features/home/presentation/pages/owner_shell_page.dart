@@ -1,11 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/config/cloudinary_config.dart';
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
-import '../../../pets/data/repositories/firebase_pet_image_repository.dart';
+import '../../../notifications/domain/repositories/notification_repository.dart';
+import '../../../pets/data/repositories/cloudinary_pet_image_repository.dart';
 import '../../../pets/data/repositories/firebase_pet_repository.dart';
 import '../../../pets/domain/usecases/create_pet.dart';
 import '../../../pets/domain/usecases/delete_pet.dart';
@@ -15,14 +16,26 @@ import '../../../pets/domain/usecases/update_pet.dart';
 import '../../../pets/domain/usecases/upload_pet_image.dart';
 import '../../../pets/presentation/pages/my_pets_page.dart';
 import '../../../pets/presentation/providers/pets_controller.dart';
+import '../../../profile/domain/repositories/profile_repository.dart';
+import '../../../auth/domain/repositories/auth_repository.dart';
 import 'home_page.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
 
 class OwnerShellPage extends StatefulWidget {
-  const OwnerShellPage({super.key, this.petsController, this.auth});
+  const OwnerShellPage({
+    super.key,
+    this.petsController,
+    this.auth,
+    this.notificationRepository,
+    this.profileRepository,
+    this.authRepository,
+  });
 
   final PetsController? petsController;
   final FirebaseAuth? auth;
+  final NotificationRepository? notificationRepository;
+  final ProfileRepository? profileRepository;
+  final AuthRepository? authRepository;
 
   @override
   State<OwnerShellPage> createState() => _OwnerShellPageState();
@@ -46,28 +59,21 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
         auth: FirebaseAuth.instance,
         firestore: FirebaseFirestore.instance,
       );
+      final imageRepository = CloudinaryPetImageRepository(
+        cloudName: CloudinaryConfig.cloudName,
+        uploadPreset: CloudinaryConfig.uploadPreset,
+      );
 
       _petsController = PetsController(
         CreatePet(repository),
         GetPets(repository),
         UpdatePet(repository),
         DeletePet(repository),
+        UploadPetImage(imageRepository),
+        DeletePetImage(imageRepository),
       );
       _ownsPetsController = true;
     }
-    final imageRepository = FirebasePetImageRepository(
-      auth: FirebaseAuth.instance,
-      storage: FirebaseStorage.instance,
-    );
-
-    _petsController = PetsController(
-      CreatePet(repository),
-      GetPets(repository),
-      UpdatePet(repository),
-      DeletePet(repository),
-      UploadPetImage(imageRepository),
-      DeletePetImage(imageRepository),
-    );
   }
 
   @override
@@ -112,6 +118,7 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             onAddPetTap: _openAddPet,
             userName: userName,
             photoUrl: photoUrl,
+            notificationRepository: widget.notificationRepository,
           ),
           MyPetsPage(controller: _petsController, ownsController: false),
           const _ComingSoonTab(
@@ -119,7 +126,10 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             icon: Icons.calendar_month_rounded,
           ),
           const _ComingSoonTab(title: 'AI Hub', icon: Icons.psychology_rounded),
-          const ProfilePage(),
+          ProfilePage(
+            profileRepository: widget.profileRepository,
+            authRepository: widget.authRepository,
+          ),
         ],
       ),
       bottomNavigationBar: _OwnerBottomNavigation(
@@ -207,38 +217,41 @@ class _OwnerNavigationItem extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOut,
-                width: 44,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: selected
-                      ? AppTheme.primary.withValues(alpha: 0.10)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  width: 44,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? AppTheme.primary.withValues(alpha: 0.10)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(item.icon, size: 22, color: color),
                 ),
-                child: Icon(item.icon, size: 22, color: color),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                item.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: color,
-                  fontSize: 10.5,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                  height: 1.1,
+                const SizedBox(height: 2),
+                Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: color,
+                    fontSize: 10.5,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    height: 1.1,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

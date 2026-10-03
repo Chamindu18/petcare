@@ -57,4 +57,44 @@ class AdoptionListingModel extends AdoptionListing {
       updatedAt: updatedAt.toDate(),
     );
   }
+
+  factory AdoptionListingModel.fromEntity(AdoptionListing listing) {
+    return AdoptionListingModel(
+      listingId: listing.listingId,
+      providerId: listing.providerId,
+      petName: listing.petName,
+      species: listing.species,
+      breed: listing.breed,
+      ageDescription: listing.ageDescription,
+      gender: listing.gender,
+      description: listing.description,
+      location: listing.location,
+      imageAsset: listing.imageAsset,
+      status: listing.status,
+      contactNote: listing.contactNote,
+      createdAt: listing.createdAt,
+      updatedAt: listing.updatedAt,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'providerId': providerId,
+      'petName': petName,
+      'species': species,
+      if (breed != null && breed!.trim().isNotEmpty) 'breed': breed,
+      if (ageDescription != null && ageDescription!.trim().isNotEmpty)
+        'ageDescription': ageDescription,
+      'gender': gender,
+      'description': description,
+      'location': location,
+      if (imageAsset != null && imageAsset!.trim().isNotEmpty)
+        'imageAsset': imageAsset,
+      'status': status,
+      if (contactNote != null && contactNote!.trim().isNotEmpty)
+        'contactNote': contactNote,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': Timestamp.fromDate(updatedAt),
+    };
+  }
 }
