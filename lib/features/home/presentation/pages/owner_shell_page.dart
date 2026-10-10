@@ -203,7 +203,12 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             photoUrl: photoUrl,
             notificationRepository: widget.notificationRepository,
           ),
-          MyPetsPage(controller: _petsController, ownsController: false),
+          MyPetsPage(
+            controller: _petsController,
+            healthController: _healthController,
+            ownsController: false,
+            ownsHealthController: false,
+          ),
           const _ComingSoonTab(
             title: 'Appointments',
             icon: Icons.calendar_month_rounded,

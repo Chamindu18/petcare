@@ -2,26 +2,34 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../health/presentation/providers/health_controller.dart';
 import '../../domain/entities/pet.dart';
 import '../providers/pets_controller.dart';
 import 'add_edit_pet_page.dart';
 
 class PetProfileRouteArgs {
-  const PetProfileRouteArgs({required this.pet, required this.controller});
+  const PetProfileRouteArgs({
+    required this.pet,
+    required this.controller,
+    required this.healthController,
+  });
 
   final Pet pet;
   final PetsController controller;
+  final HealthController healthController;
 }
 
 class PetProfilePage extends StatefulWidget {
   const PetProfilePage({
     required this.pet,
     required this.controller,
+    required this.healthController,
     super.key,
   });
 
   final Pet pet;
   final PetsController controller;
+  final HealthController healthController;
 
   @override
   State<PetProfilePage> createState() => _PetProfilePageState();
