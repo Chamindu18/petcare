@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../health/presentation/pages/health_records_page.dart';
 import '../../../health/presentation/providers/health_controller.dart';
 import '../../domain/entities/pet.dart';
 import '../providers/pets_controller.dart';
@@ -92,6 +93,15 @@ class _PetProfilePageState extends State<PetProfilePage> {
     }
   }
 
+  void _openHealthRecords() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            HealthRecordsPage(pet: _pet, controller: widget.healthController),
+      ),
+    );
+  }
+
   Future<void> _deletePet() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -169,7 +179,7 @@ class _PetProfilePageState extends State<PetProfilePage> {
                 icon: Icons.favorite_border_rounded,
               ),
               const SizedBox(height: 12),
-              const _HealthOverviewGrid(),
+              _HealthOverviewGrid(onTap: _openHealthRecords),
             ],
           ),
         ),
@@ -364,7 +374,9 @@ class _InfoItem extends StatelessWidget {
 }
 
 class _HealthOverviewGrid extends StatelessWidget {
-  const _HealthOverviewGrid();
+  const _HealthOverviewGrid({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -388,54 +400,70 @@ class _HealthOverviewGrid extends StatelessWidget {
       itemBuilder: (context, index) {
         final item = items[index];
 
-        return _HealthCard(title: item.title, icon: item.icon);
+        return _HealthCard(title: item.title, icon: item.icon, onTap: onTap);
       },
     );
   }
 }
 
 class _HealthCard extends StatelessWidget {
-  const _HealthCard({required this.title, required this.icon});
+  const _HealthCard({
+    required this.title,
+    required this.icon,
+    required this.onTap,
+  });
 
   final String title;
   final IconData icon;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
+    return Material(
+      color: AppTheme.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AppTheme.secondary.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: AppTheme.deepBrown, size: 24),
-          ),
-          const Spacer(),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: AppTheme.espresso,
-              fontWeight: FontWeight.w700,
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: AppTheme.secondary.withValues(alpha: 0.35),
             ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            'No records yet',
-            style: Theme.of(context).textTheme.bodySmall
-                ?.copyWith(color: AppTheme.deepBrown.withValues(alpha: 0.7)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: AppTheme.deepBrown, size: 24),
+              ),
+              const Spacer(),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: AppTheme.espresso,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                'View health records',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppTheme.deepBrown.withValues(alpha: 0.7),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
