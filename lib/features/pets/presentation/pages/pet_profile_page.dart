@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../health/presentation/pages/health_records_page.dart';
+import '../../../health/presentation/pages/medical_conditions_page.dart';
 import '../../../health/presentation/providers/health_controller.dart';
 import '../../domain/entities/pet.dart';
 import '../providers/pets_controller.dart';
@@ -102,6 +103,17 @@ class _PetProfilePageState extends State<PetProfilePage> {
     );
   }
 
+  void _openMedicalConditions() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MedicalConditionsPage(
+          pet: _pet,
+          controller: widget.healthController,
+        ),
+      ),
+    );
+  }
+
   Future<void> _deletePet() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -179,7 +191,10 @@ class _PetProfilePageState extends State<PetProfilePage> {
                 icon: Icons.favorite_border_rounded,
               ),
               const SizedBox(height: 12),
-              _HealthOverviewGrid(onTap: _openHealthRecords),
+              _HealthOverviewGrid(
+                onMedicalConditionsTap: _openMedicalConditions,
+                onOtherHealthTap: _openHealthRecords,
+              ),
             ],
           ),
         ),
@@ -374,17 +389,37 @@ class _InfoItem extends StatelessWidget {
 }
 
 class _HealthOverviewGrid extends StatelessWidget {
-  const _HealthOverviewGrid({required this.onTap});
+  const _HealthOverviewGrid({
+    required this.onMedicalConditionsTap,
+    required this.onOtherHealthTap,
+  });
 
-  final VoidCallback onTap;
+  final VoidCallback onMedicalConditionsTap;
+  final VoidCallback onOtherHealthTap;
 
   @override
   Widget build(BuildContext context) {
-    const items = [
-      (title: 'Medical Conditions', icon: Icons.medical_information_outlined),
-      (title: 'Vaccinations', icon: Icons.vaccines_outlined),
-      (title: 'Treatments', icon: Icons.medication_outlined),
-      (title: 'Health Measurements', icon: Icons.monitor_heart_outlined),
+    final items = [
+      (
+        title: 'Medical Conditions',
+        icon: Icons.medical_information_outlined,
+        onTap: onMedicalConditionsTap,
+      ),
+      (
+        title: 'Vaccinations',
+        icon: Icons.vaccines_outlined,
+        onTap: onOtherHealthTap,
+      ),
+      (
+        title: 'Treatments',
+        icon: Icons.medication_outlined,
+        onTap: onOtherHealthTap,
+      ),
+      (
+        title: 'Health Measurements',
+        icon: Icons.monitor_heart_outlined,
+        onTap: onOtherHealthTap,
+      ),
     ];
 
     return GridView.builder(
@@ -400,7 +435,11 @@ class _HealthOverviewGrid extends StatelessWidget {
       itemBuilder: (context, index) {
         final item = items[index];
 
-        return _HealthCard(title: item.title, icon: item.icon, onTap: onTap);
+        return _HealthCard(
+          title: item.title,
+          icon: item.icon,
+          onTap: item.onTap,
+        );
       },
     );
   }
