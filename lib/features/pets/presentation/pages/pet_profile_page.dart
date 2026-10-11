@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
-import '../../../health/presentation/pages/health_records_page.dart';
+import '../../../health/presentation/pages/health_measurements_page.dart';
 import '../../../health/presentation/pages/medical_conditions_page.dart';
 import '../../../health/presentation/pages/treatments_page.dart';
 import '../../../health/presentation/pages/vaccinations_page.dart';
@@ -96,18 +96,6 @@ class _PetProfilePageState extends State<PetProfilePage> {
     }
   }
 
-  // Opens the general Health Records page.
-  // Health Measurements use this page for now.
-  void _openHealthRecords() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            HealthRecordsPage(pet: _pet, controller: widget.healthController),
-      ),
-    );
-  }
-
-  // Opens the dedicated Medical Conditions page.
   void _openMedicalConditions() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -119,7 +107,6 @@ class _PetProfilePageState extends State<PetProfilePage> {
     );
   }
 
-  // Opens the dedicated Vaccinations page.
   void _openVaccinations() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -129,12 +116,22 @@ class _PetProfilePageState extends State<PetProfilePage> {
     );
   }
 
-  // Opens the dedicated Treatments page.
   void _openTreatments() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) =>
             TreatmentsPage(pet: _pet, controller: widget.healthController),
+      ),
+    );
+  }
+
+  void _openHealthMeasurements() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => HealthMeasurementsPage(
+          pet: _pet,
+          controller: widget.healthController,
+        ),
       ),
     );
   }
@@ -220,7 +217,7 @@ class _PetProfilePageState extends State<PetProfilePage> {
                 onMedicalConditionsTap: _openMedicalConditions,
                 onVaccinationsTap: _openVaccinations,
                 onTreatmentsTap: _openTreatments,
-                onHealthMeasurementsTap: _openHealthRecords,
+                onHealthMeasurementsTap: _openHealthMeasurements,
               ),
             ],
           ),
