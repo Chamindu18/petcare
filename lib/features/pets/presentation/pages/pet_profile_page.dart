@@ -4,6 +4,7 @@ import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../health/presentation/pages/health_records_page.dart';
 import '../../../health/presentation/pages/medical_conditions_page.dart';
+import '../../../health/presentation/pages/vaccinations_page.dart';
 import '../../../health/presentation/providers/health_controller.dart';
 import '../../domain/entities/pet.dart';
 import '../providers/pets_controller.dart';
@@ -94,6 +95,8 @@ class _PetProfilePageState extends State<PetProfilePage> {
     }
   }
 
+  // Opens the general Health Records page.
+  // Treatments and Health Measurements use this page for now.
   void _openHealthRecords() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -103,6 +106,7 @@ class _PetProfilePageState extends State<PetProfilePage> {
     );
   }
 
+  // Opens the dedicated Medical Conditions page.
   void _openMedicalConditions() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -110,6 +114,16 @@ class _PetProfilePageState extends State<PetProfilePage> {
           pet: _pet,
           controller: widget.healthController,
         ),
+      ),
+    );
+  }
+
+  // Opens the dedicated Vaccinations page.
+  void _openVaccinations() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            VaccinationsPage(pet: _pet, controller: widget.healthController),
       ),
     );
   }
@@ -193,6 +207,7 @@ class _PetProfilePageState extends State<PetProfilePage> {
               const SizedBox(height: 12),
               _HealthOverviewGrid(
                 onMedicalConditionsTap: _openMedicalConditions,
+                onVaccinationsTap: _openVaccinations,
                 onOtherHealthTap: _openHealthRecords,
               ),
             ],
@@ -388,13 +403,37 @@ class _InfoItem extends StatelessWidget {
   }
 }
 
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title, required this.icon});
+
+  final String title;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: AppTheme.deepBrown, size: 22),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleLarge
+              ?.copyWith(color: AppTheme.espresso, fontWeight: FontWeight.w800),
+        ),
+      ],
+    );
+  }
+}
+
 class _HealthOverviewGrid extends StatelessWidget {
   const _HealthOverviewGrid({
     required this.onMedicalConditionsTap,
+    required this.onVaccinationsTap,
     required this.onOtherHealthTap,
   });
 
   final VoidCallback onMedicalConditionsTap;
+  final VoidCallback onVaccinationsTap;
   final VoidCallback onOtherHealthTap;
 
   @override
@@ -408,7 +447,7 @@ class _HealthOverviewGrid extends StatelessWidget {
       (
         title: 'Vaccinations',
         icon: Icons.vaccines_outlined,
-        onTap: onOtherHealthTap,
+        onTap: onVaccinationsTap,
       ),
       (
         title: 'Treatments',
@@ -459,8 +498,7 @@ class _HealthCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppTheme.white,
-      borderRadius: BorderRadius.circular(18),
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
@@ -504,28 +542,6 @@ class _HealthCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, required this.icon});
-
-  final String title;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: AppTheme.deepBrown, size: 22),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge
-              ?.copyWith(color: AppTheme.espresso, fontWeight: FontWeight.w800),
-        ),
-      ],
     );
   }
 }
