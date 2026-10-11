@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
-import '../../../health/presentation/pages/health_records_page.dart';
+import '../../../health/presentation/pages/health_measurements_page.dart';
 import '../../../health/presentation/pages/medical_conditions_page.dart';
+import '../../../health/presentation/pages/treatments_page.dart';
+import '../../../health/presentation/pages/vaccinations_page.dart';
 import '../../../health/presentation/providers/health_controller.dart';
 import '../../domain/entities/pet.dart';
 import '../providers/pets_controller.dart';
@@ -94,19 +96,39 @@ class _PetProfilePageState extends State<PetProfilePage> {
     }
   }
 
-  void _openHealthRecords() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            HealthRecordsPage(pet: _pet, controller: widget.healthController),
-      ),
-    );
-  }
-
   void _openMedicalConditions() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => MedicalConditionsPage(
+          pet: _pet,
+          controller: widget.healthController,
+        ),
+      ),
+    );
+  }
+
+  void _openVaccinations() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            VaccinationsPage(pet: _pet, controller: widget.healthController),
+      ),
+    );
+  }
+
+  void _openTreatments() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            TreatmentsPage(pet: _pet, controller: widget.healthController),
+      ),
+    );
+  }
+
+  void _openHealthMeasurements() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => HealthMeasurementsPage(
           pet: _pet,
           controller: widget.healthController,
         ),
@@ -193,7 +215,9 @@ class _PetProfilePageState extends State<PetProfilePage> {
               const SizedBox(height: 12),
               _HealthOverviewGrid(
                 onMedicalConditionsTap: _openMedicalConditions,
-                onOtherHealthTap: _openHealthRecords,
+                onVaccinationsTap: _openVaccinations,
+                onTreatmentsTap: _openTreatments,
+                onHealthMeasurementsTap: _openHealthMeasurements,
               ),
             ],
           ),
@@ -388,14 +412,40 @@ class _InfoItem extends StatelessWidget {
   }
 }
 
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title, required this.icon});
+
+  final String title;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: AppTheme.deepBrown, size: 22),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleLarge
+              ?.copyWith(color: AppTheme.espresso, fontWeight: FontWeight.w800),
+        ),
+      ],
+    );
+  }
+}
+
 class _HealthOverviewGrid extends StatelessWidget {
   const _HealthOverviewGrid({
     required this.onMedicalConditionsTap,
-    required this.onOtherHealthTap,
+    required this.onVaccinationsTap,
+    required this.onTreatmentsTap,
+    required this.onHealthMeasurementsTap,
   });
 
   final VoidCallback onMedicalConditionsTap;
-  final VoidCallback onOtherHealthTap;
+  final VoidCallback onVaccinationsTap;
+  final VoidCallback onTreatmentsTap;
+  final VoidCallback onHealthMeasurementsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -408,17 +458,17 @@ class _HealthOverviewGrid extends StatelessWidget {
       (
         title: 'Vaccinations',
         icon: Icons.vaccines_outlined,
-        onTap: onOtherHealthTap,
+        onTap: onVaccinationsTap,
       ),
       (
         title: 'Treatments',
         icon: Icons.medication_outlined,
-        onTap: onOtherHealthTap,
+        onTap: onTreatmentsTap,
       ),
       (
         title: 'Health Measurements',
         icon: Icons.monitor_heart_outlined,
-        onTap: onOtherHealthTap,
+        onTap: onHealthMeasurementsTap,
       ),
     ];
 
@@ -459,8 +509,7 @@ class _HealthCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppTheme.white,
-      borderRadius: BorderRadius.circular(18),
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
@@ -504,28 +553,6 @@ class _HealthCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, required this.icon});
-
-  final String title;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: AppTheme.deepBrown, size: 22),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge
-              ?.copyWith(color: AppTheme.espresso, fontWeight: FontWeight.w800),
-        ),
-      ],
     );
   }
 }
