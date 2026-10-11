@@ -4,6 +4,7 @@ import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../health/presentation/pages/health_records_page.dart';
 import '../../../health/presentation/pages/medical_conditions_page.dart';
+import '../../../health/presentation/pages/treatments_page.dart';
 import '../../../health/presentation/pages/vaccinations_page.dart';
 import '../../../health/presentation/providers/health_controller.dart';
 import '../../domain/entities/pet.dart';
@@ -96,7 +97,7 @@ class _PetProfilePageState extends State<PetProfilePage> {
   }
 
   // Opens the general Health Records page.
-  // Treatments and Health Measurements use this page for now.
+  // Health Measurements use this page for now.
   void _openHealthRecords() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -124,6 +125,16 @@ class _PetProfilePageState extends State<PetProfilePage> {
       MaterialPageRoute<void>(
         builder: (_) =>
             VaccinationsPage(pet: _pet, controller: widget.healthController),
+      ),
+    );
+  }
+
+  // Opens the dedicated Treatments page.
+  void _openTreatments() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            TreatmentsPage(pet: _pet, controller: widget.healthController),
       ),
     );
   }
@@ -208,7 +219,8 @@ class _PetProfilePageState extends State<PetProfilePage> {
               _HealthOverviewGrid(
                 onMedicalConditionsTap: _openMedicalConditions,
                 onVaccinationsTap: _openVaccinations,
-                onOtherHealthTap: _openHealthRecords,
+                onTreatmentsTap: _openTreatments,
+                onHealthMeasurementsTap: _openHealthRecords,
               ),
             ],
           ),
@@ -429,12 +441,14 @@ class _HealthOverviewGrid extends StatelessWidget {
   const _HealthOverviewGrid({
     required this.onMedicalConditionsTap,
     required this.onVaccinationsTap,
-    required this.onOtherHealthTap,
+    required this.onTreatmentsTap,
+    required this.onHealthMeasurementsTap,
   });
 
   final VoidCallback onMedicalConditionsTap;
   final VoidCallback onVaccinationsTap;
-  final VoidCallback onOtherHealthTap;
+  final VoidCallback onTreatmentsTap;
+  final VoidCallback onHealthMeasurementsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -452,12 +466,12 @@ class _HealthOverviewGrid extends StatelessWidget {
       (
         title: 'Treatments',
         icon: Icons.medication_outlined,
-        onTap: onOtherHealthTap,
+        onTap: onTreatmentsTap,
       ),
       (
         title: 'Health Measurements',
         icon: Icons.monitor_heart_outlined,
-        onTap: onOtherHealthTap,
+        onTap: onHealthMeasurementsTap,
       ),
     ];
 
