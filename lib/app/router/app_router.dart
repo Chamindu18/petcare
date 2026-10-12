@@ -58,6 +58,9 @@ import '../../features/profile/presentation/pages/help_support_page.dart';
 import '../../features/profile/presentation/pages/notification_settings_page.dart';
 import '../../features/profile/presentation/pages/privacy_security_page.dart';
 import '../../../../core/config/cloudinary_config.dart';
+import '../../features/hospitals/presentation/pages/hospital_discovery_page.dart';
+import '../../features/hospitals/presentation/pages/hospital_details_page.dart';
+import '../../features/appointments/presentation/pages/book_appointment_page.dart';
 
 class AppRouter {
   AppRouter._();
@@ -85,6 +88,10 @@ class AppRouter {
   static const String helpSupport = '/help-support';
   static const String aboutPetCare = '/about-petcare';
   static const String petProfile = '/pet-profile';
+  static const String hospitalDiscovery = '/hospitals';
+  static const String hospitalDetails = '/hospital-details';
+  static const String bookAppointment = '/book-appointment';
+  
 
   // Public routes are handled here.
   // Protected routes are handled in onGenerateRoute()
@@ -143,6 +150,9 @@ class AppRouter {
       helpSupport,
       aboutPetCare,
       petProfile,
+      hospitalDiscovery,
+      hospitalDetails,
+      bookAppointment,
     };
 
     // Protect routes that require authentication.
@@ -375,6 +385,75 @@ class AppRouter {
           builder: (_) => const AboutPetCarePage(),
           settings: settings,
         );
+
+       case hospitalDiscovery:
+           return MaterialPageRoute(
+           builder: (_) => const HospitalDiscoveryPage(),
+           settings: settings,
+        );
+
+      case hospitalDetails:
+          final hospitalId = settings.arguments;
+
+  if (hospitalId is! String || hospitalId.isEmpty) {
+    return MaterialPageRoute(
+      builder: (_) => const Scaffold(
+        body: Center(
+          child: Text('Hospital ID is required.'),
+        ),
+      ),
+      settings: settings,
+    );
+  }
+
+  return MaterialPageRoute(
+    builder: (_) => HospitalDetailsPage(
+      hospitalId: hospitalId,
+    ),
+    settings: settings,
+  ); 
+
+  case bookAppointment:
+  final hospitalId = settings.arguments;
+
+  if (hospitalId is! String || hospitalId.isEmpty) {
+    return MaterialPageRoute(
+      builder: (_) => const Scaffold(
+        body: Center(
+          child: Text('Hospital ID is required.'),
+        ),
+      ),
+      settings: settings,
+    );
+  }
+
+  // Create the existing Pet controller for the booking screen.
+  final repository = FirebasePetRepository(
+    auth: FirebaseAuth.instance,
+    firestore: FirebaseFirestore.instance,
+  );
+
+  final imageRepository = CloudinaryPetImageRepository(
+    cloudName: CloudinaryConfig.cloudName,
+    uploadPreset: CloudinaryConfig.uploadPreset,
+  );
+
+  final petsController = PetsController(
+    CreatePet(repository),
+    GetPets(repository),
+    UpdatePet(repository),
+    DeletePet(repository),
+    UploadPetImage(imageRepository),
+    DeletePetImage(imageRepository),
+  );
+
+  return MaterialPageRoute(
+    builder: (_) => BookAppointmentPage(
+      hospitalId: hospitalId,
+      petsController: petsController,
+    ),
+    settings: settings,
+  );
 
       default:
         return null;
