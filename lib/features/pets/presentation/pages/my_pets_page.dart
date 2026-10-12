@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
+import '../../../health/presentation/providers/health_controller.dart';
 import '../../domain/entities/pet.dart';
 import '../providers/pets_controller.dart';
 import 'pet_profile_page.dart';
@@ -8,12 +9,16 @@ import 'pet_profile_page.dart';
 class MyPetsPage extends StatefulWidget {
   const MyPetsPage({
     required this.controller,
+    required this.healthController,
     super.key,
     this.ownsController = true,
+    this.ownsHealthController = false,
   });
 
   final PetsController controller;
+  final HealthController healthController;
   final bool ownsController;
+  final bool ownsHealthController;
 
   @override
   State<MyPetsPage> createState() => _MyPetsPageState();
@@ -41,6 +46,10 @@ class _MyPetsPageState extends State<MyPetsPage> {
       _controller.dispose();
     }
 
+    if (widget.ownsHealthController) {
+      widget.healthController.dispose();
+    }
+
     super.dispose();
   }
 
@@ -62,7 +71,11 @@ class _MyPetsPageState extends State<MyPetsPage> {
     Navigator.pushNamed(
       context,
       AppRouter.petProfile,
-      arguments: PetProfileRouteArgs(pet: pet, controller: _controller),
+      arguments: PetProfileRouteArgs(
+        pet: pet,
+        controller: _controller,
+        healthController: widget.healthController,
+      ),
     );
   }
 

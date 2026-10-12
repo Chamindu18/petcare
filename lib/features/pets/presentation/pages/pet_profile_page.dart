@@ -2,26 +2,38 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../health/presentation/pages/health_measurements_page.dart';
+import '../../../health/presentation/pages/medical_conditions_page.dart';
+import '../../../health/presentation/pages/treatments_page.dart';
+import '../../../health/presentation/pages/vaccinations_page.dart';
+import '../../../health/presentation/providers/health_controller.dart';
 import '../../domain/entities/pet.dart';
 import '../providers/pets_controller.dart';
 import 'add_edit_pet_page.dart';
 
 class PetProfileRouteArgs {
-  const PetProfileRouteArgs({required this.pet, required this.controller});
+  const PetProfileRouteArgs({
+    required this.pet,
+    required this.controller,
+    required this.healthController,
+  });
 
   final Pet pet;
   final PetsController controller;
+  final HealthController healthController;
 }
 
 class PetProfilePage extends StatefulWidget {
   const PetProfilePage({
     required this.pet,
     required this.controller,
+    required this.healthController,
     super.key,
   });
 
   final Pet pet;
   final PetsController controller;
+  final HealthController healthController;
 
   @override
   State<PetProfilePage> createState() => _PetProfilePageState();
@@ -82,6 +94,46 @@ class _PetProfilePageState extends State<PetProfilePage> {
         return;
       }
     }
+  }
+
+  void _openMedicalConditions() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MedicalConditionsPage(
+          pet: _pet,
+          controller: widget.healthController,
+        ),
+      ),
+    );
+  }
+
+  void _openVaccinations() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            VaccinationsPage(pet: _pet, controller: widget.healthController),
+      ),
+    );
+  }
+
+  void _openTreatments() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            TreatmentsPage(pet: _pet, controller: widget.healthController),
+      ),
+    );
+  }
+
+  void _openHealthMeasurements() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => HealthMeasurementsPage(
+          pet: _pet,
+          controller: widget.healthController,
+        ),
+      ),
+    );
   }
 
   Future<void> _deletePet() async {
@@ -161,7 +213,12 @@ class _PetProfilePageState extends State<PetProfilePage> {
                 icon: Icons.favorite_border_rounded,
               ),
               const SizedBox(height: 12),
-              const _HealthOverviewGrid(),
+              _HealthOverviewGrid(
+                onMedicalConditionsTap: _openMedicalConditions,
+                onVaccinationsTap: _openVaccinations,
+                onTreatmentsTap: _openTreatments,
+                onHealthMeasurementsTap: _openHealthMeasurements,
+              ),
             ],
           ),
         ),
@@ -355,84 +412,6 @@ class _InfoItem extends StatelessWidget {
   }
 }
 
-class _HealthOverviewGrid extends StatelessWidget {
-  const _HealthOverviewGrid();
-
-  @override
-  Widget build(BuildContext context) {
-    const items = [
-      (title: 'Medical Conditions', icon: Icons.medical_information_outlined),
-      (title: 'Vaccinations', icon: Icons.vaccines_outlined),
-      (title: 'Treatments', icon: Icons.medication_outlined),
-      (title: 'Health Measurements', icon: Icons.monitor_heart_outlined),
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: items.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.25,
-      ),
-      itemBuilder: (context, index) {
-        final item = items[index];
-
-        return _HealthCard(title: item.title, icon: item.icon);
-      },
-    );
-  }
-}
-
-class _HealthCard extends StatelessWidget {
-  const _HealthCard({required this.title, required this.icon});
-
-  final String title;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AppTheme.secondary.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: AppTheme.deepBrown, size: 24),
-          ),
-          const Spacer(),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: AppTheme.espresso,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            'No records yet',
-            style: Theme.of(context).textTheme.bodySmall
-                ?.copyWith(color: AppTheme.deepBrown.withValues(alpha: 0.7)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.title, required this.icon});
 
@@ -451,6 +430,129 @@ class _SectionTitle extends StatelessWidget {
               ?.copyWith(color: AppTheme.espresso, fontWeight: FontWeight.w800),
         ),
       ],
+    );
+  }
+}
+
+class _HealthOverviewGrid extends StatelessWidget {
+  const _HealthOverviewGrid({
+    required this.onMedicalConditionsTap,
+    required this.onVaccinationsTap,
+    required this.onTreatmentsTap,
+    required this.onHealthMeasurementsTap,
+  });
+
+  final VoidCallback onMedicalConditionsTap;
+  final VoidCallback onVaccinationsTap;
+  final VoidCallback onTreatmentsTap;
+  final VoidCallback onHealthMeasurementsTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      (
+        title: 'Medical Conditions',
+        icon: Icons.medical_information_outlined,
+        onTap: onMedicalConditionsTap,
+      ),
+      (
+        title: 'Vaccinations',
+        icon: Icons.vaccines_outlined,
+        onTap: onVaccinationsTap,
+      ),
+      (
+        title: 'Treatments',
+        icon: Icons.medication_outlined,
+        onTap: onTreatmentsTap,
+      ),
+      (
+        title: 'Health Measurements',
+        icon: Icons.monitor_heart_outlined,
+        onTap: onHealthMeasurementsTap,
+      ),
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: items.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.25,
+      ),
+      itemBuilder: (context, index) {
+        final item = items[index];
+
+        return _HealthCard(
+          title: item.title,
+          icon: item.icon,
+          onTap: item.onTap,
+        );
+      },
+    );
+  }
+}
+
+class _HealthCard extends StatelessWidget {
+  const _HealthCard({
+    required this.title,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: AppTheme.secondary.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: AppTheme.deepBrown, size: 24),
+              ),
+              const Spacer(),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: AppTheme.espresso,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                'View health records',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppTheme.deepBrown.withValues(alpha: 0.7),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
