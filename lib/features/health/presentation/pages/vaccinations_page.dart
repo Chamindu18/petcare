@@ -62,13 +62,16 @@ class _VaccinationsPageState extends State<VaccinationsPage> {
       return;
     }
 
-    await _controller.createVaccination(vaccination);
+    final succeeded = await _controller.createVaccination(vaccination);
 
     if (!mounted) {
       return;
     }
 
-    _showOperationResult(successMessage: 'Vaccination added successfully.');
+    _showOperationResult(
+      succeeded: succeeded,
+      successMessage: 'Vaccination added successfully.',
+    );
   }
 
   Future<void> _editVaccination(Vaccination vaccination) async {
@@ -82,13 +85,16 @@ class _VaccinationsPageState extends State<VaccinationsPage> {
       return;
     }
 
-    await _controller.updateVaccination(updatedVaccination);
+    final succeeded = await _controller.updateVaccination(updatedVaccination);
 
     if (!mounted) {
       return;
     }
 
-    _showOperationResult(successMessage: 'Vaccination updated successfully.');
+    _showOperationResult(
+      succeeded: succeeded,
+      successMessage: 'Vaccination updated successfully.',
+    );
   }
 
   Future<void> _deleteVaccination(Vaccination vaccination) async {
@@ -119,7 +125,7 @@ class _VaccinationsPageState extends State<VaccinationsPage> {
       return;
     }
 
-    await _controller.deleteVaccination(
+    final succeeded = await _controller.deleteVaccination(
       widget.pet.petId,
       vaccination.vaccinationId,
     );
@@ -128,14 +134,23 @@ class _VaccinationsPageState extends State<VaccinationsPage> {
       return;
     }
 
-    _showOperationResult(successMessage: 'Vaccination deleted successfully.');
+    _showOperationResult(
+      succeeded: succeeded,
+      successMessage: 'Vaccination deleted successfully.',
+    );
   }
 
-  void _showOperationResult({required String successMessage}) {
-    final errorMessage = _controller.errorMessage;
+  void _showOperationResult({
+    required bool succeeded,
+    required String successMessage,
+  }) {
+    final message = succeeded
+        ? successMessage
+        : (_controller.errorMessage ??
+              'Unable to complete the health operation. Please try again.');
 
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(errorMessage ?? successMessage)));
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
