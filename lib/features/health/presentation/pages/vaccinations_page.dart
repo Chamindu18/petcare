@@ -190,6 +190,10 @@ class _VaccinationsPageState extends State<VaccinationsPage> {
   }
 }
 
+// -----------------------------------------------------------------------------
+// Pet header
+// -----------------------------------------------------------------------------
+
 class _VaccinationPetHeader extends StatelessWidget {
   const _VaccinationPetHeader({required this.pet});
 
@@ -265,6 +269,10 @@ class _VaccinationPetHeader extends StatelessWidget {
   }
 }
 
+// -----------------------------------------------------------------------------
+// Section heading
+// -----------------------------------------------------------------------------
+
 class _VaccinationSectionHeading extends StatelessWidget {
   const _VaccinationSectionHeading({required this.count});
 
@@ -302,6 +310,10 @@ class _VaccinationSectionHeading extends StatelessWidget {
   }
 }
 
+// -----------------------------------------------------------------------------
+// Vaccination card
+// -----------------------------------------------------------------------------
+
 class _VaccinationCard extends StatelessWidget {
   const _VaccinationCard({
     required this.vaccination,
@@ -314,7 +326,7 @@ class _VaccinationCard extends StatelessWidget {
   final VoidCallback onDelete;
 
   DateTime _dateOnly(DateTime date) {
-    return DateTime(date.year, date.month, date.day);
+    return DateUtils.dateOnly(date);
   }
 
   String _dueLabel() {
@@ -515,6 +527,10 @@ class _VaccinationCard extends StatelessWidget {
 
 enum _VaccinationAction { edit, delete }
 
+// -----------------------------------------------------------------------------
+// Empty state
+// -----------------------------------------------------------------------------
+
 class _VaccinationEmptyState extends StatelessWidget {
   const _VaccinationEmptyState();
 
@@ -565,6 +581,10 @@ class _VaccinationEmptyState extends StatelessWidget {
   }
 }
 
+// -----------------------------------------------------------------------------
+// Error state
+// -----------------------------------------------------------------------------
+
 class _VaccinationErrorState extends StatelessWidget {
   const _VaccinationErrorState({required this.message, required this.onRetry});
 
@@ -605,6 +625,10 @@ class _VaccinationErrorState extends StatelessWidget {
     );
   }
 }
+
+// -----------------------------------------------------------------------------
+// Add/edit vaccination dialog
+// -----------------------------------------------------------------------------
 
 class _VaccinationDialog extends StatefulWidget {
   const _VaccinationDialog({required this.petId, this.vaccination});
@@ -693,7 +717,11 @@ class _VaccinationDialogState extends State<_VaccinationDialog> {
       return;
     }
 
-    if (_nextDueDate != null && _nextDueDate!.isBefore(_dateGiven)) {
+    // Compare calendar dates rather than full timestamps.
+    // A next due date on the same day as administration is allowed.
+    if (_nextDueDate != null &&
+        DateUtils.dateOnly(_nextDueDate!)
+            .isBefore(DateUtils.dateOnly(_dateGiven))) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
