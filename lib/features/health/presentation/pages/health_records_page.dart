@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../pets/domain/entities/pet.dart';
 import '../providers/health_controller.dart';
+import 'health_measurements_page.dart';
+import 'medical_conditions_page.dart';
+import 'treatments_page.dart';
+import 'vaccinations_page.dart';
 
 class HealthRecordsPage extends StatefulWidget {
   const HealthRecordsPage({
@@ -22,6 +26,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
   @override
   void initState() {
     super.initState();
+
     widget.controller.addListener(_onControllerChanged);
     _loadRecords();
   }
@@ -76,7 +81,7 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
                   message: controller.errorMessage!,
                   onRetry: _loadRecords,
                 ),
-              _HealthSummaryGrid(controller: controller),
+              _HealthSummaryGrid(pet: widget.pet, controller: controller),
             ],
           ],
         ),
@@ -84,6 +89,10 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     );
   }
 }
+
+// -----------------------------------------------------------------------------
+// Pet header
+// -----------------------------------------------------------------------------
 
 class _PetHealthHeader extends StatelessWidget {
   const _PetHealthHeader({required this.pet});
@@ -162,33 +171,79 @@ class _PetHealthHeader extends StatelessWidget {
   }
 }
 
-class _HealthSummaryGrid extends StatelessWidget {
-  const _HealthSummaryGrid({required this.controller});
+// -----------------------------------------------------------------------------
+// Interactive health summary grid
+// -----------------------------------------------------------------------------
 
+class _HealthSummaryGrid extends StatelessWidget {
+  const _HealthSummaryGrid({required this.pet, required this.controller});
+
+  final Pet pet;
   final HealthController controller;
 
   @override
   Widget build(BuildContext context) {
+    final petId = pet.petId;
+
     final items = [
       _HealthSummaryItem(
         title: 'Medical Conditions',
-        count: controller.medicalConditions.length,
+        count: controller.medicalConditions
+            .where((record) => record.petId == petId)
+            .length,
         icon: Icons.medical_information_outlined,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) =>
+                  MedicalConditionsPage(pet: pet, controller: controller),
+            ),
+          );
+        },
       ),
       _HealthSummaryItem(
         title: 'Vaccinations',
-        count: controller.vaccinations.length,
+        count: controller.vaccinations
+            .where((record) => record.petId == petId)
+            .length,
         icon: Icons.vaccines_outlined,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) =>
+                  VaccinationsPage(pet: pet, controller: controller),
+            ),
+          );
+        },
       ),
       _HealthSummaryItem(
         title: 'Treatments',
-        count: controller.treatments.length,
+        count: controller.treatments
+            .where((record) => record.petId == petId)
+            .length,
         icon: Icons.medication_outlined,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => TreatmentsPage(pet: pet, controller: controller),
+            ),
+          );
+        },
       ),
       _HealthSummaryItem(
         title: 'Health Measurements',
-        count: controller.healthMeasurements.length,
+        count: controller.healthMeasurements
+            .where((record) => record.petId == petId)
+            .length,
         icon: Icons.monitor_heart_outlined,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) =>
+                  HealthMeasurementsPage(pet: pet, controller: controller),
+            ),
+          );
+        },
       ),
     ];
 
@@ -209,6 +264,10 @@ class _HealthSummaryGrid extends StatelessWidget {
   }
 }
 
+// -----------------------------------------------------------------------------
+// Summary card
+// -----------------------------------------------------------------------------
+
 class _HealthSummaryCard extends StatelessWidget {
   const _HealthSummaryCard({required this.item});
 
@@ -216,60 +275,79 @@ class _HealthSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: item.onTap,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AppTheme.secondary.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(item.icon, color: AppTheme.deepBrown, size: 24),
-          ),
-          const Spacer(),
-          Text(
-            '${item.count}',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: AppTheme.espresso,
-              fontWeight: FontWeight.w800,
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: AppTheme.secondary.withValues(alpha: 0.35),
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            item.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.deepBrown,
-              fontWeight: FontWeight.w600,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(item.icon, color: AppTheme.deepBrown, size: 24),
+              ),
+              const Spacer(),
+              Text(
+                '${item.count}',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: AppTheme.espresso,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                item.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppTheme.deepBrown,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
+
+// -----------------------------------------------------------------------------
+// Summary item model
+// -----------------------------------------------------------------------------
 
 class _HealthSummaryItem {
   const _HealthSummaryItem({
     required this.title,
     required this.count,
     required this.icon,
+    required this.onTap,
   });
 
   final String title;
   final int count;
   final IconData icon;
+  final VoidCallback onTap;
 }
+
+// -----------------------------------------------------------------------------
+// Error card
+// -----------------------------------------------------------------------------
 
 class _HealthErrorCard extends StatelessWidget {
   const _HealthErrorCard({required this.message, required this.onRetry});

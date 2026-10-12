@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../health/presentation/pages/health_measurements_page.dart';
+import '../../../health/presentation/pages/health_records_page.dart';
 import '../../../health/presentation/pages/medical_conditions_page.dart';
 import '../../../health/presentation/pages/treatments_page.dart';
 import '../../../health/presentation/pages/vaccinations_page.dart';
@@ -96,6 +97,17 @@ class _PetProfilePageState extends State<PetProfilePage> {
     }
   }
 
+  // Opens the general Health Records summary dashboard.
+  void _openHealthRecords() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            HealthRecordsPage(pet: _pet, controller: widget.healthController),
+      ),
+    );
+  }
+
+  // Opens the dedicated Medical Conditions page.
   void _openMedicalConditions() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -107,6 +119,7 @@ class _PetProfilePageState extends State<PetProfilePage> {
     );
   }
 
+  // Opens the dedicated Vaccinations page.
   void _openVaccinations() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -116,6 +129,7 @@ class _PetProfilePageState extends State<PetProfilePage> {
     );
   }
 
+  // Opens the dedicated Treatments page.
   void _openTreatments() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -125,6 +139,7 @@ class _PetProfilePageState extends State<PetProfilePage> {
     );
   }
 
+  // Opens the dedicated Health Measurements page.
   void _openHealthMeasurements() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -213,6 +228,28 @@ class _PetProfilePageState extends State<PetProfilePage> {
                 icon: Icons.favorite_border_rounded,
               ),
               const SizedBox(height: 12),
+
+              // Keeps the overview dashboard accessible.
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _openHealthRecords,
+                  icon: const Icon(Icons.dashboard_outlined),
+                  label: const Text('View Health Summary'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    foregroundColor: AppTheme.deepBrown,
+                    side: BorderSide(
+                      color: AppTheme.secondary.withValues(alpha: 0.7),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
               _HealthOverviewGrid(
                 onMedicalConditionsTap: _openMedicalConditions,
                 onVaccinationsTap: _openVaccinations,
