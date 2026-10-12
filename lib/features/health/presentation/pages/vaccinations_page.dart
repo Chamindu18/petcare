@@ -379,9 +379,11 @@ class _VaccinationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = MaterialLocalizations.of(context);
+
     final dateGiven = localizations.formatMediumDate(vaccination.dateGiven);
 
     final nextDueDate = vaccination.nextDueDate;
+
     final formattedDueDate = nextDueDate == null
         ? null
         : localizations.formatMediumDate(nextDueDate);
@@ -659,9 +661,11 @@ class _VaccinationDialogState extends State<_VaccinationDialog> {
     final vaccination = widget.vaccination;
 
     _nameController = TextEditingController(text: vaccination?.name ?? '');
+
     _providerIdController = TextEditingController(
       text: vaccination?.providerId ?? '',
     );
+
     _notesController = TextEditingController(text: vaccination?.notes ?? '');
 
     _dateGiven = vaccination?.dateGiven ?? DateTime.now();
@@ -714,6 +718,18 @@ class _VaccinationDialogState extends State<_VaccinationDialog> {
 
   void _save() {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    // Do not allow future administration dates, including when editing
+    // an existing record that might already contain a future date.
+    if (DateUtils.dateOnly(_dateGiven)
+        .isAfter(DateUtils.dateOnly(DateTime.now()))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('The vaccination date cannot be in the future.'),
+        ),
+      );
       return;
     }
 
