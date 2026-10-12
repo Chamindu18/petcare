@@ -699,7 +699,7 @@ class _MedicalConditionDialogState extends State<_MedicalConditionDialog> {
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
-                value: _status,
+                initialValue: _status,
                 decoration: const InputDecoration(
                   labelText: 'Status',
                   prefixIcon: Icon(Icons.flag_outlined),
@@ -718,7 +718,7 @@ class _MedicalConditionDialogState extends State<_MedicalConditionDialog> {
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
-                value: _source,
+                initialValue: _source,
                 decoration: const InputDecoration(
                   labelText: 'Record source',
                   prefixIcon: Icon(Icons.verified_user_outlined),
