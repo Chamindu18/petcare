@@ -1,22 +1,22 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../../lib/features/ai_assistant/domain/entities/pet_health_context.dart';
-import '../../../../lib/features/ai_assistant/domain/usecases/build_ai_context.dart';
-import '../../../../lib/features/health/domain/entities/health_measurement.dart';
-import '../../../../lib/features/health/domain/entities/medical_condition.dart';
-import '../../../../lib/features/health/domain/entities/treatment.dart';
-import '../../../../lib/features/health/domain/entities/vaccination.dart';
-import '../../../../lib/features/health/domain/repositories/health_measurement_repository.dart';
-import '../../../../lib/features/health/domain/repositories/medical_condition_repository.dart';
-import '../../../../lib/features/health/domain/repositories/treatment_repository.dart';
-import '../../../../lib/features/health/domain/repositories/vaccination_repository.dart';
-import '../../../../lib/features/health/domain/usecases/get_health_measurements.dart';
-import '../../../../lib/features/health/domain/usecases/get_medical_conditions.dart';
-import '../../../../lib/features/health/domain/usecases/get_treatments.dart';
-import '../../../../lib/features/health/domain/usecases/get_vaccinations.dart';
-import '../../../../lib/features/pets/domain/entities/pet.dart';
-import '../../../../lib/features/pets/domain/repositories/pet_repository.dart';
-import '../../../../lib/features/pets/domain/usecases/get_pet_by_id.dart';
+import 'package:petcare/features/ai_assistant/domain/entities/pet_health_context.dart';
+import 'package:petcare/features/ai_assistant/domain/usecases/build_ai_context.dart';
+import 'package:petcare/features/health/domain/entities/health_measurement.dart';
+import 'package:petcare/features/health/domain/entities/medical_condition.dart';
+import 'package:petcare/features/health/domain/entities/treatment.dart';
+import 'package:petcare/features/health/domain/entities/vaccination.dart';
+import 'package:petcare/features/health/domain/repositories/health_measurement_repository.dart';
+import 'package:petcare/features/health/domain/repositories/medical_condition_repository.dart';
+import 'package:petcare/features/health/domain/repositories/treatment_repository.dart';
+import 'package:petcare/features/health/domain/repositories/vaccination_repository.dart';
+import 'package:petcare/features/health/domain/usecases/get_health_measurements.dart';
+import 'package:petcare/features/health/domain/usecases/get_medical_conditions.dart';
+import 'package:petcare/features/health/domain/usecases/get_treatments.dart';
+import 'package:petcare/features/health/domain/usecases/get_vaccinations.dart';
+import 'package:petcare/features/pets/domain/entities/pet.dart';
+import 'package:petcare/features/pets/domain/repositories/pet_repository.dart';
+import 'package:petcare/features/pets/domain/usecases/get_pet_by_id.dart';
 
 void main() {
   group('BuildAIContext', () {
