@@ -26,6 +26,166 @@ import 'package:petcare/features/pets/presentation/providers/pets_controller.dar
 import 'package:petcare/features/profile/domain/entities/user_profile.dart';
 import 'package:petcare/features/profile/domain/repositories/profile_repository.dart';
 import 'package:petcare/features/profile/presentation/pages/profile_page.dart';
+import 'package:petcare/features/health/domain/entities/health_measurement.dart';
+import 'package:petcare/features/health/domain/entities/medical_condition.dart';
+import 'package:petcare/features/health/domain/entities/treatment.dart';
+import 'package:petcare/features/health/domain/entities/vaccination.dart';
+import 'package:petcare/features/health/domain/repositories/health_measurement_repository.dart';
+import 'package:petcare/features/health/domain/repositories/medical_condition_repository.dart';
+import 'package:petcare/features/health/domain/repositories/treatment_repository.dart';
+import 'package:petcare/features/health/domain/repositories/vaccination_repository.dart';
+import 'package:petcare/features/health/domain/usecases/create_health_measurement.dart';
+import 'package:petcare/features/health/domain/usecases/create_medical_condition.dart';
+import 'package:petcare/features/health/domain/usecases/create_treatment.dart';
+import 'package:petcare/features/health/domain/usecases/create_vaccination.dart';
+import 'package:petcare/features/health/domain/usecases/delete_health_measurement.dart';
+import 'package:petcare/features/health/domain/usecases/delete_medical_condition.dart';
+import 'package:petcare/features/health/domain/usecases/delete_treatment.dart';
+import 'package:petcare/features/health/domain/usecases/delete_vaccination.dart';
+import 'package:petcare/features/health/domain/usecases/get_health_measurements.dart';
+import 'package:petcare/features/health/domain/usecases/get_medical_conditions.dart';
+import 'package:petcare/features/health/domain/usecases/get_treatments.dart';
+import 'package:petcare/features/health/domain/usecases/get_vaccinations.dart';
+import 'package:petcare/features/health/domain/usecases/update_health_measurement.dart';
+import 'package:petcare/features/health/domain/usecases/update_medical_condition.dart';
+import 'package:petcare/features/health/domain/usecases/update_treatment.dart';
+import 'package:petcare/features/health/domain/usecases/update_vaccination.dart';
+import 'package:petcare/features/health/presentation/providers/health_controller.dart';
+
+class _FakeMedicalConditionRepository implements MedicalConditionRepository {
+  @override
+  Future<MedicalCondition> createMedicalCondition(
+    MedicalCondition condition,
+  ) async => condition;
+
+  @override
+  Future<List<MedicalCondition>> getMedicalConditions(String petId) async => [];
+
+  @override
+  Future<MedicalCondition?> getMedicalConditionById(
+    String petId,
+    String conditionId,
+  ) async => null;
+
+  @override
+  Future<void> updateMedicalCondition(MedicalCondition condition) async {}
+
+  @override
+  Future<void> deleteMedicalCondition(String petId, String conditionId) async {}
+}
+
+class _FakeVaccinationRepository implements VaccinationRepository {
+  @override
+  Future<Vaccination> createVaccination(Vaccination vaccination) async =>
+      vaccination;
+
+  @override
+  Future<List<Vaccination>> getVaccinations(String petId) async => [];
+
+  @override
+  Future<Vaccination?> getVaccinationById(
+    String petId,
+    String vaccinationId,
+  ) async => null;
+
+  @override
+  Future<void> updateVaccination(Vaccination vaccination) async {}
+
+  @override
+  Future<void> deleteVaccination(String petId, String vaccinationId) async {}
+}
+
+class _FakeTreatmentRepository implements TreatmentRepository {
+  @override
+  Future<Treatment> createTreatment(Treatment treatment) async => treatment;
+
+  @override
+  Future<List<Treatment>> getTreatments(String petId) async => [];
+
+  @override
+  Future<Treatment?> getTreatmentById(String petId, String treatmentId) async =>
+      null;
+
+  @override
+  Future<void> updateTreatment(Treatment treatment) async {}
+
+  @override
+  Future<void> deleteTreatment(String petId, String treatmentId) async {}
+}
+
+class _FakeHealthMeasurementRepository implements HealthMeasurementRepository {
+  @override
+  Future<HealthMeasurement> createHealthMeasurement(
+    HealthMeasurement measurement,
+  ) async => measurement;
+
+  @override
+  Future<List<HealthMeasurement>> getHealthMeasurements(String petId) async =>
+      [];
+
+  @override
+  Future<HealthMeasurement?> getHealthMeasurementById(
+    String petId,
+    String measurementId,
+  ) async => null;
+
+  @override
+  Future<void> updateHealthMeasurement(HealthMeasurement measurement) async {}
+
+  @override
+  Future<void> deleteHealthMeasurement(
+    String petId,
+    String measurementId,
+  ) async {}
+}
+
+class _FakeHealthController extends HealthController {
+  _FakeHealthController()
+    : super(
+        createMedicalCondition: CreateMedicalCondition(
+          _FakeMedicalConditionRepository(),
+        ),
+        getMedicalConditions: GetMedicalConditions(
+          _FakeMedicalConditionRepository(),
+        ),
+        updateMedicalCondition: UpdateMedicalCondition(
+          _FakeMedicalConditionRepository(),
+        ),
+        deleteMedicalCondition: DeleteMedicalCondition(
+          _FakeMedicalConditionRepository(),
+        ),
+        createVaccination: CreateVaccination(_FakeVaccinationRepository()),
+        getVaccinations: GetVaccinations(_FakeVaccinationRepository()),
+        updateVaccination: UpdateVaccination(_FakeVaccinationRepository()),
+        deleteVaccination: DeleteVaccination(_FakeVaccinationRepository()),
+        createTreatment: CreateTreatment(_FakeTreatmentRepository()),
+        getTreatments: GetTreatments(_FakeTreatmentRepository()),
+        updateTreatment: UpdateTreatment(_FakeTreatmentRepository()),
+        deleteTreatment: DeleteTreatment(_FakeTreatmentRepository()),
+        createHealthMeasurement: CreateHealthMeasurement(
+          _FakeHealthMeasurementRepository(),
+        ),
+        getHealthMeasurements: GetHealthMeasurements(
+          _FakeHealthMeasurementRepository(),
+        ),
+        updateHealthMeasurement: UpdateHealthMeasurement(
+          _FakeHealthMeasurementRepository(),
+        ),
+        deleteHealthMeasurement: DeleteHealthMeasurement(
+          _FakeHealthMeasurementRepository(),
+        ),
+      );
+
+  bool _disposed = false;
+
+  bool get disposed => _disposed;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+}
 
 class _FakePetRepository implements PetRepository {
   @override
@@ -157,6 +317,7 @@ void main() {
 
     Widget buildTestApp({
       required PetsController petsController,
+      HealthController? healthController,
       FirebaseAuth? auth,
       NotificationRepository? notificationRepository,
       ProfileRepository? profileRepository,
@@ -212,6 +373,7 @@ void main() {
         },
         home: OwnerShellPage(
           petsController: petsController,
+          healthController: healthController ?? _FakeHealthController(),
           auth: auth ?? signedInAuth,
           notificationRepository:
               notificationRepository ?? _FakeNotificationRepository(),
