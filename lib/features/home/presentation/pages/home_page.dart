@@ -298,6 +298,7 @@ class _HomeHeader extends StatelessWidget {
               ),
           ],
         ),
+
         const SizedBox(width: 10),
         Container(
           width: 46,
