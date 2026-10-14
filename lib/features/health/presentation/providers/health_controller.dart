@@ -24,7 +24,7 @@ import '../../domain/usecases/update_vaccination.dart';
 class HealthController extends ChangeNotifier {
   HealthController({
     required this._createMedicalCondition,
-    required GetMedicalConditions getMedicalConditions,
+    required this._getMedicalConditions,
     required this._updateMedicalCondition,
     required this._deleteMedicalCondition,
     required this._createVaccination,
@@ -39,7 +39,7 @@ class HealthController extends ChangeNotifier {
     required this._getHealthMeasurements,
     required this._updateHealthMeasurement,
     required this._deleteHealthMeasurement,
-  }) : _getMedicalConditions = getMedicalConditions;
+  });
 
   final CreateMedicalCondition _createMedicalCondition;
   final GetMedicalConditions _getMedicalConditions;
