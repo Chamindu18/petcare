@@ -7,6 +7,31 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:petcare/app/router/app_router.dart';
 import 'package:petcare/features/auth/domain/repositories/auth_repository.dart';
+import 'package:petcare/features/health/domain/entities/health_measurement.dart';
+import 'package:petcare/features/health/domain/entities/medical_condition.dart';
+import 'package:petcare/features/health/domain/entities/treatment.dart';
+import 'package:petcare/features/health/domain/entities/vaccination.dart';
+import 'package:petcare/features/health/domain/repositories/health_measurement_repository.dart';
+import 'package:petcare/features/health/domain/repositories/medical_condition_repository.dart';
+import 'package:petcare/features/health/domain/repositories/treatment_repository.dart';
+import 'package:petcare/features/health/domain/repositories/vaccination_repository.dart';
+import 'package:petcare/features/health/domain/usecases/create_health_measurement.dart';
+import 'package:petcare/features/health/domain/usecases/create_medical_condition.dart';
+import 'package:petcare/features/health/domain/usecases/create_treatment.dart';
+import 'package:petcare/features/health/domain/usecases/create_vaccination.dart';
+import 'package:petcare/features/health/domain/usecases/delete_health_measurement.dart';
+import 'package:petcare/features/health/domain/usecases/delete_medical_condition.dart';
+import 'package:petcare/features/health/domain/usecases/delete_treatment.dart';
+import 'package:petcare/features/health/domain/usecases/delete_vaccination.dart';
+import 'package:petcare/features/health/domain/usecases/get_health_measurements.dart';
+import 'package:petcare/features/health/domain/usecases/get_medical_conditions.dart';
+import 'package:petcare/features/health/domain/usecases/get_treatments.dart';
+import 'package:petcare/features/health/domain/usecases/get_vaccinations.dart';
+import 'package:petcare/features/health/domain/usecases/update_health_measurement.dart';
+import 'package:petcare/features/health/domain/usecases/update_medical_condition.dart';
+import 'package:petcare/features/health/domain/usecases/update_treatment.dart';
+import 'package:petcare/features/health/domain/usecases/update_vaccination.dart';
+import 'package:petcare/features/health/presentation/providers/health_controller.dart';
 import 'package:petcare/features/home/presentation/pages/home_page.dart';
 import 'package:petcare/features/home/presentation/pages/owner_shell_page.dart';
 import 'package:petcare/features/notifications/domain/entities/notification.dart'
@@ -119,6 +144,137 @@ class _FakeAuthRepository implements AuthRepository {
   }) async {}
 }
 
+// -----------------------------------------------------------------------------
+// Fake Health repositories
+// -----------------------------------------------------------------------------
+
+class _FakeMedicalConditionRepository implements MedicalConditionRepository {
+  @override
+  Future<MedicalCondition> createMedicalCondition(
+    MedicalCondition condition,
+  ) async => condition;
+
+  @override
+  Future<List<MedicalCondition>> getMedicalConditions(String petId) async => [];
+
+  @override
+  Future<MedicalCondition?> getMedicalConditionById(
+    String petId,
+    String conditionId,
+  ) async => null;
+
+  @override
+  Future<void> updateMedicalCondition(MedicalCondition condition) async {}
+
+  @override
+  Future<void> deleteMedicalCondition(String petId, String conditionId) async {}
+}
+
+class _FakeVaccinationRepository implements VaccinationRepository {
+  @override
+  Future<Vaccination> createVaccination(Vaccination vaccination) async =>
+      vaccination;
+
+  @override
+  Future<List<Vaccination>> getVaccinations(String petId) async => [];
+
+  @override
+  Future<Vaccination?> getVaccinationById(
+    String petId,
+    String vaccinationId,
+  ) async => null;
+
+  @override
+  Future<void> updateVaccination(Vaccination vaccination) async {}
+
+  @override
+  Future<void> deleteVaccination(String petId, String vaccinationId) async {}
+}
+
+class _FakeTreatmentRepository implements TreatmentRepository {
+  @override
+  Future<Treatment> createTreatment(Treatment treatment) async => treatment;
+
+  @override
+  Future<List<Treatment>> getTreatments(String petId) async => [];
+
+  @override
+  Future<Treatment?> getTreatmentById(String petId, String treatmentId) async =>
+      null;
+
+  @override
+  Future<void> updateTreatment(Treatment treatment) async {}
+
+  @override
+  Future<void> deleteTreatment(String petId, String treatmentId) async {}
+}
+
+class _FakeHealthMeasurementRepository implements HealthMeasurementRepository {
+  @override
+  Future<HealthMeasurement> createHealthMeasurement(
+    HealthMeasurement measurement,
+  ) async => measurement;
+
+  @override
+  Future<List<HealthMeasurement>> getHealthMeasurements(String petId) async =>
+      [];
+
+  @override
+  Future<HealthMeasurement?> getHealthMeasurementById(
+    String petId,
+    String measurementId,
+  ) async => null;
+
+  @override
+  Future<void> updateHealthMeasurement(HealthMeasurement measurement) async {}
+
+  @override
+  Future<void> deleteHealthMeasurement(
+    String petId,
+    String measurementId,
+  ) async {}
+}
+
+// -----------------------------------------------------------------------------
+// Create a HealthController backed by fake repositories
+// -----------------------------------------------------------------------------
+
+HealthController _createFakeHealthController() {
+  final medicalConditionRepository = _FakeMedicalConditionRepository();
+  final vaccinationRepository = _FakeVaccinationRepository();
+  final treatmentRepository = _FakeTreatmentRepository();
+  final healthMeasurementRepository = _FakeHealthMeasurementRepository();
+
+  return HealthController(
+    createMedicalCondition: CreateMedicalCondition(medicalConditionRepository),
+    getMedicalConditions: GetMedicalConditions(medicalConditionRepository),
+    updateMedicalCondition: UpdateMedicalCondition(medicalConditionRepository),
+    deleteMedicalCondition: DeleteMedicalCondition(medicalConditionRepository),
+    createVaccination: CreateVaccination(vaccinationRepository),
+    getVaccinations: GetVaccinations(vaccinationRepository),
+    updateVaccination: UpdateVaccination(vaccinationRepository),
+    deleteVaccination: DeleteVaccination(vaccinationRepository),
+    createTreatment: CreateTreatment(treatmentRepository),
+    getTreatments: GetTreatments(treatmentRepository),
+    updateTreatment: UpdateTreatment(treatmentRepository),
+    deleteTreatment: DeleteTreatment(treatmentRepository),
+    createHealthMeasurement: CreateHealthMeasurement(
+      healthMeasurementRepository,
+    ),
+    getHealthMeasurements: GetHealthMeasurements(healthMeasurementRepository),
+    updateHealthMeasurement: UpdateHealthMeasurement(
+      healthMeasurementRepository,
+    ),
+    deleteHealthMeasurement: DeleteHealthMeasurement(
+      healthMeasurementRepository,
+    ),
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Fake Pets controller
+// -----------------------------------------------------------------------------
+
 class _FakePetsController extends PetsController {
   _FakePetsController()
     : super(
@@ -145,18 +301,29 @@ class _RouteCapture {
   RouteSettings? settings;
 }
 
+// -----------------------------------------------------------------------------
+// Tests
+// -----------------------------------------------------------------------------
+
 void main() {
   group('OwnerShellPage', () {
     late MockFirebaseAuth signedInAuth;
     late _RouteCapture routeCapture;
+    late HealthController healthController;
 
     setUp(() {
       signedInAuth = MockFirebaseAuth(signedIn: true);
       routeCapture = _RouteCapture();
+      healthController = _createFakeHealthController();
+    });
+
+    tearDown(() {
+      healthController.dispose();
     });
 
     Widget buildTestApp({
       required PetsController petsController,
+      required HealthController healthController,
       FirebaseAuth? auth,
       NotificationRepository? notificationRepository,
       ProfileRepository? profileRepository,
@@ -171,18 +338,21 @@ void main() {
               settings: settings,
             );
           }
+
           if (settings.name == AppRouter.notifications) {
             return MaterialPageRoute(
               builder: (_) => const Scaffold(body: Text('Notifications')),
               settings: settings,
             );
           }
+
           if (settings.name == AppRouter.editProfile) {
             return MaterialPageRoute(
               builder: (_) => const Scaffold(body: Text('Edit Profile')),
               settings: settings,
             );
           }
+
           if (settings.name == AppRouter.notificationSettings) {
             return MaterialPageRoute(
               builder: (_) =>
@@ -190,28 +360,33 @@ void main() {
               settings: settings,
             );
           }
+
           if (settings.name == AppRouter.privacySecurity) {
             return MaterialPageRoute(
               builder: (_) => const Scaffold(body: Text('Privacy Security')),
               settings: settings,
             );
           }
+
           if (settings.name == AppRouter.helpSupport) {
             return MaterialPageRoute(
               builder: (_) => const Scaffold(body: Text('Help Support')),
               settings: settings,
             );
           }
+
           if (settings.name == AppRouter.aboutPetCare) {
             return MaterialPageRoute(
               builder: (_) => const Scaffold(body: Text('About PetCare')),
               settings: settings,
             );
           }
+
           return AppRouter.routeGenerator(auth: auth ?? signedInAuth)(settings);
         },
         home: OwnerShellPage(
           petsController: petsController,
+          healthController: healthController,
           auth: auth ?? signedInAuth,
           notificationRepository:
               notificationRepository ?? _FakeNotificationRepository(),
@@ -224,7 +399,12 @@ void main() {
     testWidgets('renders with injected PetsController', (tester) async {
       final fakeController = _FakePetsController();
 
-      await tester.pumpWidget(buildTestApp(petsController: fakeController));
+      await tester.pumpWidget(
+        buildTestApp(
+          petsController: fakeController,
+          healthController: healthController,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(OwnerShellPage), findsOneWidget);
@@ -239,7 +419,12 @@ void main() {
     testWidgets('switches between bottom navigation tabs', (tester) async {
       final fakeController = _FakePetsController();
 
-      await tester.pumpWidget(buildTestApp(petsController: fakeController));
+      await tester.pumpWidget(
+        buildTestApp(
+          petsController: fakeController,
+          healthController: healthController,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(HomePage), findsOneWidget);
@@ -276,7 +461,12 @@ void main() {
     ) async {
       final fakeController = _FakePetsController();
 
-      await tester.pumpWidget(buildTestApp(petsController: fakeController));
+      await tester.pumpWidget(
+        buildTestApp(
+          petsController: fakeController,
+          healthController: healthController,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(fakeController.disposed, isFalse);
@@ -292,7 +482,12 @@ void main() {
     ) async {
       final fakeController = _FakePetsController();
 
-      await tester.pumpWidget(buildTestApp(petsController: fakeController));
+      await tester.pumpWidget(
+        buildTestApp(
+          petsController: fakeController,
+          healthController: healthController,
+        ),
+      );
       await tester.pumpAndSettle();
 
       final addPetButton = find.byIcon(Icons.add_rounded);
@@ -311,25 +506,30 @@ void main() {
     ) async {
       final fakeController = _FakePetsController();
 
-      await tester.pumpWidget(buildTestApp(petsController: fakeController));
+      await tester.pumpWidget(
+        buildTestApp(
+          petsController: fakeController,
+          healthController: healthController,
+        ),
+      );
       await tester.pumpAndSettle();
 
       final labels = ['Home', 'My Pets', 'Appointments', 'AI Hub', 'Profile'];
 
       for (final label in labels) {
-        // Find the text widget for this label
         final textFinder = find.text(label);
+
         expect(
           textFinder,
           findsAtLeast(1),
           reason: 'Bottom nav label "$label" not found',
         );
 
-        // Find the ancestor InkWell (the tappable area)
         final inkWellFinder = find.ancestor(
           of: textFinder.first,
           matching: find.byType(InkWell),
         );
+
         expect(
           inkWellFinder,
           findsOneWidget,
@@ -343,6 +543,7 @@ void main() {
           greaterThanOrEqualTo(48),
           reason: 'Bottom nav item "$label" width below 48dp',
         );
+
         expect(
           renderBox.size.height,
           greaterThanOrEqualTo(48),
