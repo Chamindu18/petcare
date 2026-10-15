@@ -5,9 +5,10 @@ import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 
 class SplashPage extends StatefulWidget {
-  const SplashPage({super.key, this.auth});
+  const SplashPage({super.key, this.auth, this.startupFuture});
 
   final FirebaseAuth? auth;
+  final Future<bool>? startupFuture;
 
   @override
   State<SplashPage> createState() => _SplashPageState();
@@ -23,8 +24,28 @@ class _SplashPageState extends State<SplashPage> {
 
     final auth = widget.auth ?? FirebaseAuth.instance;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    Future<bool> waitForStartup() async {
+      if (widget.startupFuture != null) {
+        final deepLinkHandled = await widget.startupFuture!;
+        if (deepLinkHandled) {
+          // A valid deep link (e.g., password reset) has initiated navigation.
+          // Suppress the splash authentication redirect.
+          return true;
+        }
+      }
+      return false;
+    }
+
+    waitForStartup().then((deepLinkHandled) {
       if (!mounted) return;
+      if (deepLinkHandled) return;
+
+      // If the route has been replaced (e.g., by a deep link navigation),
+      // the current route name will no longer be the splash route.
+      final currentRoute = ModalRoute.of(context);
+      if (currentRoute?.settings.name != AppRouter.splash) {
+        return;
+      }
 
       final user = auth.currentUser;
       final target = user != null ? AppRouter.home : AppRouter.onboarding;
