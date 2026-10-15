@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core_platform_interface/firebase_core_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +21,50 @@ class _FakeDeepLinkService implements DeepLinkService {
     startCallCount++;
     this.onLink = onLink;
     return initialUri;
+  }
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+  }
+}
+
+class _DelayedInitialUriDeepLinkService implements DeepLinkService {
+  _DelayedInitialUriDeepLinkService({required this.initialUri});
+
+  final Uri initialUri;
+  ValueChanged<Uri>? onLink;
+  Completer<Uri?>? _startCompleter;
+  bool disposed = false;
+
+  @override
+  Future<Uri?> start({required ValueChanged<Uri> onLink}) async {
+    this.onLink = onLink;
+    _startCompleter = Completer<Uri?>();
+    return _startCompleter!.future;
+  }
+
+  void completeInitialUri() {
+    _startCompleter?.complete(initialUri);
+  }
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+  }
+}
+
+class _ThrowingInitialUriDeepLinkService implements DeepLinkService {
+  _ThrowingInitialUriDeepLinkService({this.error});
+
+  final Object? error;
+  ValueChanged<Uri>? onLink;
+  bool disposed = false;
+
+  @override
+  Future<Uri?> start({required ValueChanged<Uri> onLink}) async {
+    this.onLink = onLink;
+    throw error ?? Exception('Deep link initialization failed');
   }
 
   @override
@@ -393,5 +439,91 @@ void main() {
       expect(routeCapture.settings!.name, AppRouter.resetPassword);
       expect(routeCapture.settings!.arguments, testCode);
     });
+
+    testWidgets(
+      'cold-start deep link with delayed initialUri beats splash navigation',
+      (tester) async {
+        const testCode = 'DELAYED_COLD_START_CODE';
+        const outerHost = 'petcare-d4413.firebaseapp.com';
+        const outerPath = '/__/auth/links';
+        const innerPath = '/__/auth/action';
+        final innerUri = Uri(
+          scheme: 'https',
+          host: outerHost,
+          path: innerPath,
+          queryParameters: {'mode': 'resetPassword', 'oobCode': testCode},
+        );
+        final outerUri = Uri(
+          scheme: 'https',
+          host: outerHost,
+          path: outerPath,
+          queryParameters: {'link': innerUri.toString()},
+        );
+
+        final delayedService = _DelayedInitialUriDeepLinkService(
+          initialUri: outerUri,
+        );
+
+        await tester.pumpWidget(buildTestApp(deepLinkService: delayedService));
+
+        // Allow the first frame to complete (splash page created, waiting for startupFuture)
+        await tester.pump();
+
+        // Now complete the initialUri - this simulates the deep link service
+        // returning the initialUri after the first frame
+        delayedService.completeInitialUri();
+
+        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
+
+        // Debug: check what's on screen
+        final navigatorState = _navigatorKey.currentState;
+        if (navigatorState != null) {
+          // print('Navigator routes: ${navigatorState.restorableStack}');
+        }
+
+        // The reset password page should be the final destination,
+        // not onboarding or home (which would be the splash navigation target)
+        expect(routeCapture.settings, isNotNull);
+        expect(routeCapture.settings!.name, AppRouter.resetPassword);
+        expect(routeCapture.settings!.arguments, testCode);
+
+        // Check that we're on the reset password screen (the test route builder returns Scaffold(body: Text('Reset Password')))
+        expect(find.text('Reset Password'), findsOneWidget);
+        expect(find.text('Better Care'), findsNothing); // Onboarding title
+        expect(find.text('Welcome Back'), findsNothing); // Login title
+      },
+    );
+
+    testWidgets(
+      'normal startup without deep link routes to onboarding when unauthenticated',
+      (tester) async {
+        final noLinkService = _FakeDeepLinkService(initialUri: null);
+
+        await tester.pumpWidget(buildTestApp(deepLinkService: noLinkService));
+        await tester.pumpAndSettle();
+
+        // Should navigate to onboarding (unauthenticated)
+        expect(find.text('Better Care'), findsOneWidget); // Onboarding title
+        expect(find.text('Reset Password'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'deep link initialization exception falls back to normal startup',
+      (tester) async {
+        final throwingService = _ThrowingInitialUriDeepLinkService(
+          error: Exception('getInitialLink failed'),
+        );
+
+        await tester.pumpWidget(buildTestApp(deepLinkService: throwingService));
+        await tester.pumpAndSettle();
+
+        // Should navigate to onboarding (unauthenticated) despite the exception
+        expect(find.text('Better Care'), findsOneWidget); // Onboarding title
+        expect(find.text('Reset Password'), findsNothing);
+      },
+    );
   });
 }
