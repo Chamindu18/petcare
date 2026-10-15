@@ -61,6 +61,12 @@ import '../../../../core/config/cloudinary_config.dart';
 import '../../features/hospitals/presentation/pages/hospital_discovery_page.dart';
 import '../../features/hospitals/presentation/pages/hospital_details_page.dart';
 import '../../features/appointments/presentation/pages/book_appointment_page.dart';
+import '../../features/ai_assistant/presentation/pages/ai_hub_page.dart';
+import '../../features/ai_assistant/presentation/pages/ai_chat_page.dart';
+import '../../features/ai_assistant/presentation/pages/health_summary_page.dart';
+import '../../features/ai_assistant/presentation/pages/preventive_insights_page.dart';
+import '../../features/ai_assistant/presentation/pages/vet_visit_preparation_page.dart';
+
 
 class AppRouter {
   AppRouter._();
@@ -88,10 +94,16 @@ class AppRouter {
   static const String helpSupport = '/help-support';
   static const String aboutPetCare = '/about-petcare';
   static const String petProfile = '/pet-profile';
+
   static const String hospitalDiscovery = '/hospitals';
   static const String hospitalDetails = '/hospital-details';
   static const String bookAppointment = '/book-appointment';
-  
+
+  static const String aiHub = '/ai-hub';
+  static const String aiChat = '/ai-chat';
+  static const String healthSummary = '/health-summary';
+  static const String preventiveInsights = '/preventive-insights';
+  static const String vetVisitPreparation = '/vet-visit-preparation';
 
   // Public routes are handled here.
   // Protected routes are handled in onGenerateRoute()
@@ -153,6 +165,11 @@ class AppRouter {
       hospitalDiscovery,
       hospitalDetails,
       bookAppointment,
+      aiHub,
+      aiChat,
+      healthSummary,
+      preventiveInsights,
+      vetVisitPreparation,
     };
 
     // Protect routes that require authentication.
@@ -383,6 +400,31 @@ class AppRouter {
       case aboutPetCare:
         return MaterialPageRoute(
           builder: (_) => const AboutPetCarePage(),
+          settings: settings,
+        );
+      case aiHub:
+        return MaterialPageRoute(
+          builder: (_) => const AIHubPage(),
+          settings: settings,
+        );
+      case aiChat:
+        return MaterialPageRoute(
+          builder: (_) => const AIChatPage(),
+          settings: settings,
+        );
+      case healthSummary:
+        return MaterialPageRoute(
+          builder: (_) => const HealthSummaryPage(),
+          settings: settings,
+        );
+      case preventiveInsights:
+        return MaterialPageRoute(
+          builder: (_) => const PreventiveInsightsPage(),
+          settings: settings,
+        );
+      case vetVisitPreparation:
+        return MaterialPageRoute(
+          builder: (_) => const VetVisitPreparationPage(),
           settings: settings,
         );
 
