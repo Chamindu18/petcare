@@ -94,11 +94,11 @@ class _MockFirebaseAppPlatform extends FirebaseAppPlatform {
 
   @override
   FirebaseOptions get options => const FirebaseOptions(
-        apiKey: 'mock-api-key',
-        appId: 'mock-app-id',
-        messagingSenderId: 'mock-sender-id',
-        projectId: 'mock-project-id',
-      );
+    apiKey: 'mock-api-key',
+    appId: 'mock-app-id',
+    messagingSenderId: 'mock-sender-id',
+    projectId: 'mock-project-id',
+  );
 }
 
 void setupFirebaseCoreMocks() {

@@ -20,16 +20,23 @@
           "projectId": "petcare-d4413",
           "appId": "1:265273949414:android:12547873cf8b267aa0cf27",
           "fileOutput": "android/app/google-services.json"
-        }
-      },
-      "dart": {
-        "lib/firebase_options.dart": {
-          "projectId": "petcare-d4413",
-          "configurations": {
-            "android": "1:265273949414:android:12547873cf8b267aa0cf27"
+        },
+        "dart": {
+          "lib/firebase_options.dart": {
+            "projectId": "petcare-d4413",
+            "configurations": {
+              "android": "1:265273949414:android:12547873cf8b267aa0cf27"
+            }
           }
         }
       }
     }
+  },
+  "emulators": {
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "singleProjectMode": true
   }
 }

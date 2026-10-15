@@ -33,8 +33,10 @@ void main() {
             AppRouter.register: (_) => const Scaffold(body: Text('Register')),
             AppRouter.forgotPassword: (_) =>
                 const Scaffold(body: Text('Forgot Password')),
-            AppRouter.onboarding: (_) => const Scaffold(body: Text('Onboarding')),
-            AppRouter.checkEmail: (_) => const Scaffold(body: Text('Check Email')),
+            AppRouter.onboarding: (_) =>
+                const Scaffold(body: Text('Onboarding')),
+            AppRouter.checkEmail: (_) =>
+                const Scaffold(body: Text('Check Email')),
             AppRouter.passwordResetSuccess: (_) =>
                 const Scaffold(body: Text('Success')),
           },
@@ -63,11 +65,14 @@ void main() {
 
       // Verify "Log In" text is displayed (inside TextButton with RichText)
       expect(
-        find.byWidgetPredicate((Widget widget) =>
-            widget is TextButton &&
-            widget.child is RichText &&
-            (widget.child as RichText).text.toPlainText().contains('Log In')),
-        findsOneWidget);
+        find.byWidgetPredicate(
+          (Widget widget) =>
+              widget is TextButton &&
+              widget.child is RichText &&
+              (widget.child as RichText).text.toPlainText().contains('Log In'),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('"Go to Home" navigates to Home', (tester) async {
@@ -80,8 +85,10 @@ void main() {
             AppRouter.register: (_) => const Scaffold(body: Text('Register')),
             AppRouter.forgotPassword: (_) =>
                 const Scaffold(body: Text('Forgot Password')),
-            AppRouter.onboarding: (_) => const Scaffold(body: Text('Onboarding')),
-            AppRouter.checkEmail: (_) => const Scaffold(body: Text('Check Email')),
+            AppRouter.onboarding: (_) =>
+                const Scaffold(body: Text('Onboarding')),
+            AppRouter.checkEmail: (_) =>
+                const Scaffold(body: Text('Check Email')),
             AppRouter.passwordResetSuccess: (_) =>
                 const Scaffold(body: Text('Success')),
             // AppRouter.home intentionally omitted to allow onGenerateRoute to handle it
@@ -117,7 +124,9 @@ void main() {
       expect(capturedRouteSettings!.arguments, isNull);
     });
 
-    testWidgets('"Already have an account? Log In" navigates to Login', (tester) async {
+    testWidgets('"Already have an account? Log In" navigates to Login', (
+      tester,
+    ) async {
       RouteSettings? capturedRouteSettings;
 
       await tester.pumpWidget(
@@ -129,7 +138,8 @@ void main() {
                 const Scaffold(body: Text('Forgot Password')),
             AppRouter.onboarding: (_) =>
                 const Scaffold(body: Text('Onboarding')),
-            AppRouter.checkEmail: (_) => const Scaffold(body: Text('Check Email')),
+            AppRouter.checkEmail: (_) =>
+                const Scaffold(body: Text('Check Email')),
             AppRouter.passwordResetSuccess: (_) =>
                 const Scaffold(body: Text('Success')),
           },
@@ -154,10 +164,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // Scroll to and tap "Log In" link (inside TextButton with RichText)
-      final logInButtonFinder = find.byWidgetPredicate((Widget element) =>
-          element is TextButton &&
-          element.child is RichText &&
-          (element.child as RichText).text.toPlainText().contains('Log In'));
+      final logInButtonFinder = find.byWidgetPredicate(
+        (Widget element) =>
+            element is TextButton &&
+            element.child is RichText &&
+            (element.child as RichText).text.toPlainText().contains('Log In'),
+      );
       await tester.ensureVisible(logInButtonFinder);
       await tester.tap(logInButtonFinder);
       await tester.pumpAndSettle();

@@ -2,10 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../features/pets/presentation/pages/pet_profile_page.dart';
-import '../../features/pets/presentation/providers/pets_controller.dart';
-import '../../features/adoption/presentation/pages/adoption_pet_details_page.dart';
 import '../../features/adoption/domain/entities/adoption_listing.dart';
+import '../../features/adoption/presentation/pages/adoption_pet_details_page.dart';
 import '../../features/adoption/presentation/pages/adoption_request_page.dart';
 import '../../features/adoption/presentation/pages/my_adoption_listings_page.dart';
 import '../../features/auth/presentation/pages/check_email_page.dart';
@@ -18,21 +16,53 @@ import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/registration_success_page.dart';
 import '../../features/auth/presentation/pages/reset_password_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
+import '../../features/health/data/repositories/firebase_health_measurement_repository.dart';
+import '../../features/health/data/repositories/firebase_medical_condition_repository.dart';
+import '../../features/health/data/repositories/firebase_treatment_repository.dart';
+import '../../features/health/data/repositories/firebase_vaccination_repository.dart';
+import '../../features/health/domain/usecases/create_health_measurement.dart';
+import '../../features/health/domain/usecases/create_medical_condition.dart';
+import '../../features/health/domain/usecases/create_treatment.dart';
+import '../../features/health/domain/usecases/create_vaccination.dart';
+import '../../features/health/domain/usecases/delete_health_measurement.dart';
+import '../../features/health/domain/usecases/delete_medical_condition.dart';
+import '../../features/health/domain/usecases/delete_treatment.dart';
+import '../../features/health/domain/usecases/delete_vaccination.dart';
+import '../../features/health/domain/usecases/get_health_measurements.dart';
+import '../../features/health/domain/usecases/get_medical_conditions.dart';
+import '../../features/health/domain/usecases/get_treatments.dart';
+import '../../features/health/domain/usecases/get_vaccinations.dart';
+import '../../features/health/domain/usecases/update_health_measurement.dart';
+import '../../features/health/domain/usecases/update_medical_condition.dart';
+import '../../features/health/domain/usecases/update_treatment.dart';
+import '../../features/health/domain/usecases/update_vaccination.dart';
+import '../../features/health/presentation/providers/health_controller.dart';
 import '../../features/home/presentation/pages/owner_shell_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
+import '../../features/pets/data/repositories/cloudinary_pet_image_repository.dart';
 import '../../features/pets/data/repositories/firebase_pet_repository.dart';
 import '../../features/pets/domain/usecases/create_pet.dart';
 import '../../features/pets/domain/usecases/delete_pet.dart';
+import '../../features/pets/domain/usecases/delete_pet_image.dart';
 import '../../features/pets/domain/usecases/get_pets.dart';
 import '../../features/pets/domain/usecases/update_pet.dart';
+import '../../features/pets/domain/usecases/upload_pet_image.dart';
 import '../../features/pets/presentation/pages/add_edit_pet_page.dart';
 import '../../features/pets/presentation/pages/my_pets_page.dart';
-import '../../features/profile/presentation/pages/edit_profile_page.dart';
-import '../../features/profile/presentation/pages/notification_settings_page.dart';
+import '../../features/pets/presentation/pages/pet_profile_page.dart';
+import '../../features/pets/presentation/providers/pets_controller.dart';
 import '../../features/profile/domain/entities/user_profile.dart';
-import '../../features/profile/presentation/pages/privacy_security_page.dart';
-import '../../features/profile/presentation/pages/help_support_page.dart';
 import '../../features/profile/presentation/pages/about_petcare_page.dart';
+import '../../features/profile/presentation/pages/edit_profile_page.dart';
+import '../../features/profile/presentation/pages/help_support_page.dart';
+import '../../features/profile/presentation/pages/notification_settings_page.dart';
+import '../../features/profile/presentation/pages/privacy_security_page.dart';
+import '../../../../core/config/cloudinary_config.dart';
+import '../../features/ai_assistant/presentation/pages/ai_hub_page.dart';
+import '../../features/ai_assistant/presentation/pages/ai_chat_page.dart';
+import '../../features/ai_assistant/presentation/pages/health_summary_page.dart';
+import '../../features/ai_assistant/presentation/pages/preventive_insights_page.dart';
+import '../../features/ai_assistant/presentation/pages/vet_visit_preparation_page.dart';
 
 class AppRouter {
   AppRouter._();
@@ -60,21 +90,21 @@ class AppRouter {
   static const String helpSupport = '/help-support';
   static const String aboutPetCare = '/about-petcare';
   static const String petProfile = '/pet-profile';
+  static const String aiHub = '/ai-hub';
+  static const String aiChat = '/ai-chat';
+  static const String healthSummary = '/health-summary';
+  static const String preventiveInsights = '/preventive-insights';
+  static const String vetVisitPreparation = '/vet-visit-preparation';
 
   // Public routes are handled here.
   // Protected routes are handled in onGenerateRoute()
   // so that authentication checks cannot be bypassed.
   static Map<String, WidgetBuilder> get routes => {
     splash: (_) => const SplashPage(),
-
     onboarding: (_) => const OnboardingPage(),
-
     onboardingSlides: (_) => const OnboardingSlidesPage(),
-
     login: (_) => const LoginPage(),
-
     register: (_) => const RegisterPage(),
-
     forgotPassword: (_) => const ForgotPasswordPage(),
 
     checkEmail: (context) {
@@ -123,6 +153,11 @@ class AppRouter {
       helpSupport,
       aboutPetCare,
       petProfile,
+      aiHub,
+      aiChat,
+      healthSummary,
+      preventiveInsights,
+      vetVisitPreparation,
     };
 
     // Protect routes that require authentication.
@@ -136,7 +171,7 @@ class AppRouter {
     switch (settings.name) {
       case home:
         return MaterialPageRoute(
-          builder: (_) => OwnerShellPage(),
+          builder: (_) => const OwnerShellPage(),
           settings: settings,
         );
 
@@ -154,14 +189,71 @@ class AppRouter {
               firestore: FirebaseFirestore.instance,
             );
 
+            final imageRepository = CloudinaryPetImageRepository(
+              cloudName: CloudinaryConfig.cloudName,
+              uploadPreset: CloudinaryConfig.uploadPreset,
+            );
+
             final controller = PetsController(
               CreatePet(repository),
               GetPets(repository),
               UpdatePet(repository),
               DeletePet(repository),
+              UploadPetImage(imageRepository),
+              DeletePetImage(imageRepository),
             );
 
-            return MyPetsPage(controller: controller);
+            final medicalConditionRepository =
+                FirebaseMedicalConditionRepository();
+
+            final vaccinationRepository = FirebaseVaccinationRepository();
+
+            final treatmentRepository = FirebaseTreatmentRepository();
+
+            final healthMeasurementRepository =
+                FirebaseHealthMeasurementRepository();
+
+            final healthController = HealthController(
+              createMedicalCondition: CreateMedicalCondition(
+                medicalConditionRepository,
+              ),
+              getMedicalConditions: GetMedicalConditions(
+                medicalConditionRepository,
+              ),
+              updateMedicalCondition: UpdateMedicalCondition(
+                medicalConditionRepository,
+              ),
+              deleteMedicalCondition: DeleteMedicalCondition(
+                medicalConditionRepository,
+              ),
+              createVaccination: CreateVaccination(vaccinationRepository),
+              getVaccinations: GetVaccinations(vaccinationRepository),
+              updateVaccination: UpdateVaccination(vaccinationRepository),
+              deleteVaccination: DeleteVaccination(vaccinationRepository),
+              createTreatment: CreateTreatment(treatmentRepository),
+              getTreatments: GetTreatments(treatmentRepository),
+              updateTreatment: UpdateTreatment(treatmentRepository),
+              deleteTreatment: DeleteTreatment(treatmentRepository),
+              createHealthMeasurement: CreateHealthMeasurement(
+                healthMeasurementRepository,
+              ),
+              getHealthMeasurements: GetHealthMeasurements(
+                healthMeasurementRepository,
+              ),
+              updateHealthMeasurement: UpdateHealthMeasurement(
+                healthMeasurementRepository,
+              ),
+              deleteHealthMeasurement: DeleteHealthMeasurement(
+                healthMeasurementRepository,
+              ),
+            );
+
+            return MyPetsPage(
+              controller: controller,
+              healthController: healthController,
+              ownsController: true,
+              ownsHealthController: true,
+            );
           },
           settings: settings,
         );
@@ -177,7 +269,11 @@ class AppRouter {
               );
             }
 
-            return PetProfilePage(pet: args.pet, controller: args.controller);
+            return PetProfilePage(
+              pet: args.pet,
+              controller: args.controller,
+              healthController: args.healthController,
+            );
           },
           settings: settings,
         );
@@ -294,6 +390,32 @@ class AppRouter {
           builder: (_) => const AboutPetCarePage(),
           settings: settings,
         );
+      case aiHub:
+        return MaterialPageRoute(
+          builder: (_) => const AIHubPage(),
+          settings: settings,
+        );
+      case aiChat:
+        return MaterialPageRoute(
+          builder: (_) => const AIChatPage(),
+          settings: settings,
+        );
+      case healthSummary:
+        return MaterialPageRoute(
+          builder: (_) => const HealthSummaryPage(),
+          settings: settings,
+        );
+      case preventiveInsights:
+        return MaterialPageRoute(
+          builder: (_) => const PreventiveInsightsPage(),
+          settings: settings,
+        );
+      case vetVisitPreparation:
+        return MaterialPageRoute(
+          builder: (_) => const VetVisitPreparationPage(),
+          settings: settings,
+        );
+
       default:
         return null;
     }

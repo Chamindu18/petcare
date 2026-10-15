@@ -275,5 +275,99 @@ void main() {
       expect(capturedRouteSettings, isNotNull);
       expect(capturedRouteSettings!.name, AppRouter.home);
     });
+
+    testWidgets('bottom artwork hides when keyboard is visible', (
+      tester,
+    ) async {
+      final repo = _FakeAuthRepository();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          routes: {
+            AppRouter.login: (_) => const Scaffold(body: Text('Login')),
+            AppRouter.register: (_) => const Scaffold(body: Text('Register')),
+            AppRouter.forgotPassword: (_) =>
+                const Scaffold(body: Text('Forgot Password')),
+            AppRouter.onboarding: (_) =>
+                const Scaffold(body: Text('Onboarding')),
+          },
+          onGenerateRoute: (_) => null,
+          home: LoginPage(authRepository: repo),
+        ),
+      );
+
+      // Initially keyboard is hidden - artwork should be present
+      expect(
+        find.bySemanticsLabel('PetCare+ dog and cat illustration'),
+        findsOneWidget,
+      );
+
+      // Focus the email field to trigger keyboard (simulated via viewInsets)
+      await tester.tap(find.widgetWithText(TextFormField, 'your@email.com'));
+      await tester.pump();
+
+      // Simulate keyboard open by pumping with viewInsets
+      await tester.pumpWidget(
+        MediaQuery(
+          data: MediaQuery.of(tester.element(find.byType(Scaffold)))
+              .copyWith(viewInsets: const EdgeInsets.only(bottom: 300)),
+          child: MaterialApp(
+            routes: {
+              AppRouter.login: (_) => const Scaffold(body: Text('Login')),
+              AppRouter.register: (_) => const Scaffold(body: Text('Register')),
+              AppRouter.forgotPassword: (_) =>
+                  const Scaffold(body: Text('Forgot Password')),
+              AppRouter.onboarding: (_) =>
+                  const Scaffold(body: Text('Onboarding')),
+            },
+            onGenerateRoute: (_) => null,
+            home: LoginPage(authRepository: repo),
+          ),
+        ),
+      );
+
+      // Artwork should be hidden when keyboard is visible
+      expect(
+        find.bySemanticsLabel('PetCare+ dog and cat illustration'),
+        findsNothing,
+      );
+    });
+
+    testWidgets('bottom artwork shows when keyboard is hidden', (tester) async {
+      final repo = _FakeAuthRepository();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          routes: {
+            AppRouter.login: (_) => const Scaffold(body: Text('Login')),
+            AppRouter.register: (_) => const Scaffold(body: Text('Register')),
+            AppRouter.forgotPassword: (_) =>
+                const Scaffold(body: Text('Forgot Password')),
+            AppRouter.onboarding: (_) =>
+                const Scaffold(body: Text('Onboarding')),
+          },
+          onGenerateRoute: (_) => null,
+          home: LoginPage(authRepository: repo),
+        ),
+      );
+
+      // Keyboard hidden - artwork should be present
+      expect(
+        find.bySemanticsLabel('PetCare+ dog and cat illustration'),
+        findsOneWidget,
+      );
+
+      // Focus and then unfocus (simulate keyboard dismissed)
+      await tester.tap(find.widgetWithText(TextFormField, 'your@email.com'));
+      await tester.pump();
+      await tester.tap(find.byType(Scaffold)); // tap outside to dismiss
+      await tester.pump();
+
+      // Artwork should still be present after keyboard dismissed
+      expect(
+        find.bySemanticsLabel('PetCare+ dog and cat illustration'),
+        findsOneWidget,
+      );
+    });
   });
 }

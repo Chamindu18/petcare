@@ -5,11 +5,7 @@ import 'package:petcare/features/profile/presentation/pages/privacy_security_pag
 
 void main() {
   testWidgets('renders Privacy & Security content', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: const PrivacySecurityPage(),
-      ),
-    );
+    await tester.pumpWidget(MaterialApp(home: const PrivacySecurityPage()));
 
     expect(find.text('Privacy & Security'), findsOneWidget);
     expect(find.text('Security'), findsOneWidget);
@@ -25,9 +21,8 @@ void main() {
       MaterialApp(
         home: const PrivacySecurityPage(),
         routes: {
-          AppRouter.forgotPassword: (_) => const Scaffold(
-            body: Text('Forgot Password Screen'),
-          ),
+          AppRouter.forgotPassword: (_) =>
+              const Scaffold(body: Text('Forgot Password Screen')),
         },
       ),
     );

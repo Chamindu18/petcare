@@ -1,12 +1,35 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/config/cloudinary_config.dart';
+import '../../../auth/domain/repositories/auth_repository.dart';
+import '../../../health/data/repositories/firebase_health_measurement_repository.dart';
+import '../../../health/data/repositories/firebase_medical_condition_repository.dart';
+import '../../../health/data/repositories/firebase_treatment_repository.dart';
+import '../../../health/data/repositories/firebase_vaccination_repository.dart';
+import '../../../health/domain/usecases/create_health_measurement.dart';
+import '../../../health/domain/usecases/create_medical_condition.dart';
+import '../../../health/domain/usecases/create_treatment.dart';
+import '../../../health/domain/usecases/create_vaccination.dart';
+import '../../../health/domain/usecases/delete_health_measurement.dart';
+import '../../../health/domain/usecases/delete_medical_condition.dart';
+import '../../../health/domain/usecases/delete_treatment.dart';
+import '../../../health/domain/usecases/delete_vaccination.dart';
+import '../../../health/domain/usecases/get_health_measurements.dart';
+import '../../../health/domain/usecases/get_medical_conditions.dart';
+import '../../../health/domain/usecases/get_treatments.dart';
+import '../../../health/domain/usecases/get_vaccinations.dart';
+import '../../../health/domain/usecases/update_health_measurement.dart';
+import '../../../health/domain/usecases/update_medical_condition.dart';
+import '../../../health/domain/usecases/update_treatment.dart';
+import '../../../health/domain/usecases/update_vaccination.dart';
+import '../../../health/presentation/providers/health_controller.dart';
+import 'home_page.dart';
 import '../../../notifications/domain/repositories/notification_repository.dart';
-import '../../../pets/data/repositories/firebase_pet_image_repository.dart';
+import '../../../pets/data/repositories/cloudinary_pet_image_repository.dart';
 import '../../../pets/data/repositories/firebase_pet_repository.dart';
 import '../../../pets/domain/usecases/create_pet.dart';
 import '../../../pets/domain/usecases/delete_pet.dart';
@@ -17,14 +40,13 @@ import '../../../pets/domain/usecases/upload_pet_image.dart';
 import '../../../pets/presentation/pages/my_pets_page.dart';
 import '../../../pets/presentation/providers/pets_controller.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
-import '../../../auth/domain/repositories/auth_repository.dart';
-import 'home_page.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
 
 class OwnerShellPage extends StatefulWidget {
   const OwnerShellPage({
     super.key,
     this.petsController,
+    this.healthController,
     this.auth,
     this.notificationRepository,
     this.profileRepository,
@@ -32,6 +54,7 @@ class OwnerShellPage extends StatefulWidget {
   });
 
   final PetsController? petsController;
+  final HealthController? healthController;
   final FirebaseAuth? auth;
   final NotificationRepository? notificationRepository;
   final ProfileRepository? profileRepository;
@@ -47,6 +70,9 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
   late final PetsController _petsController;
   bool _ownsPetsController = false;
 
+  late final HealthController _healthController;
+  bool _ownsHealthController = false;
+
   @override
   void initState() {
     super.initState();
@@ -59,9 +85,10 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
         auth: FirebaseAuth.instance,
         firestore: FirebaseFirestore.instance,
       );
-      final imageRepository = FirebasePetImageRepository(
-        auth: FirebaseAuth.instance,
-        storage: FirebaseStorage.instance,
+
+      final imageRepository = CloudinaryPetImageRepository(
+        cloudName: CloudinaryConfig.cloudName,
+        uploadPreset: CloudinaryConfig.uploadPreset,
       );
 
       _petsController = PetsController(
@@ -72,7 +99,56 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
         UploadPetImage(imageRepository),
         DeletePetImage(imageRepository),
       );
+
       _ownsPetsController = true;
+    }
+
+    if (widget.healthController != null) {
+      _healthController = widget.healthController!;
+      _ownsHealthController = false;
+    } else {
+      final medicalConditionRepository = FirebaseMedicalConditionRepository();
+
+      final vaccinationRepository = FirebaseVaccinationRepository();
+
+      final treatmentRepository = FirebaseTreatmentRepository();
+
+      final healthMeasurementRepository = FirebaseHealthMeasurementRepository();
+
+      _healthController = HealthController(
+        createMedicalCondition: CreateMedicalCondition(
+          medicalConditionRepository,
+        ),
+        getMedicalConditions: GetMedicalConditions(medicalConditionRepository),
+        updateMedicalCondition: UpdateMedicalCondition(
+          medicalConditionRepository,
+        ),
+        deleteMedicalCondition: DeleteMedicalCondition(
+          medicalConditionRepository,
+        ),
+        createVaccination: CreateVaccination(vaccinationRepository),
+        getVaccinations: GetVaccinations(vaccinationRepository),
+        updateVaccination: UpdateVaccination(vaccinationRepository),
+        deleteVaccination: DeleteVaccination(vaccinationRepository),
+        createTreatment: CreateTreatment(treatmentRepository),
+        getTreatments: GetTreatments(treatmentRepository),
+        updateTreatment: UpdateTreatment(treatmentRepository),
+        deleteTreatment: DeleteTreatment(treatmentRepository),
+        createHealthMeasurement: CreateHealthMeasurement(
+          healthMeasurementRepository,
+        ),
+        getHealthMeasurements: GetHealthMeasurements(
+          healthMeasurementRepository,
+        ),
+        updateHealthMeasurement: UpdateHealthMeasurement(
+          healthMeasurementRepository,
+        ),
+        deleteHealthMeasurement: DeleteHealthMeasurement(
+          healthMeasurementRepository,
+        ),
+      );
+
+      _ownsHealthController = true;
     }
   }
 
@@ -81,6 +157,11 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
     if (_ownsPetsController) {
       _petsController.dispose();
     }
+
+    if (_ownsHealthController) {
+      _healthController.dispose();
+    }
+
     super.dispose();
   }
 
@@ -102,9 +183,11 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
   Widget build(BuildContext context) {
     final auth = widget.auth ?? FirebaseAuth.instance;
     final user = auth.currentUser;
+
     final userName = user?.displayName?.trim().isNotEmpty == true
         ? user!.displayName!.trim()
         : 'Pet Owner';
+
     final photoUrl = user?.photoURL?.trim();
 
     return Scaffold(
@@ -120,7 +203,12 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             photoUrl: photoUrl,
             notificationRepository: widget.notificationRepository,
           ),
-          MyPetsPage(controller: _petsController, ownsController: false),
+          MyPetsPage(
+            controller: _petsController,
+            healthController: _healthController,
+            ownsController: false,
+            ownsHealthController: false,
+          ),
           const _ComingSoonTab(
             title: 'Appointments',
             icon: Icons.calendar_month_rounded,
@@ -217,38 +305,41 @@ class _OwnerNavigationItem extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOut,
-                width: 44,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: selected
-                      ? AppTheme.primary.withValues(alpha: 0.10)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  width: 44,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? AppTheme.primary.withValues(alpha: 0.10)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(item.icon, size: 22, color: color),
                 ),
-                child: Icon(item.icon, size: 22, color: color),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                item.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: color,
-                  fontSize: 10.5,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                  height: 1.1,
+                const SizedBox(height: 2),
+                Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: color,
+                    fontSize: 10.5,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    height: 1.1,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
