@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../pets/domain/entities/pet.dart';
 import '../providers/health_controller.dart';
+import 'health_analytics_page.dart';
 import 'health_measurements_page.dart';
 import 'medical_conditions_page.dart';
 import 'treatments_page.dart';
@@ -55,6 +56,15 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     setState(() {});
   }
 
+  void _openHealthAnalytics() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            HealthAnalyticsPage(pet: widget.pet, controller: widget.controller),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -70,6 +80,30 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
           children: [
             _PetHealthHeader(pet: widget.pet),
             const SizedBox(height: 20),
+
+            // Open the dedicated Health Analytics screen.
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _openHealthAnalytics,
+                icon: const Icon(Icons.analytics_outlined),
+                label: const Text('View Health Analytics'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.deepBrown,
+                  backgroundColor: AppTheme.white,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  side: BorderSide(
+                    color: AppTheme.secondary.withValues(alpha: 0.45),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
             if (controller.isLoading)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 40),
