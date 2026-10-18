@@ -67,6 +67,10 @@ class _HomePageState extends State<HomePage> {
     Navigator.pushNamed(context, AppRouter.notifications);
   }
 
+  void _openHospitals() {
+    Navigator.pushNamed(context, AppRouter.hospitalDiscovery);
+  }
+
   String get _greeting {
     final hour = DateTime.now().hour;
 
@@ -134,7 +138,10 @@ class _HomePageState extends State<HomePage> {
                           actionLabel: 'See All',
                         ),
                         const SizedBox(height: 10),
-                        _QuickActions(onNotificationsTap: _openNotifications),
+                        _QuickActions(
+                          onNotificationsTap: _openNotifications,
+                          onHospitalsTap: _openHospitals,
+                        ),
                         const SizedBox(height: 24),
                         const _SectionHeader(
                           title: 'Upcoming Appointment',
@@ -809,10 +816,13 @@ class _PetImageFallback extends StatelessWidget {
 // -----------------------------------------------------------------------------
 
 class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.onNotificationsTap});
+  const _QuickActions({
+    required this.onNotificationsTap,
+    required this.onHospitalsTap,
+  });
 
   final VoidCallback onNotificationsTap;
-
+  final VoidCallback onHospitalsTap;
   @override
   Widget build(BuildContext context) {
     return GridView.count(
@@ -840,10 +850,12 @@ class _QuickActions extends StatelessWidget {
           title: 'AI Assistant',
           subtitle: 'Coming soon',
         ),
-        const _QuickActionCard(
-          icon: Icons.location_on_rounded,
-          title: 'Find Vets',
-          subtitle: 'Coming soon',
+        _QuickActionCard(
+          icon: Icons.local_hospital_rounded,
+          title: 'Find Hospitals',
+          subtitle: 'Find nearby care',
+          enabled: true,
+          onTap: onHospitalsTap,
         ),
       ],
     );
