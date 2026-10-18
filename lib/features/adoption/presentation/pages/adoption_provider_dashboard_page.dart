@@ -137,6 +137,9 @@ class _DashboardContent extends StatelessWidget {
                   icon: Icons.pets_rounded,
                   title: 'My Listings',
                   value: listings.length.toString(),
+                  onPressed: () {
+                    Navigator.pushNamed(context, AppRouter.myAdoptionListings);
+                  },
                 ),
               ),
               const SizedBox(width: 12),
@@ -145,12 +148,19 @@ class _DashboardContent extends StatelessWidget {
                   icon: Icons.mark_email_unread_outlined,
                   title: 'Pending Requests',
                   value: pendingRequestCount.toString(),
+                  onPressed: () {
+                    Navigator.pushNamed(context, AppRouter.adoptionRequests);
+                  },
                 ),
               ),
             ],
           ),
           const SizedBox(height: 20),
-          _QuickActionCard(onPressed: () {}),
+          _QuickActionCard(
+            onPressed: () {
+              Navigator.pushNamed(context, AppRouter.createEditAdoptionListing);
+            },
+          ),
           const SizedBox(height: 24),
           _SectionHeader(
             title: 'Recent Listing',
@@ -174,7 +184,11 @@ class _DashboardContent extends StatelessWidget {
           _SectionHeader(
             title: 'Recent Request',
             actionLabel: requests.isEmpty ? null : 'View all',
-            onAction: requests.isEmpty ? null : () {},
+            onAction: requests.isEmpty
+                ? null
+                : () {
+                    Navigator.pushNamed(context, AppRouter.adoptionRequests);
+                  },
           ),
           const SizedBox(height: 12),
           if (recentRequest == null)
@@ -260,44 +274,50 @@ class _SummaryCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.value,
+    required this.onPressed,
   });
 
   final IconData icon;
   final String title;
   final String value;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: AppTheme.secondary,
-                borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: AppTheme.deepBrown),
               ),
-              child: Icon(icon, color: AppTheme.deepBrown),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: AppTheme.espresso,
-                fontWeight: FontWeight.w700,
+              const SizedBox(height: 14),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: AppTheme.espresso,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.bodySmall
-                  ?.copyWith(color: AppTheme.deepBrown),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: AppTheme.deepBrown),
+              ),
+            ],
+          ),
         ),
       ),
     );
