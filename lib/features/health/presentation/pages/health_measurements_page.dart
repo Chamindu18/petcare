@@ -67,13 +67,14 @@ class _HealthMeasurementsPageState extends State<HealthMeasurementsPage> {
       return;
     }
 
-    await _controller.createHealthMeasurement(measurement);
+    final succeeded = await _controller.createHealthMeasurement(measurement);
 
     if (!mounted) {
       return;
     }
 
     _showOperationResult(
+      succeeded: succeeded,
       successMessage: 'Health measurement added successfully.',
     );
   }
@@ -91,13 +92,16 @@ class _HealthMeasurementsPageState extends State<HealthMeasurementsPage> {
       return;
     }
 
-    await _controller.updateHealthMeasurement(updatedMeasurement);
+    final succeeded = await _controller.updateHealthMeasurement(
+      updatedMeasurement,
+    );
 
     if (!mounted) {
       return;
     }
 
     _showOperationResult(
+      succeeded: succeeded,
       successMessage: 'Health measurement updated successfully.',
     );
   }
@@ -131,7 +135,7 @@ class _HealthMeasurementsPageState extends State<HealthMeasurementsPage> {
       return;
     }
 
-    await _controller.deleteHealthMeasurement(
+    final succeeded = await _controller.deleteHealthMeasurement(
       widget.pet.petId,
       measurement.measurementId,
     );
@@ -141,15 +145,22 @@ class _HealthMeasurementsPageState extends State<HealthMeasurementsPage> {
     }
 
     _showOperationResult(
+      succeeded: succeeded,
       successMessage: 'Health measurement deleted successfully.',
     );
   }
 
-  void _showOperationResult({required String successMessage}) {
-    final errorMessage = _controller.errorMessage;
+  void _showOperationResult({
+    required bool succeeded,
+    required String successMessage,
+  }) {
+    final message = succeeded
+        ? successMessage
+        : (_controller.errorMessage ??
+              'Unable to complete the health operation. Please try again.');
 
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(errorMessage ?? successMessage)));
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override

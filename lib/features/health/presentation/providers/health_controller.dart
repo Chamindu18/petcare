@@ -83,6 +83,10 @@ class HealthController extends ChangeNotifier {
 
   String? get errorMessage => _errorMessage;
 
+  // ---------------------------------------------------------------------------
+  // Load health records
+  // ---------------------------------------------------------------------------
+
   Future<void> loadHealthRecords(String petId) async {
     await _run(() async {
       final results = await Future.wait([
@@ -99,16 +103,20 @@ class HealthController extends ChangeNotifier {
     });
   }
 
-  Future<void> createMedicalCondition(MedicalCondition condition) async {
-    await _run(() async {
+  // ---------------------------------------------------------------------------
+  // Medical conditions
+  // ---------------------------------------------------------------------------
+
+  Future<bool> createMedicalCondition(MedicalCondition condition) async {
+    return _run(() async {
       final createdCondition = await _createMedicalCondition(condition);
 
       _medicalConditions = [..._medicalConditions, createdCondition];
     });
   }
 
-  Future<void> updateMedicalCondition(MedicalCondition condition) async {
-    await _run(() async {
+  Future<bool> updateMedicalCondition(MedicalCondition condition) async {
+    return _run(() async {
       await _updateMedicalCondition(condition);
 
       final index = _medicalConditions.indexWhere(
@@ -126,8 +134,8 @@ class HealthController extends ChangeNotifier {
     });
   }
 
-  Future<void> deleteMedicalCondition(String petId, String conditionId) async {
-    await _run(() async {
+  Future<bool> deleteMedicalCondition(String petId, String conditionId) async {
+    return _run(() async {
       await _deleteMedicalCondition(petId, conditionId);
 
       _medicalConditions = _medicalConditions
@@ -136,16 +144,20 @@ class HealthController extends ChangeNotifier {
     });
   }
 
-  Future<void> createVaccination(Vaccination vaccination) async {
-    await _run(() async {
+  // ---------------------------------------------------------------------------
+  // Vaccinations
+  // ---------------------------------------------------------------------------
+
+  Future<bool> createVaccination(Vaccination vaccination) async {
+    return _run(() async {
       final createdVaccination = await _createVaccination(vaccination);
 
       _vaccinations = [..._vaccinations, createdVaccination];
     });
   }
 
-  Future<void> updateVaccination(Vaccination vaccination) async {
-    await _run(() async {
+  Future<bool> updateVaccination(Vaccination vaccination) async {
+    return _run(() async {
       await _updateVaccination(vaccination);
 
       final index = _vaccinations.indexWhere(
@@ -163,8 +175,8 @@ class HealthController extends ChangeNotifier {
     });
   }
 
-  Future<void> deleteVaccination(String petId, String vaccinationId) async {
-    await _run(() async {
+  Future<bool> deleteVaccination(String petId, String vaccinationId) async {
+    return _run(() async {
       await _deleteVaccination(petId, vaccinationId);
 
       _vaccinations = _vaccinations
@@ -173,16 +185,20 @@ class HealthController extends ChangeNotifier {
     });
   }
 
-  Future<void> createTreatment(Treatment treatment) async {
-    await _run(() async {
+  // ---------------------------------------------------------------------------
+  // Treatments
+  // ---------------------------------------------------------------------------
+
+  Future<bool> createTreatment(Treatment treatment) async {
+    return _run(() async {
       final createdTreatment = await _createTreatment(treatment);
 
       _treatments = [..._treatments, createdTreatment];
     });
   }
 
-  Future<void> updateTreatment(Treatment treatment) async {
-    await _run(() async {
+  Future<bool> updateTreatment(Treatment treatment) async {
+    return _run(() async {
       await _updateTreatment(treatment);
 
       final index = _treatments.indexWhere(
@@ -200,8 +216,8 @@ class HealthController extends ChangeNotifier {
     });
   }
 
-  Future<void> deleteTreatment(String petId, String treatmentId) async {
-    await _run(() async {
+  Future<bool> deleteTreatment(String petId, String treatmentId) async {
+    return _run(() async {
       await _deleteTreatment(petId, treatmentId);
 
       _treatments = _treatments
@@ -210,16 +226,20 @@ class HealthController extends ChangeNotifier {
     });
   }
 
-  Future<void> createHealthMeasurement(HealthMeasurement measurement) async {
-    await _run(() async {
+  // ---------------------------------------------------------------------------
+  // Health measurements
+  // ---------------------------------------------------------------------------
+
+  Future<bool> createHealthMeasurement(HealthMeasurement measurement) async {
+    return _run(() async {
       final createdMeasurement = await _createHealthMeasurement(measurement);
 
       _healthMeasurements = [..._healthMeasurements, createdMeasurement];
     });
   }
 
-  Future<void> updateHealthMeasurement(HealthMeasurement measurement) async {
-    await _run(() async {
+  Future<bool> updateHealthMeasurement(HealthMeasurement measurement) async {
+    return _run(() async {
       await _updateHealthMeasurement(measurement);
 
       final index = _healthMeasurements.indexWhere(
@@ -239,11 +259,11 @@ class HealthController extends ChangeNotifier {
     });
   }
 
-  Future<void> deleteHealthMeasurement(
+  Future<bool> deleteHealthMeasurement(
     String petId,
     String measurementId,
   ) async {
-    await _run(() async {
+    return _run(() async {
       await _deleteHealthMeasurement(petId, measurementId);
 
       _healthMeasurements = _healthMeasurements
@@ -252,18 +272,27 @@ class HealthController extends ChangeNotifier {
     });
   }
 
-  Future<void> _run(Future<void> Function() operation) async {
+  // ---------------------------------------------------------------------------
+  // Operation handling
+  // ---------------------------------------------------------------------------
+
+  Future<bool> _run(Future<void> Function() operation) async {
+    // Do not start a second operation while another is running.
+    // Return false so the caller cannot incorrectly report success.
     if (_isLoading) {
-      return;
+      return false;
     }
 
-    _setLoading(true);
+    // Clear the previous error before notifying listeners that work has begun.
     _errorMessage = null;
+    _setLoading(true);
 
     try {
       await operation();
+      return true;
     } catch (_) {
       _errorMessage = 'Unable to complete the health operation.';
+      return false;
     } finally {
       _setLoading(false);
     }
