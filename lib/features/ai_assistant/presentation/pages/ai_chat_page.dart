@@ -18,7 +18,7 @@ class _AIChatPageState extends State<AIChatPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("PetCare AI")),
+      appBar: AppBar(title: const Text('PetCare AI')),
       body: Column(
         children: [
           Expanded(
@@ -41,47 +41,31 @@ class _AIChatPageState extends State<AIChatPage> {
             ),
           ),
 
-          AnimatedBuilder(
-            animation: provider,
-            builder: (_, __) {
-              if (!provider.isLoading) {
-                return const SizedBox();
-              }
-
-              return const Padding(
-                padding: EdgeInsets.all(8),
-                child: CircularProgressIndicator(),
-              );
-            },
-          ),
-
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: controller,
-                      decoration: const InputDecoration(
-                        hintText: 'Ask something...',
-                        border: OutlineInputBorder(),
-                      ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    decoration: const InputDecoration(
+                      hintText: 'Ask something...',
+                      border: OutlineInputBorder(),
                     ),
                   ),
+                ),
 
-                  const SizedBox(width: 10),
+                const SizedBox(width: 10),
 
-                  IconButton(
-                    icon: const Icon(Icons.send),
-                    onPressed: () {
-                      provider.sendMessage(controller.text);
+                IconButton(
+                  icon: const Icon(Icons.send),
+                  onPressed: () {
+                    provider.sendMessage(controller.text);
 
-                      controller.clear();
-                    },
-                  ),
-                ],
-              ),
+                    controller.clear();
+                  },
+                ),
+              ],
             ),
           ),
         ],
