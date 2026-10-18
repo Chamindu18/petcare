@@ -56,11 +56,23 @@ class AIHubPage extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            TextField(
-              decoration: InputDecoration(
-                hintText: 'Ask me anything...',
-                border: OutlineInputBorder(),
-                suffixIcon: Icon(Icons.send),
+            GestureDetector(
+              onTap: () {
+                Navigator.pushNamed(context, AppRouter.aiChat);
+              },
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.psychology),
+                    SizedBox(width: 10),
+                    Text('Ask me anything...'),
+                  ],
+                ),
               ),
             ),
 

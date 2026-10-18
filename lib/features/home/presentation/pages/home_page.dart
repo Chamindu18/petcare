@@ -835,10 +835,14 @@ class _QuickActions extends StatelessWidget {
           title: 'Appointments',
           subtitle: 'Coming soon',
         ),
-        const _QuickActionCard(
+        _QuickActionCard(
           icon: Icons.psychology_rounded,
           title: 'AI Assistant',
-          subtitle: 'Coming soon',
+          subtitle: 'Try AI features',
+          enabled: true,
+          onTap: () {
+            Navigator.pushNamed(context, AppRouter.aiHub);
+          },
         ),
         const _QuickActionCard(
           icon: Icons.location_on_rounded,
