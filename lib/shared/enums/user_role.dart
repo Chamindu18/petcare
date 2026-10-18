@@ -14,7 +14,9 @@ extension UserRoleX on UserRole {
     }
   }
 
-  static UserRole fromFirestore(String value) {
+  /// Returns null when the role is missing or unknown.
+  /// Callers must not grant access when parsing returns null.
+  static UserRole? tryParseFirestore(String? value) {
     switch (value) {
       case 'owner':
         return UserRole.owner;
@@ -25,7 +27,18 @@ extension UserRoleX on UserRole {
       case 'adoption_provider':
         return UserRole.adoptionProvider;
       default:
-        throw ArgumentError('Unknown user role: $value');
+        return null;
     }
+  }
+
+  /// Parses a required role or throws for an unknown value.
+  static UserRole fromFirestore(String value) {
+    final role = UserRoleX.tryParseFirestore(value);
+
+    if (role == null) {
+      throw ArgumentError('Unknown user role: $value');
+    }
+
+    return role;
   }
 }

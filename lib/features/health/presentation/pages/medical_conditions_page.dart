@@ -50,6 +50,10 @@ class _MedicalConditionsPageState extends State<MedicalConditionsPage> {
     await _controller.loadHealthRecords(widget.pet.petId);
   }
 
+  // ---------------------------------------------------------------------------
+  // Add medical condition
+  // ---------------------------------------------------------------------------
+
   Future<void> _addCondition() async {
     final condition = await showDialog<MedicalCondition>(
       context: context,
@@ -60,16 +64,21 @@ class _MedicalConditionsPageState extends State<MedicalConditionsPage> {
       return;
     }
 
-    await _controller.createMedicalCondition(condition);
+    final succeeded = await _controller.createMedicalCondition(condition);
 
     if (!mounted) {
       return;
     }
 
     _showOperationResult(
+      succeeded: succeeded,
       successMessage: 'Medical condition added successfully.',
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Edit medical condition
+  // ---------------------------------------------------------------------------
 
   Future<void> _editCondition(MedicalCondition condition) async {
     final updatedCondition = await showDialog<MedicalCondition>(
@@ -84,16 +93,23 @@ class _MedicalConditionsPageState extends State<MedicalConditionsPage> {
       return;
     }
 
-    await _controller.updateMedicalCondition(updatedCondition);
+    final succeeded = await _controller.updateMedicalCondition(
+      updatedCondition,
+    );
 
     if (!mounted) {
       return;
     }
 
     _showOperationResult(
+      succeeded: succeeded,
       successMessage: 'Medical condition updated successfully.',
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Delete medical condition
+  // ---------------------------------------------------------------------------
 
   Future<void> _deleteCondition(MedicalCondition condition) async {
     final confirmed = await showDialog<bool>(
@@ -120,7 +136,7 @@ class _MedicalConditionsPageState extends State<MedicalConditionsPage> {
       return;
     }
 
-    await _controller.deleteMedicalCondition(
+    final succeeded = await _controller.deleteMedicalCondition(
       widget.pet.petId,
       condition.conditionId,
     );
@@ -130,16 +146,31 @@ class _MedicalConditionsPageState extends State<MedicalConditionsPage> {
     }
 
     _showOperationResult(
+      succeeded: succeeded,
       successMessage: 'Medical condition deleted successfully.',
     );
   }
 
-  void _showOperationResult({required String successMessage}) {
-    final errorMessage = _controller.errorMessage;
+  // ---------------------------------------------------------------------------
+  // Operation feedback
+  // ---------------------------------------------------------------------------
+
+  void _showOperationResult({
+    required bool succeeded,
+    required String successMessage,
+  }) {
+    final message = succeeded
+        ? successMessage
+        : (_controller.errorMessage ??
+              'Unable to complete the health operation. Please try again.');
 
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(errorMessage ?? successMessage)));
+        .showSnackBar(SnackBar(content: Text(message)));
   }
+
+  // ---------------------------------------------------------------------------
+  // Page UI
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -192,6 +223,10 @@ class _MedicalConditionsPageState extends State<MedicalConditionsPage> {
     );
   }
 }
+
+// -----------------------------------------------------------------------------
+// Pet header
+// -----------------------------------------------------------------------------
 
 class _PetHeader extends StatelessWidget {
   const _PetHeader({required this.pet});
@@ -268,6 +303,10 @@ class _PetHeader extends StatelessWidget {
   }
 }
 
+// -----------------------------------------------------------------------------
+// Section heading
+// -----------------------------------------------------------------------------
+
 class _SectionHeading extends StatelessWidget {
   const _SectionHeading({required this.title, required this.count});
 
@@ -305,6 +344,10 @@ class _SectionHeading extends StatelessWidget {
     );
   }
 }
+
+// -----------------------------------------------------------------------------
+// Medical condition card
+// -----------------------------------------------------------------------------
 
 class _MedicalConditionCard extends StatelessWidget {
   const _MedicalConditionCard({
@@ -448,6 +491,10 @@ class _MedicalConditionCard extends StatelessWidget {
   }
 }
 
+// -----------------------------------------------------------------------------
+// Condition tag
+// -----------------------------------------------------------------------------
+
 class _ConditionTag extends StatelessWidget {
   const _ConditionTag({required this.label, required this.icon});
 
@@ -479,6 +526,10 @@ class _ConditionTag extends StatelessWidget {
     );
   }
 }
+
+// -----------------------------------------------------------------------------
+// Empty state
+// -----------------------------------------------------------------------------
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
@@ -529,6 +580,10 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
+// -----------------------------------------------------------------------------
+// Error state
+// -----------------------------------------------------------------------------
+
 class _ErrorState extends StatelessWidget {
   const _ErrorState({required this.message, required this.onRetry});
 
@@ -571,6 +626,10 @@ class _ErrorState extends StatelessWidget {
 }
 
 enum _ConditionAction { edit, delete }
+
+// -----------------------------------------------------------------------------
+// Add/edit medical condition dialog
+// -----------------------------------------------------------------------------
 
 class _MedicalConditionDialog extends StatefulWidget {
   const _MedicalConditionDialog({required this.petId, this.condition});
@@ -694,6 +753,7 @@ class _MedicalConditionDialogState extends State<_MedicalConditionDialog> {
                   if (value == null || value.trim().isEmpty) {
                     return 'Enter the condition name.';
                   }
+
                   return null;
                 },
               ),
