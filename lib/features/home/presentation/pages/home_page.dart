@@ -847,11 +847,11 @@ class _QuickActions extends StatelessWidget {
         ),
         _QuickActionCard(
           icon: Icons.psychology_rounded,
-          title: 'AI Assistant',
-          subtitle: 'Try AI features',
+          title: 'Ask AI',
+          subtitle: 'Get pet care advice',
           enabled: true,
           onTap: () {
-            Navigator.pushNamed(context, AppRouter.aiHub);
+            Navigator.pushNamed(context, AppRouter.aiChat);
           },
         ),
         _QuickActionCard(
