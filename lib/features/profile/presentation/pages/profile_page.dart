@@ -289,32 +289,35 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: AppTheme.secondary.withValues(alpha: 0.35),
-          borderRadius: BorderRadius.circular(14),
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppTheme.secondary.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, color: AppTheme.deepBrown),
         ),
-        child: Icon(icon, color: AppTheme.deepBrown),
+        title: Text(
+          title,
+          style: Theme.of(context).textTheme.bodyLarge
+              ?.copyWith(color: AppTheme.espresso, fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: AppTheme.deepBrown),
+        ),
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: AppTheme.deepBrown,
+        ),
+        onTap: onTap,
       ),
-      title: Text(
-        title,
-        style: Theme.of(context).textTheme.bodyLarge
-            ?.copyWith(color: AppTheme.espresso, fontWeight: FontWeight.w600),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: Theme.of(context).textTheme.bodySmall
-            ?.copyWith(color: AppTheme.deepBrown),
-      ),
-      trailing: const Icon(
-        Icons.chevron_right_rounded,
-        color: AppTheme.deepBrown,
-      ),
-      onTap: onTap,
     );
   }
 }

@@ -444,7 +444,7 @@ void main() {
 
       await tester.tap(find.text('AI Hub').first);
       await tester.pumpAndSettle();
-      expect(find.text('This section will be available soon.'), findsOneWidget);
+      expect(find.text('PetCare AI Assistant'), findsOneWidget);
       expect(find.text('AI Hub').first, findsOneWidget);
 
       await tester.tap(find.text('Profile').first);

@@ -196,31 +196,34 @@ class _PetCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.all(16),
-        leading: CircleAvatar(
-          radius: 28,
-          child: pet.imageUrl.isEmpty
-              ? const Icon(Icons.pets)
-              : ClipOval(
-                  child: Image.network(
-                    pet.imageUrl,
-                    width: 56,
-                    height: 56,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const Icon(Icons.pets),
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          onTap: onTap,
+          contentPadding: const EdgeInsets.all(16),
+          leading: CircleAvatar(
+            radius: 28,
+            child: pet.imageUrl.isEmpty
+                ? const Icon(Icons.pets)
+                : ClipOval(
+                    child: Image.network(
+                      pet.imageUrl,
+                      width: 56,
+                      height: 56,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const Icon(Icons.pets),
+                    ),
                   ),
-                ),
+          ),
+          title: Text(
+            pet.name,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(
+            '${pet.species} • ${pet.breed} • ${pet.ageInYears} years',
+          ),
+          trailing: const Icon(Icons.chevron_right),
         ),
-        title: Text(
-          pet.name,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(
-          '${pet.species} • ${pet.breed} • ${pet.ageInYears} years',
-        ),
-        trailing: const Icon(Icons.chevron_right),
       ),
     );
   }
