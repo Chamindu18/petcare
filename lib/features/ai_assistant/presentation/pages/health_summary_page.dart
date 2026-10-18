@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../providers/ai_provider.dart';
 import '../widgets/ai_card.dart';
+import '../../../../core/widgets/petcare_background.dart';
 
 class HealthSummaryPage extends StatefulWidget {
   const HealthSummaryPage({super.key});
@@ -24,20 +25,26 @@ class _HealthSummaryPageState extends State<HealthSummaryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Health Summary')),
-      body: AnimatedBuilder(
-        animation: provider,
-        builder: (context, child) {
-          if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Stack(
+        children: [
+          const Positioned.fill(child: PetCareBackground()),
 
-          return SingleChildScrollView(
-            child: AICard(
-              title: 'Pet Health Summary',
-              content: provider.healthSummary,
-            ),
-          );
-        },
+          AnimatedBuilder(
+            animation: provider,
+            builder: (context, child) {
+              if (provider.isLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              return SingleChildScrollView(
+                child: AICard(
+                  title: 'Pet Health Summary',
+                  content: provider.healthSummary,
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }

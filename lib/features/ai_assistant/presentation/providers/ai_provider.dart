@@ -46,15 +46,21 @@ class AIProvider extends ChangeNotifier {
     await Future.delayed(const Duration(seconds: 1));
 
     healthSummary = '''
-Pet Health Summary
+HEALTH STATUS
+
+🟢 Good
+
+SUMMARY
 
 • Vaccinations are up to date
 
-• No active medical conditions recorded
+• No active conditions
 
-• Pet weight remains stable
+• Stable weight
 
-• Overall health status: Good
+RECOMMENDATION
+
+Continue regular wellness monitoring.
 ''';
 
     isLoading = false;
@@ -68,15 +74,19 @@ Pet Health Summary
     await Future.delayed(const Duration(seconds: 1));
 
     preventiveCare = '''
-Preventive Care Tips
+PRIORITY RECOMMENDATIONS
 
 • Annual vaccination review
 
 • Monthly weight monitoring
 
-• Daily exercise recommended
+• Dental health checks
 
-• Regular dental checks
+• Maintain exercise routine
+
+NEXT ACTION
+
+Schedule a wellness visit within the next few months.
 ''';
 
     isLoading = false;
@@ -90,15 +100,23 @@ Preventive Care Tips
     await Future.delayed(const Duration(seconds: 1));
 
     vetVisitPrep = '''
-Suggested Questions
+DISCUSSION POINTS
 
-1. Are all vaccinations current?
+1. Are vaccinations current?
 
-2. Is the current diet suitable?
+2. Is the diet still appropriate?
 
-3. Any signs of health concerns?
+3. Is the pet's weight healthy?
 
-4. What preventive checks are recommended?
+4. Are any screenings recommended?
+
+BRING TO THE VISIT
+
+• Vaccination records
+
+• Treatment history
+
+• Recent observations or concerns
 ''';
 
     isLoading = false;

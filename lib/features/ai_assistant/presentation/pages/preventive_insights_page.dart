@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../providers/ai_provider.dart';
 import '../widgets/ai_card.dart';
+import '../../../../core/widgets/petcare_background.dart';
 
 class PreventiveInsightsPage extends StatefulWidget {
   const PreventiveInsightsPage({super.key});
@@ -24,20 +25,26 @@ class _PreventiveInsightsPageState extends State<PreventiveInsightsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Preventive Care')),
-      body: AnimatedBuilder(
-        animation: provider,
-        builder: (context, child) {
-          if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Stack(
+        children: [
+          const Positioned.fill(child: PetCareBackground()),
 
-          return SingleChildScrollView(
-            child: AICard(
-              title: 'Preventive Care Tips',
-              content: provider.preventiveCare,
-            ),
-          );
-        },
+          AnimatedBuilder(
+            animation: provider,
+            builder: (context, child) {
+              if (provider.isLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              return SingleChildScrollView(
+                child: AICard(
+                  title: 'Preventive Care Tips',
+                  content: provider.preventiveCare,
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
