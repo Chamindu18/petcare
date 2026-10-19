@@ -17,6 +17,12 @@ class _FakeFirebaseUser extends Fake implements User {
 
   @override
   String? get phoneNumber => '0712345678';
+
+  @override
+  Future<void> updateDisplayName(String? displayName) async {}
+
+  @override
+  Future<void> reload() async {}
 }
 
 class _FakeUserCredential extends Fake implements UserCredential {
@@ -35,6 +41,14 @@ class _FakeFirebaseAuth extends Fake implements FirebaseAuth {
 
   @override
   Future<UserCredential> signInWithCredential(AuthCredential credential) async {
+    return _userCredential;
+  }
+
+  @override
+  Future<UserCredential> createUserWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {
     return _userCredential;
   }
 }
@@ -250,5 +264,57 @@ void main() {
         expect(fakeUserDocument.updates, isEmpty);
       },
     );
+  });
+
+  group('FirebaseAuthRepository email registration', () {
+    test('registerOwner creates a trimmed owner profile', () async {
+      final fakeUser = _FakeFirebaseUser();
+      final fakeUserCredential = _FakeUserCredential(fakeUser);
+
+      final fakeSnapshot = _FakeDocumentSnapshot(
+        <String, dynamic>{},
+        exists: false,
+      );
+
+      final fakeUserDocument = _FakeDocumentReference(fakeSnapshot);
+
+      final fakeUsersCollection = _FakeCollectionReference(fakeUserDocument);
+
+      final repository = FirebaseAuthRepository(
+        auth: _FakeFirebaseAuth(fakeUserCredential),
+        firestore: _FakeFirebaseFirestore(fakeUsersCollection),
+        googleSignIn: _FakeGoogleSignIn(),
+      );
+
+      await repository.registerOwner(
+        fullName: '  New Test User ',
+        email: ' newowner@example.com ',
+        phone: ' 0712345678 ',
+        password: 'Password123',
+      );
+
+      // Registration must create exactly one profile.
+      expect(fakeUserDocument.setCalls, hasLength(1));
+
+      final createdProfile = fakeUserDocument.setCalls.single;
+
+      // Verify the profile identity and normalized user input.
+      expect(createdProfile['uid'], 'test-privileged-user');
+      expect(createdProfile['fullName'], 'New Test User');
+      expect(createdProfile['displayName'], 'New Test User');
+      expect(createdProfile['email'], 'newowner@example.com');
+      expect(createdProfile['phone'], '0712345678');
+
+      // Public email registration must assign the owner role.
+      expect(createdProfile['role'], 'owner');
+
+      // Verify the expected profile defaults and timestamps.
+      expect(createdProfile['notificationEnabled'], isTrue);
+      expect(createdProfile.containsKey('createdAt'), isTrue);
+      expect(createdProfile.containsKey('updatedAt'), isTrue);
+
+      // This is a new profile, so the existing-profile path is not used.
+      expect(fakeUserDocument.updates, isEmpty);
+    });
   });
 }
