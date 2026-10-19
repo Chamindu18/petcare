@@ -31,17 +31,13 @@ class _FakeFirebaseAuth extends Fake implements FirebaseAuth {
 }
 
 class _FakeGoogleSignIn extends Fake implements GoogleSignIn {
-  int initializeCallCount = 0;
-
   @override
   Future<void> initialize({
     String? clientId,
     String? serverClientId,
     String? nonce,
     String? hostedDomain,
-  }) async {
-    initializeCallCount++;
-  }
+  }) async {}
 
   @override
   bool supportsAuthenticate() => true;
@@ -75,6 +71,9 @@ class _FakeFirebaseFirestore extends Fake implements FirebaseFirestore {
   }
 }
 
+// Firebase's CollectionReference inherits from the sealed Query interface.
+// This fake is used only in unit tests.
+// ignore: subtype_of_sealed_class
 class _FakeCollectionReference extends Fake
     implements CollectionReference<Map<String, dynamic>> {
   _FakeCollectionReference(this._userDocument);
@@ -91,6 +90,8 @@ class _FakeCollectionReference extends Fake
   }
 }
 
+// This fake is a test double; it does not access a real Firestore document.
+// ignore: subtype_of_sealed_class
 class _FakeDocumentReference extends Fake
     implements DocumentReference<Map<String, dynamic>> {
   _FakeDocumentReference(this._snapshot);
@@ -98,7 +99,9 @@ class _FakeDocumentReference extends Fake
   final DocumentSnapshot<Map<String, dynamic>> _snapshot;
 
   final List<Map<Object, Object?>> updates = [];
-  int setCallCount = 0;
+
+  // Keep the call history in a final collection to satisfy immutability lint.
+  final List<Map<String, dynamic>> setCalls = [];
 
   @override
   Future<DocumentSnapshot<Map<String, dynamic>>> get([
@@ -114,10 +117,12 @@ class _FakeDocumentReference extends Fake
 
   @override
   Future<void> set(Map<String, dynamic> data, [SetOptions? options]) async {
-    setCallCount++;
+    setCalls.add(Map<String, dynamic>.from(data));
   }
 }
 
+// This fake represents an existing Firestore document in the test.
+// ignore: subtype_of_sealed_class
 class _FakeDocumentSnapshot extends Fake
     implements DocumentSnapshot<Map<String, dynamic>> {
   _FakeDocumentSnapshot(this._profileData);
@@ -158,6 +163,7 @@ void main() {
           });
 
           final fakeUserDocument = _FakeDocumentReference(fakeSnapshot);
+
           final fakeUsersCollection = _FakeCollectionReference(
             fakeUserDocument,
           );
@@ -185,8 +191,8 @@ void main() {
           expect(updateFields.containsKey('fullName'), isFalse);
           expect(updateFields.containsKey('displayName'), isFalse);
 
-          // The existing document must not be replaced by an owner profile.
-          expect(fakeUserDocument.setCallCount, 0);
+          // An existing document must not be replaced by a new owner profile.
+          expect(fakeUserDocument.setCalls, isEmpty);
         },
       );
     }
