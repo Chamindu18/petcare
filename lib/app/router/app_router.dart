@@ -9,6 +9,7 @@ import '../../features/adoption/presentation/pages/adoption_pet_details_page.dar
 import '../../features/adoption/presentation/pages/adoption_provider_dashboard_page.dart';
 import '../../features/adoption/presentation/pages/adoption_request_page.dart';
 import '../../features/adoption/presentation/pages/adoption_requests_page.dart';
+import '../../features/adoption/presentation/pages/adoption_request_details_page.dart';
 import '../../features/adoption/presentation/pages/create_edit_adoption_listing_page.dart';
 import '../../features/adoption/presentation/pages/my_adoption_listings_page.dart';
 import '../../features/adoption/presentation/providers/my_adoption_listings_provider.dart';
@@ -101,6 +102,7 @@ class AppRouter {
   static const String adoptionRequests = '/adoption-requests';
   static const String createEditAdoptionListing =
       '/create-edit-adoption-listing';
+  static const String adoptionRequestDetails = '/adoption-request-details';
   static const String editProfile = '/edit-profile';
   static const String notificationSettings = '/notification-settings';
   static const String privacySecurity = '/privacy-security';
@@ -179,6 +181,7 @@ class AppRouter {
       adoptionProviderDashboard,
       adoptionRequests,
       createEditAdoptionListing,
+      adoptionRequestDetails,
       editProfile,
       notificationSettings,
       privacySecurity,
@@ -429,6 +432,28 @@ class AppRouter {
 
             return AdoptionRequestPage(listing: listing);
           },
+          settings: settings,
+        );
+
+      case adoptionRequestDetails:
+        final requestId = settings.arguments;
+
+        if (requestId is! String || requestId.isEmpty) {
+          return MaterialPageRoute(
+            builder: (_) => const Scaffold(
+              body: Center(child: Text('Adoption request ID is required.')),
+            ),
+            settings: settings,
+          );
+        }
+
+        return MaterialPageRoute(
+          builder: (_) => AdoptionProviderAccessGate(
+            auth: auth,
+            profileRepository: profileRepository,
+            childBuilder: (_) =>
+                AdoptionRequestDetailsPage(requestId: requestId),
+          ),
           settings: settings,
         );
 
