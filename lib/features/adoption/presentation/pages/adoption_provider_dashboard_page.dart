@@ -198,7 +198,16 @@ class _DashboardContent extends StatelessWidget {
               message: 'Requests from interested adopters will appear here.',
             )
           else
-            _RecentRequestCard(request: recentRequest),
+            _RecentRequestCard(
+              request: recentRequest,
+              onTap: () {
+                Navigator.pushNamed(
+                  context,
+                  AppRouter.adoptionRequestDetails,
+                  arguments: recentRequest.requestId,
+                );
+              },
+            ),
         ],
       ),
     );
@@ -485,54 +494,59 @@ class _RecentListingCard extends StatelessWidget {
 }
 
 class _RecentRequestCard extends StatelessWidget {
-  const _RecentRequestCard({required this.request});
+  const _RecentRequestCard({required this.request, this.onTap});
 
   final AdoptionRequest request;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppTheme.secondary,
-                borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.person_outline_rounded,
+                  color: AppTheme.deepBrown,
+                ),
               ),
-              child: const Icon(
-                Icons.person_outline_rounded,
-                color: AppTheme.deepBrown,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Adoption request',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppTheme.espresso,
-                      fontWeight: FontWeight.w600,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Adoption request',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppTheme.espresso,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Listing: ${request.listingId}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: AppTheme.deepBrown),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'Listing: ${request.listingId}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: AppTheme.deepBrown),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            _RequestStatus(status: request.status),
-          ],
+              _RequestStatus(status: request.status),
+            ],
+          ),
         ),
       ),
     );

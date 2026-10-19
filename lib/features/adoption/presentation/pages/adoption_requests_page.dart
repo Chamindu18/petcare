@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../data/repositories/firebase_adoption_request_repository.dart';
 import '../../domain/entities/adoption_request.dart';
@@ -85,66 +86,76 @@ class _ReceivedRequestCard extends StatelessWidget {
     final message = request.message?.trim();
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppTheme.secondary,
-                borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.pushNamed(
+            context,
+            AppRouter.adoptionRequestDetails,
+            arguments: request.requestId,
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.mark_email_unread_outlined,
+                  color: AppTheme.deepBrown,
+                  size: 25,
+                ),
               ),
-              child: const Icon(
-                Icons.mark_email_unread_outlined,
-                color: AppTheme.deepBrown,
-                size: 25,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Adoption Request',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppTheme.espresso,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Listing reference: ${request.listingId}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: AppTheme.deepBrown),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Received ${_formatDate(request.submittedAt)}',
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: AppTheme.deepBrown),
-                  ),
-                  if (message != null && message.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      message,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium
-                          ?.copyWith(color: AppTheme.espresso),
+                      'Adoption Request',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppTheme.espresso,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Listing reference: ${request.listingId}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: AppTheme.deepBrown),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Received ${_formatDate(request.submittedAt)}',
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: AppTheme.deepBrown),
+                    ),
+                    if (message != null && message.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        message,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(color: AppTheme.espresso),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            _RequestStatusBadge(status: request.status),
-          ],
+              const SizedBox(width: 10),
+              _RequestStatusBadge(status: request.status),
+            ],
+          ),
         ),
       ),
     );
