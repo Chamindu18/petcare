@@ -8,6 +8,15 @@ import 'package:petcare/features/auth/data/repositories/firebase_auth_repository
 class _FakeFirebaseUser extends Fake implements User {
   @override
   String get uid => 'test-privileged-user';
+
+  @override
+  String? get displayName => 'New Test User';
+
+  @override
+  String? get email => 'newowner@example.com';
+
+  @override
+  String? get phoneNumber => '0712345678';
 }
 
 class _FakeUserCredential extends Fake implements UserCredential {
@@ -71,8 +80,7 @@ class _FakeFirebaseFirestore extends Fake implements FirebaseFirestore {
   }
 }
 
-// Firebase's CollectionReference inherits from the sealed Query interface.
-// This fake is used only in unit tests.
+// Test double for the users collection.
 // ignore: subtype_of_sealed_class
 class _FakeCollectionReference extends Fake
     implements CollectionReference<Map<String, dynamic>> {
@@ -90,7 +98,7 @@ class _FakeCollectionReference extends Fake
   }
 }
 
-// This fake is a test double; it does not access a real Firestore document.
+// Test double for a Firestore document.
 // ignore: subtype_of_sealed_class
 class _FakeDocumentReference extends Fake
     implements DocumentReference<Map<String, dynamic>> {
@@ -99,8 +107,6 @@ class _FakeDocumentReference extends Fake
   final DocumentSnapshot<Map<String, dynamic>> _snapshot;
 
   final List<Map<Object, Object?>> updates = [];
-
-  // Keep the call history in a final collection to satisfy immutability lint.
   final List<Map<String, dynamic>> setCalls = [];
 
   @override
@@ -121,16 +127,17 @@ class _FakeDocumentReference extends Fake
   }
 }
 
-// This fake represents an existing Firestore document in the test.
+// Test double for a Firestore document snapshot.
 // ignore: subtype_of_sealed_class
 class _FakeDocumentSnapshot extends Fake
     implements DocumentSnapshot<Map<String, dynamic>> {
-  _FakeDocumentSnapshot(this._profileData);
+  _FakeDocumentSnapshot(this._profileData, {this._exists = true});
 
   final Map<String, dynamic> _profileData;
+  final bool _exists;
 
   @override
-  bool get exists => true;
+  bool get exists => _exists;
 
   @override
   Map<String, dynamic>? data() => Map<String, dynamic>.from(_profileData);
@@ -181,7 +188,7 @@ void main() {
 
           final updateFields = fakeUserDocument.updates.single;
 
-          // The existing role and profile fields must not be overwritten.
+          // Existing role and profile fields must not be overwritten.
           expect(updateFields.keys.toSet(), equals(<String>{'updatedAt'}));
 
           expect(updateFields.containsKey('role'), isFalse);
@@ -191,10 +198,57 @@ void main() {
           expect(updateFields.containsKey('fullName'), isFalse);
           expect(updateFields.containsKey('displayName'), isFalse);
 
-          // An existing document must not be replaced by a new owner profile.
+          // Existing profiles must not be replaced.
           expect(fakeUserDocument.setCalls, isEmpty);
         },
       );
     }
+
+    test(
+      'creates a new owner profile when no Firestore profile exists',
+      () async {
+        final fakeUser = _FakeFirebaseUser();
+        final fakeUserCredential = _FakeUserCredential(fakeUser);
+        final fakeGoogleSignIn = _FakeGoogleSignIn();
+
+        // Simulate a Google-authenticated user without an existing profile.
+        final fakeSnapshot = _FakeDocumentSnapshot(
+          <String, dynamic>{},
+          exists: false,
+        );
+
+        final fakeUserDocument = _FakeDocumentReference(fakeSnapshot);
+
+        final fakeUsersCollection = _FakeCollectionReference(fakeUserDocument);
+
+        final repository = FirebaseAuthRepository(
+          auth: _FakeFirebaseAuth(fakeUserCredential),
+          firestore: _FakeFirebaseFirestore(fakeUsersCollection),
+          googleSignIn: fakeGoogleSignIn,
+        );
+
+        await repository.signInWithGoogle();
+
+        // A new profile should be created exactly once.
+        expect(fakeUserDocument.setCalls, hasLength(1));
+
+        final createdProfile = fakeUserDocument.setCalls.single;
+
+        expect(createdProfile['uid'], 'test-privileged-user');
+        expect(createdProfile['fullName'], 'New Test User');
+        expect(createdProfile['displayName'], 'New Test User');
+        expect(createdProfile['email'], 'newowner@example.com');
+        expect(createdProfile['phone'], '0712345678');
+        expect(createdProfile['role'], 'owner');
+        expect(createdProfile['notificationEnabled'], isTrue);
+
+        // The profile should include both server timestamp fields.
+        expect(createdProfile.containsKey('createdAt'), isTrue);
+        expect(createdProfile.containsKey('updatedAt'), isTrue);
+
+        // Creating the profile should not use the update-existing path.
+        expect(fakeUserDocument.updates, isEmpty);
+      },
+    );
   });
 }
