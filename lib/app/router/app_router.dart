@@ -76,6 +76,8 @@ import '../../features/ai_assistant/presentation/pages/preventive_insights_page.
 import '../../features/ai_assistant/presentation/pages/vet_visit_preparation_page.dart';
 import 'adoption_provider_access_gate.dart';
 import 'role_based_home_page.dart';
+import '../../features/appointments/domain/entities/appointment.dart';
+import '../../features/appointments/presentation/pages/appointment_confirmation_page.dart';
 
 class AppRouter {
   AppRouter._();
@@ -119,6 +121,8 @@ class AppRouter {
   static const String healthSummary = '/health-summary';
   static const String preventiveInsights = '/preventive-insights';
   static const String vetVisitPreparation = '/vet-visit-preparation';
+  static const String appointmentConfirmation =
+    '/appointment-confirmation';
 
   // Public routes are handled here.
   // Protected routes are handled in onGenerateRoute()
@@ -191,6 +195,7 @@ class AppRouter {
       hospitalDiscovery,
       hospitalDetails,
       bookAppointment,
+      appointmentConfirmation,
       aiHub,
       aiChat,
       healthSummary,
@@ -556,6 +561,27 @@ class AppRouter {
           builder: (_) => HospitalDetailsPage(hospitalId: hospitalId),
           settings: settings,
         );
+
+        case appointmentConfirmation:
+  final appointment = settings.arguments;
+
+  if (appointment is! Appointment) {
+    return MaterialPageRoute(
+      builder: (_) => const Scaffold(
+        body: Center(
+          child: Text('Invalid appointment data.'),
+        ),
+      ),
+      settings: settings,
+    );
+  }
+
+  return MaterialPageRoute(
+    builder: (_) => AppointmentConfirmationPage(
+      appointment: appointment,
+    ),
+    settings: settings,
+  );
 
       case bookAppointment:
         final hospitalId = settings.arguments;

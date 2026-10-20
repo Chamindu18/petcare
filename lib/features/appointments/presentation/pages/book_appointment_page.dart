@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../data/repositories/firebase_appointment_repository.dart';
 import '../../domain/entities/appointment.dart';
 import '../../domain/usecases/appointment_usecases.dart';
+import '../../../pets/domain/entities/pet.dart';
+import '../../../pets/presentation/providers/pets_controller.dart';
 import '../../../services/data/repositories/firebase_service_repository.dart';
 import '../../../services/domain/entities/service.dart';
 import '../../../services/domain/usecases/service_usecases.dart';
-import '../../../pets/domain/entities/pet.dart';
-import '../../../pets/presentation/providers/pets_controller.dart';
 import '../../../veterinary/data/repositories/firebase_veterinarian_repository.dart';
 import '../../../veterinary/domain/entities/veterinarian.dart';
 import '../../../veterinary/domain/usecases/veterinarian_usecases.dart';
@@ -52,7 +53,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   void initState() {
     super.initState();
 
-    // Reuse the existing appointment/service/vet domain contracts.
+    // Reuse the existing service, veterinarian, and appointment contracts.
     _getServicesByHospital = GetServicesByHospital(
       FirebaseServiceRepository(),
     );
@@ -81,7 +82,6 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
     });
 
     try {
-      
       await widget.petsController.loadPets();
 
       final services = await _getServicesByHospital(widget.hospitalId);
@@ -190,23 +190,28 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
 
     try {
       final appointment = Appointment(
-        // The repository generates the real Firestore appointment ID.
+        // Firestore generates the real appointment ID.
         appointmentId: '',
-        // The repository gets the authenticated owner ID from Firebase Auth.
+
+        // The repository gets the authenticated owner's ID.
         ownerId: '',
+
         petId: pet.petId,
         hospitalId: widget.hospitalId,
         serviceId: service.serviceId,
         vetId: veterinarian.vetId,
         dateTime: dateTime,
         reason: _reasonController.text.trim(),
-        
+
+        // Keep the currently agreed booking status.
         status: 'pending',
+
         queueId: null,
         createdAt: DateTime.now(),
       );
 
-      await _createAppointment(appointment);
+      // Create the appointment and receive the persisted appointment.
+      final createdAppointment = await _createAppointment(appointment);
 
       if (!mounted) {
         return;
@@ -216,7 +221,12 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         _isSubmitting = false;
       });
 
-      _showSuccessDialog();
+      // Send the created appointment to the confirmation page.
+      Navigator.pushReplacementNamed(
+        context,
+        AppRouter.appointmentConfirmation,
+        arguments: createdAppointment,
+      );
     } catch (error) {
       if (!mounted) {
         return;
@@ -226,33 +236,10 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         _isSubmitting = false;
       });
 
-      _showMessage('Unable to create the appointment. Please try again.');
+      _showMessage(
+        'Unable to create the appointment. Please try again.',
+      );
     }
-  }
-
-  void _showSuccessDialog() {
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: AppTheme.white,
-          title: const Text('Appointment Requested'),
-          content: const Text(
-            'Your appointment request has been submitted successfully.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pop(context);
-              },
-              child: const Text('Done'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   void _showMessage(String message) {
