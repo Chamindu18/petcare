@@ -69,9 +69,13 @@ service cloud.firestore {
         ).data.ownerId == request.auth.uid;
     }
 
-    // Veterinary profile document ID must be the Firebase Auth UID.
+    // A veterinary role alone does not grant access to a hospital.
+    // The user must have a provisioned veterinarian profile assigned to
+    // that hospital. The sentinel value 'unassigned' grants no hospital access.
     function isVeterinaryUserForHospital(hospitalId) {
       return signedIn()
+        && hospitalId is string
+        && hospitalId != 'unassigned'
         && isVeterinaryUser()
         && exists(
           /databases/$(database)/documents/veterinarians/$(request.auth.uid)
@@ -94,12 +98,14 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.role == 'owner';
 
-      // Users can update their own profile but cannot change their role.
+      // Users can update their own profile but cannot change their UID or role.
       allow update: if isCurrentUser(uid)
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.role == resource.data.role;
 
-      allow delete: if isCurrentUser(uid);
+      // Privileged profiles require trusted account-lifecycle handling.
+      allow delete: if isCurrentUser(uid)
+        && resource.data.role == 'owner';
     }
 
     // ============================================================
@@ -107,9 +113,7 @@ service cloud.firestore {
     // ============================================================
 
     match /pets/{petId} {
-      // Owners can read their own pets.
-      // Veterinary access will be tightened through appointment/QR
-      // authorization when those flows are implemented.
+      // Veterinary access requires a separate appointment/QR authorization flow.
       allow read: if signedIn()
         && resource.data.ownerId == request.auth.uid;
 
@@ -204,8 +208,11 @@ service cloud.firestore {
       // Hospital discovery is available to authenticated users.
       allow read: if signedIn();
 
-      // Hospital management requires a veterinary user.
-      allow create, update, delete: if isVeterinaryUser();
+      // Hospital creation is reserved for trusted provisioning/Admin SDK.
+      allow create: if false;
+
+      // Only veterinary users assigned to this hospital can manage it.
+      allow update, delete: if isVeterinaryUserForHospital(hospitalId);
     }
 
     // ============================================================
@@ -215,7 +222,17 @@ service cloud.firestore {
     match /services/{serviceId} {
       allow read: if signedIn();
 
-      allow create, update, delete: if isVeterinaryUser();
+      // Service documents must contain a hospitalId field. Until the app's
+      // service model/writers provide that field, client writes fail closed.
+      allow create: if request.resource.data.hospitalId is string
+        && isVeterinaryUserForHospital(request.resource.data.hospitalId);
+
+      allow update: if resource.data.hospitalId is string
+        && isVeterinaryUserForHospital(resource.data.hospitalId)
+        && request.resource.data.hospitalId == resource.data.hospitalId;
+
+      allow delete: if resource.data.hospitalId is string
+        && isVeterinaryUserForHospital(resource.data.hospitalId);
     }
 
     // ============================================================
@@ -225,15 +242,19 @@ service cloud.firestore {
     match /veterinarians/{veterinarianId} {
       allow read: if signedIn();
 
-      // Profile document ID must match authenticated user UID.
+      // A veterinary user may create only their own initially unassigned
+      // profile. Assigning a real hospital requires trusted provisioning.
       allow create: if isVeterinaryUser()
         && veterinarianId == request.auth.uid
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.hospitalId == 'unassigned';
 
+      // Users cannot alter their identity or hospital assignment themselves.
       allow update: if isVeterinaryUser()
         && veterinarianId == request.auth.uid
         && resource.data.userId == request.auth.uid
-        && request.resource.data.userId == resource.data.userId;
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.hospitalId == resource.data.hospitalId;
 
       allow delete: if isVeterinaryUser()
         && veterinarianId == request.auth.uid;
@@ -244,30 +265,55 @@ service cloud.firestore {
     // ============================================================
 
     match /appointments/{appointmentId} {
-      // Owner can read own appointments.
-      // Veterinary user can read appointments belonging to their hospital.
+      // Owners can read their own appointments; veterinary users can read
+      // appointments associated with their provisioned hospital.
       allow read: if signedIn()
         && (
           resource.data.ownerId == request.auth.uid
           || isVeterinaryUserForHospital(resource.data.hospitalId)
         );
 
-      // Owner can create an appointment only for their own pet.
+      // Owners can create appointments only for their own pets.
       allow create: if isOwner()
         && request.resource.data.ownerId == request.auth.uid
         && ownsPet(request.resource.data.petId);
 
-      // Owners can update their own appointments.
-      // Veterinary users can update appointments for their hospital.
+      // Preserve appointment identity and restrict each role to its expected
+      // mutable fields. Status-transition policy still needs workflow agreement.
       allow update: if signedIn()
         && (
           (
             isOwner()
             && resource.data.ownerId == request.auth.uid
             && request.resource.data.ownerId == resource.data.ownerId
+            && request.resource.data.petId == resource.data.petId
+            && request.resource.data.hospitalId == resource.data.hospitalId
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'dateTime',
+              'reason',
+              'status',
+              'vetId',
+              'serviceId',
+              'updatedAt'
+            ])
           )
           ||
-          isVeterinaryUserForHospital(resource.data.hospitalId)
+          (
+            isVeterinaryUserForHospital(resource.data.hospitalId)
+            && request.resource.data.ownerId == resource.data.ownerId
+            && request.resource.data.petId == resource.data.petId
+            && request.resource.data.hospitalId == resource.data.hospitalId
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'vetId',
+              'dateTime',
+              'reason',
+              'queueId',
+              'updatedAt'
+            ])
+          )
         );
 
       allow delete: if isOwner()
@@ -279,18 +325,36 @@ service cloud.firestore {
     // ============================================================
 
     match /queue_records/{queueId} {
-      // Owner can view their own queue record.
-      // Veterinary users can view queue records for their hospital.
       allow read: if signedIn()
         && (
           resource.data.ownerId == request.auth.uid
           || isVeterinaryUserForHospital(resource.data.hospitalId)
         );
 
-      // Queue state is controlled by veterinary-side operations.
-      allow create, update, delete: if isVeterinaryUserForHospital(
+      // Queue creation is restricted to a veterinary user assigned to the
+      // hospital named on the new queue record.
+      allow create: if isVeterinaryUserForHospital(
         request.resource.data.hospitalId
       );
+
+      // Immutable relationship fields cannot be reassigned during updates.
+      // Queue state fields remain mutable for the hospital's veterinary users.
+      allow update: if isVeterinaryUserForHospital(resource.data.hospitalId)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.petId == resource.data.petId
+        && request.resource.data.appointmentId == resource.data.appointmentId
+        && request.resource.data.hospitalId == resource.data.hospitalId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'queueNumber',
+          'currentServing',
+          'position',
+          'updatedAt'
+        ]);
+
+      // Deletes authorize against the existing record. request.resource is
+      // undefined for deletes and must not be used here.
+      allow delete: if isVeterinaryUserForHospital(resource.data.hospitalId);
     }
 
     // ============================================================
@@ -301,13 +365,17 @@ service cloud.firestore {
       allow read: if signedIn()
         && resource.data.recipientUserId == request.auth.uid;
 
+      // A recipient can mark a notification as read, but cannot change its
+      // recipient, content, target, type, or creation metadata.
       allow update: if signedIn()
         && resource.data.recipientUserId == request.auth.uid
-        && request.resource.data.recipientUserId
-          == resource.data.recipientUserId;
+        && request.resource.data.recipientUserId == resource.data.recipientUserId
+        && request.resource.data.read == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'read'
+        ]);
 
-      // Notifications should be generated by trusted application/backend
-      // logic, not by arbitrary mobile clients.
+      // Notifications are created/deleted by trusted backend logic only.
       allow create, delete: if false;
     }
 
@@ -319,16 +387,13 @@ service cloud.firestore {
       // Authenticated users can discover listings.
       allow read: if signedIn();
 
-      // Providers can create their own listings.
       allow create: if isAdoptionProvider()
         && request.resource.data.providerId == request.auth.uid;
 
-      // Providers can update only their own listings.
       allow update: if isAdoptionProvider()
         && resource.data.providerId == request.auth.uid
         && request.resource.data.providerId == resource.data.providerId;
 
-      // Providers can delete only their own listings.
       allow delete: if isAdoptionProvider()
         && resource.data.providerId == request.auth.uid;
     }
@@ -338,46 +403,58 @@ service cloud.firestore {
     // ============================================================
 
     match /adoption_requests/{requestId} {
-      // Requester can read their request.
-      // Provider can read requests belonging to their listings.
       allow read: if signedIn()
         && (
           resource.data.requesterId == request.auth.uid
           || resource.data.providerId == request.auth.uid
         );
 
-      // Owner can create a request for themselves.
+      // Requests must refer to an existing, available listing and the
+      // provider recorded on that listing.
       allow create: if isOwner()
-        && request.resource.data.requesterId == request.auth.uid;
+        && request.resource.data.requesterId == request.auth.uid
+        && exists(
+          /databases/$(database)/documents/adoption_listings/$(request.resource.data.listingId)
+        )
+        && get(
+          /databases/$(database)/documents/adoption_listings/$(request.resource.data.listingId)
+        ).data.providerId == request.resource.data.providerId
+        && get(
+          /databases/$(database)/documents/adoption_listings/$(request.resource.data.listingId)
+        ).data.status == 'available';
 
-      // Owner can update their request while preserving its ownership
-      // and listing/provider relationship.
+      // The owner branch only permits updating updatedAt; withdrawal is
+      // supported by the separate owner delete rule. Providers can update
+      // decision/workflow fields without changing request relationships.
       allow update: if signedIn()
         && (
           (
             isOwner()
             && resource.data.requesterId == request.auth.uid
-            && request.resource.data.requesterId
-              == resource.data.requesterId
-            && request.resource.data.providerId
-              == resource.data.providerId
-            && request.resource.data.listingId
-              == resource.data.listingId
+            && request.resource.data.requesterId == resource.data.requesterId
+            && request.resource.data.providerId == resource.data.providerId
+            && request.resource.data.listingId == resource.data.listingId
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'updatedAt'
+            ])
           )
           ||
           (
             isAdoptionProvider()
             && resource.data.providerId == request.auth.uid
-            && request.resource.data.providerId
-              == resource.data.providerId
-            && request.resource.data.requesterId
-              == resource.data.requesterId
-            && request.resource.data.listingId
-              == resource.data.listingId
+            && request.resource.data.providerId == resource.data.providerId
+            && request.resource.data.requesterId == resource.data.requesterId
+            && request.resource.data.listingId == resource.data.listingId
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'providerNote',
+              'acceptedAt',
+              'closedAt',
+              'updatedAt'
+            ])
           )
         );
 
-      // Owner can delete/withdraw their own request.
       allow delete: if isOwner()
         && resource.data.requesterId == request.auth.uid;
     }
