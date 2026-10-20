@@ -216,6 +216,7 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             icon: Icons.calendar_month_rounded,
           ),
           const AIHubPage(),
+
           ProfilePage(
             profileRepository: widget.profileRepository,
             authRepository: widget.authRepository,
