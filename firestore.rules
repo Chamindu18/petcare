@@ -338,8 +338,8 @@ service cloud.firestore {
     // ============================================================
 
     match /adoption_requests/{requestId} {
-      // Requester can read their request.
-      // Provider can read requests belonging to their listings.
+      // Requester can read their request. Provider can read requests addressed
+      // to their own provider UID.
       allow read: if signedIn()
         && (
           resource.data.requesterId == request.auth.uid
@@ -350,8 +350,9 @@ service cloud.firestore {
       allow create: if isOwner()
         && request.resource.data.requesterId == request.auth.uid;
 
-      // Owner can update their request while preserving its ownership
-      // and listing/provider relationship.
+      // Keep the existing requester update behavior and immutable relationships.
+      // Provider updates are limited to a single pending -> accepted/rejected
+      // decision and the related timestamps/optional provider note.
       allow update: if signedIn()
         && (
           (
@@ -374,6 +375,32 @@ service cloud.firestore {
               == resource.data.requesterId
             && request.resource.data.listingId
               == resource.data.listingId
+            && resource.data.status == 'pending'
+            && request.resource.data.status in ['accepted', 'rejected']
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'status',
+                'updatedAt',
+                'acceptedAt',
+                'closedAt',
+                'providerNote'
+              ])
+            && request.resource.data.updatedAt == request.time
+            && (
+              (
+                request.resource.data.status == 'accepted'
+                && request.resource.data.acceptedAt == request.time
+                && request.resource.data.get('closedAt', null)
+                  == resource.data.get('closedAt', null)
+              )
+              ||
+              (
+                request.resource.data.status == 'rejected'
+                && request.resource.data.closedAt == request.time
+                && request.resource.data.get('acceptedAt', null)
+                  == resource.data.get('acceptedAt', null)
+              )
+            )
           )
         );
 

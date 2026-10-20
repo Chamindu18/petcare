@@ -552,4 +552,45 @@ void main() {
       );
     },
   );
+  testWidgets(
+    'shows error when updating listing fails',
+    (tester) async {
+      final repository = _FakeAdoptionListingRepository(
+        updateError: StateError('Network error'),
+      );
+
+      await tester.pumpWidget(
+        _buildPage(
+          repository: repository,
+          listing: _createListing(),
+        ),
+      );
+
+      final publishChangesButton = find.widgetWithText(
+        FilledButton,
+        'Publish Changes',
+      );
+
+      expect(
+        publishChangesButton,
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(publishChangesButton);
+      await tester.pumpAndSettle();
+
+      await tester.tap(publishChangesButton);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Unable to save the adoption listing.'),
+        findsOneWidget,
+      );
+
+      expect(
+        repository.updatedListing,
+        isNull,
+      );
+    },
+  );
 }

@@ -42,6 +42,8 @@ import '../../../pets/presentation/providers/pets_controller.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
 
+import '../../../ai_assistant/presentation/pages/ai_hub_page.dart';
+
 class OwnerShellPage extends StatefulWidget {
   const OwnerShellPage({
     super.key,
@@ -213,7 +215,7 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             title: 'Appointments',
             icon: Icons.calendar_month_rounded,
           ),
-          const _ComingSoonTab(title: 'AI Hub', icon: Icons.psychology_rounded),
+          const AIHubPage(),
           ProfilePage(
             profileRepository: widget.profileRepository,
             authRepository: widget.authRepository,

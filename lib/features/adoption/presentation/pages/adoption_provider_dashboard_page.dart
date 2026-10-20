@@ -137,6 +137,9 @@ class _DashboardContent extends StatelessWidget {
                   icon: Icons.pets_rounded,
                   title: 'My Listings',
                   value: listings.length.toString(),
+                  onPressed: () {
+                    Navigator.pushNamed(context, AppRouter.myAdoptionListings);
+                  },
                 ),
               ),
               const SizedBox(width: 12),
@@ -145,12 +148,19 @@ class _DashboardContent extends StatelessWidget {
                   icon: Icons.mark_email_unread_outlined,
                   title: 'Pending Requests',
                   value: pendingRequestCount.toString(),
+                  onPressed: () {
+                    Navigator.pushNamed(context, AppRouter.adoptionRequests);
+                  },
                 ),
               ),
             ],
           ),
           const SizedBox(height: 20),
-          _QuickActionCard(onPressed: () {}),
+          _QuickActionCard(
+            onPressed: () {
+              Navigator.pushNamed(context, AppRouter.createEditAdoptionListing);
+            },
+          ),
           const SizedBox(height: 24),
           _SectionHeader(
             title: 'Recent Listing',
@@ -174,7 +184,11 @@ class _DashboardContent extends StatelessWidget {
           _SectionHeader(
             title: 'Recent Request',
             actionLabel: requests.isEmpty ? null : 'View all',
-            onAction: requests.isEmpty ? null : () {},
+            onAction: requests.isEmpty
+                ? null
+                : () {
+                    Navigator.pushNamed(context, AppRouter.adoptionRequests);
+                  },
           ),
           const SizedBox(height: 12),
           if (recentRequest == null)
@@ -184,7 +198,16 @@ class _DashboardContent extends StatelessWidget {
               message: 'Requests from interested adopters will appear here.',
             )
           else
-            _RecentRequestCard(request: recentRequest),
+            _RecentRequestCard(
+              request: recentRequest,
+              onTap: () {
+                Navigator.pushNamed(
+                  context,
+                  AppRouter.adoptionRequestDetails,
+                  arguments: recentRequest.requestId,
+                );
+              },
+            ),
         ],
       ),
     );
@@ -260,44 +283,50 @@ class _SummaryCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.value,
+    required this.onPressed,
   });
 
   final IconData icon;
   final String title;
   final String value;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: AppTheme.secondary,
-                borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: AppTheme.deepBrown),
               ),
-              child: Icon(icon, color: AppTheme.deepBrown),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: AppTheme.espresso,
-                fontWeight: FontWeight.w700,
+              const SizedBox(height: 14),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: AppTheme.espresso,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.bodySmall
-                  ?.copyWith(color: AppTheme.deepBrown),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: AppTheme.deepBrown),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -465,54 +494,59 @@ class _RecentListingCard extends StatelessWidget {
 }
 
 class _RecentRequestCard extends StatelessWidget {
-  const _RecentRequestCard({required this.request});
+  const _RecentRequestCard({required this.request, this.onTap});
 
   final AdoptionRequest request;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppTheme.secondary,
-                borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.person_outline_rounded,
+                  color: AppTheme.deepBrown,
+                ),
               ),
-              child: const Icon(
-                Icons.person_outline_rounded,
-                color: AppTheme.deepBrown,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Adoption request',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppTheme.espresso,
-                      fontWeight: FontWeight.w600,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Adoption request',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppTheme.espresso,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Listing: ${request.listingId}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: AppTheme.deepBrown),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'Listing: ${request.listingId}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: AppTheme.deepBrown),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            _RequestStatus(status: request.status),
-          ],
+              _RequestStatus(status: request.status),
+            ],
+          ),
         ),
       ),
     );
