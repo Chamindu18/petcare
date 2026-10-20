@@ -41,8 +41,80 @@ UserProfile _profileWithRole(String role) {
   );
 }
 
+Widget _testDashboard(String label) {
+  return Scaffold(body: Center(child: Text(label)));
+}
+
 void main() {
   group('RoleBasedHomePage', () {
+    testWidgets('routes an owner to the owner dashboard destination', (
+      tester,
+    ) async {
+      final repository = _FakeProfileRepository(
+        (_) => Stream<UserProfile?>.value(_profileWithRole('owner')),
+      );
+
+      var ownerBuilderCalled = false;
+      var providerBuilderCalled = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RoleBasedHomePage(
+            profileRepository: repository,
+            ownerDashboardBuilder: () {
+              ownerBuilderCalled = true;
+              return _testDashboard('owner-dashboard-destination');
+            },
+            adoptionProviderDashboardBuilder: () {
+              providerBuilderCalled = true;
+              return _testDashboard('provider-dashboard-destination');
+            },
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('owner-dashboard-destination'), findsOneWidget);
+      expect(ownerBuilderCalled, isTrue);
+      expect(providerBuilderCalled, isFalse);
+    });
+
+    testWidgets(
+      'routes an adoption provider to the provider dashboard destination',
+      (tester) async {
+        final repository = _FakeProfileRepository(
+          (_) =>
+              Stream<UserProfile?>.value(_profileWithRole('adoption_provider')),
+        );
+
+        var ownerBuilderCalled = false;
+        var providerBuilderCalled = false;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: RoleBasedHomePage(
+              profileRepository: repository,
+              ownerDashboardBuilder: () {
+                ownerBuilderCalled = true;
+                return _testDashboard('owner-dashboard-destination');
+              },
+              adoptionProviderDashboardBuilder: () {
+                providerBuilderCalled = true;
+                return _testDashboard('provider-dashboard-destination');
+              },
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        expect(find.text('provider-dashboard-destination'), findsOneWidget);
+        expect(providerBuilderCalled, isTrue);
+        expect(ownerBuilderCalled, isFalse);
+      },
+    );
+
     testWidgets(
       'does not grant role-specific access when the profile is missing',
       (tester) async {

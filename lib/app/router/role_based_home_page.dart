@@ -14,10 +14,21 @@ import '../../features/profile/presentation/providers/profile_provider.dart';
 import '../../shared/enums/user_role.dart';
 
 class RoleBasedHomePage extends StatefulWidget {
-  const RoleBasedHomePage({super.key, this.auth, this.profileRepository});
+  const RoleBasedHomePage({
+    super.key,
+    this.auth,
+    this.profileRepository,
+    this.ownerDashboardBuilder,
+    this.adoptionProviderDashboardBuilder,
+  });
 
   final FirebaseAuth? auth;
   final ProfileRepository? profileRepository;
+
+  // Optional overrides for isolated routing tests.
+  // The production dashboards are used when these are null.
+  final Widget Function()? ownerDashboardBuilder;
+  final Widget Function()? adoptionProviderDashboardBuilder;
 
   @override
   State<RoleBasedHomePage> createState() => _RoleBasedHomePageState();
@@ -93,9 +104,15 @@ class _RoleBasedHomePageState extends State<RoleBasedHomePage> {
 
     switch (role) {
       case UserRole.owner:
-        return const OwnerShellPage();
+        return widget.ownerDashboardBuilder?.call() ?? const OwnerShellPage();
 
       case UserRole.adoptionProvider:
+        final dashboardBuilder = widget.adoptionProviderDashboardBuilder;
+
+        if (dashboardBuilder != null) {
+          return dashboardBuilder();
+        }
+
         return AdoptionProviderDashboardPage(
           listingsProvider: MyAdoptionListingsProvider(
             repository: FirebaseAdoptionListingRepository(auth: widget.auth),
