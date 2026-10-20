@@ -403,6 +403,8 @@ service cloud.firestore {
     // ============================================================
 
     match /adoption_requests/{requestId} {
+      // Requester can read their request. Provider can read requests addressed
+      // to their own provider UID.
       allow read: if signedIn()
         && (
           resource.data.requesterId == request.auth.uid
@@ -423,9 +425,9 @@ service cloud.firestore {
           /databases/$(database)/documents/adoption_listings/$(request.resource.data.listingId)
         ).data.status == 'available';
 
-      // The owner branch only permits updating updatedAt; withdrawal is
-      // supported by the separate owner delete rule. Providers can update
-      // decision/workflow fields without changing request relationships.
+      // Keep the existing requester update behavior and immutable relationships.
+      // Provider updates are limited to a single pending -> accepted/rejected
+      // decision and the related timestamps/optional provider note.
       allow update: if signedIn()
         && (
           (
@@ -442,16 +444,38 @@ service cloud.firestore {
           (
             isAdoptionProvider()
             && resource.data.providerId == request.auth.uid
-            && request.resource.data.providerId == resource.data.providerId
-            && request.resource.data.requesterId == resource.data.requesterId
-            && request.resource.data.listingId == resource.data.listingId
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'status',
-              'providerNote',
-              'acceptedAt',
-              'closedAt',
-              'updatedAt'
-            ])
+            && request.resource.data.providerId
+              == resource.data.providerId
+            && request.resource.data.requesterId
+              == resource.data.requesterId
+            && request.resource.data.listingId
+              == resource.data.listingId
+            && resource.data.status == 'pending'
+            && request.resource.data.status in ['accepted', 'rejected']
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'status',
+                'updatedAt',
+                'acceptedAt',
+                'closedAt',
+                'providerNote'
+              ])
+            && request.resource.data.updatedAt == request.time
+            && (
+              (
+                request.resource.data.status == 'accepted'
+                && request.resource.data.acceptedAt == request.time
+                && request.resource.data.get('closedAt', null)
+                  == resource.data.get('closedAt', null)
+              )
+              ||
+              (
+                request.resource.data.status == 'rejected'
+                && request.resource.data.closedAt == request.time
+                && request.resource.data.get('acceptedAt', null)
+                  == resource.data.get('acceptedAt', null)
+              )
+            )
           )
         );
 

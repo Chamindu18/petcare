@@ -9,6 +9,7 @@ import '../../features/adoption/presentation/pages/adoption_pet_details_page.dar
 import '../../features/adoption/presentation/pages/adoption_provider_dashboard_page.dart';
 import '../../features/adoption/presentation/pages/adoption_request_page.dart';
 import '../../features/adoption/presentation/pages/adoption_requests_page.dart';
+import '../../features/adoption/presentation/pages/adoption_request_details_page.dart';
 import '../../features/adoption/presentation/pages/create_edit_adoption_listing_page.dart';
 import '../../features/adoption/presentation/pages/my_adoption_listings_page.dart';
 import '../../features/adoption/presentation/providers/my_adoption_listings_provider.dart';
@@ -75,6 +76,8 @@ import '../../features/ai_assistant/presentation/pages/preventive_insights_page.
 import '../../features/ai_assistant/presentation/pages/vet_visit_preparation_page.dart';
 import 'adoption_provider_access_gate.dart';
 import 'role_based_home_page.dart';
+import '../../features/appointments/domain/entities/appointment.dart';
+import '../../features/appointments/presentation/pages/appointment_confirmation_page.dart';
 
 class AppRouter {
   AppRouter._();
@@ -101,6 +104,7 @@ class AppRouter {
   static const String adoptionRequests = '/adoption-requests';
   static const String createEditAdoptionListing =
       '/create-edit-adoption-listing';
+  static const String adoptionRequestDetails = '/adoption-request-details';
   static const String editProfile = '/edit-profile';
   static const String notificationSettings = '/notification-settings';
   static const String privacySecurity = '/privacy-security';
@@ -117,6 +121,8 @@ class AppRouter {
   static const String healthSummary = '/health-summary';
   static const String preventiveInsights = '/preventive-insights';
   static const String vetVisitPreparation = '/vet-visit-preparation';
+  static const String appointmentConfirmation =
+    '/appointment-confirmation';
 
   // Public routes are handled here.
   // Protected routes are handled in onGenerateRoute()
@@ -179,6 +185,7 @@ class AppRouter {
       adoptionProviderDashboard,
       adoptionRequests,
       createEditAdoptionListing,
+      adoptionRequestDetails,
       editProfile,
       notificationSettings,
       privacySecurity,
@@ -188,6 +195,7 @@ class AppRouter {
       hospitalDiscovery,
       hospitalDetails,
       bookAppointment,
+      appointmentConfirmation,
       aiHub,
       aiChat,
       healthSummary,
@@ -432,6 +440,28 @@ class AppRouter {
           settings: settings,
         );
 
+      case adoptionRequestDetails:
+        final requestId = settings.arguments;
+
+        if (requestId is! String || requestId.isEmpty) {
+          return MaterialPageRoute(
+            builder: (_) => const Scaffold(
+              body: Center(child: Text('Adoption request ID is required.')),
+            ),
+            settings: settings,
+          );
+        }
+
+        return MaterialPageRoute(
+          builder: (_) => AdoptionProviderAccessGate(
+            auth: auth,
+            profileRepository: profileRepository,
+            childBuilder: (_) =>
+                AdoptionRequestDetailsPage(requestId: requestId),
+          ),
+          settings: settings,
+        );
+
       case editProfile:
         final profile = settings.arguments as UserProfile?;
 
@@ -531,6 +561,27 @@ class AppRouter {
           builder: (_) => HospitalDetailsPage(hospitalId: hospitalId),
           settings: settings,
         );
+
+        case appointmentConfirmation:
+  final appointment = settings.arguments;
+
+  if (appointment is! Appointment) {
+    return MaterialPageRoute(
+      builder: (_) => const Scaffold(
+        body: Center(
+          child: Text('Invalid appointment data.'),
+        ),
+      ),
+      settings: settings,
+    );
+  }
+
+  return MaterialPageRoute(
+    builder: (_) => AppointmentConfirmationPage(
+      appointment: appointment,
+    ),
+    settings: settings,
+  );
 
       case bookAppointment:
         final hospitalId = settings.arguments;

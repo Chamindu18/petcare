@@ -2,10 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../domain/entities/adoption_request.dart';
+import '../../domain/repositories/adoption_request_decision_repository.dart';
 import '../../domain/repositories/adoption_request_repository.dart';
 import '../models/adoption_request_model.dart';
 
-class FirebaseAdoptionRequestRepository implements AdoptionRequestRepository {
+class FirebaseAdoptionRequestRepository
+    implements AdoptionRequestRepository, AdoptionRequestDecisionRepository {
   FirebaseAdoptionRequestRepository({
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
@@ -111,6 +113,94 @@ class FirebaseAdoptionRequestRepository implements AdoptionRequestRepository {
       }
 
       return AdoptionRequestModel.fromFirestore(document);
+    });
+  }
+
+  @override
+  Future<void> acceptRequest({
+    required String requestId,
+    String? providerNote,
+  }) {
+    return _decideRequest(
+      requestId: requestId,
+      decision: 'accepted',
+      providerNote: providerNote,
+    );
+  }
+
+  @override
+  Future<void> rejectRequest({
+    required String requestId,
+    String? providerNote,
+  }) {
+    return _decideRequest(
+      requestId: requestId,
+      decision: 'rejected',
+      providerNote: providerNote,
+    );
+  }
+
+  Future<void> _decideRequest({
+    required String requestId,
+    required String decision,
+    String? providerNote,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw const AdoptionRequestRepositoryException(
+        'You must be signed in to review adoption requests.',
+      );
+    }
+
+    if (decision != 'accepted' && decision != 'rejected') {
+      throw const AdoptionRequestRepositoryException(
+        'The requested adoption decision is invalid.',
+      );
+    }
+
+    final requestReference = _requestsCollection.doc(requestId);
+
+    await _firestore.runTransaction((transaction) async {
+      final document = await transaction.get(requestReference);
+
+      if (!document.exists) {
+        throw const AdoptionRequestRepositoryException(
+          'The adoption request could not be found.',
+        );
+      }
+
+      final data = document.data();
+      if (data == null) {
+        throw const AdoptionRequestRepositoryException(
+          'The adoption request data is unavailable.',
+        );
+      }
+
+      if (data['providerId'] != user.uid) {
+        throw const AdoptionRequestRepositoryException(
+          'You are not authorized to decide this adoption request.',
+        );
+      }
+
+      if (data['status'] != 'pending') {
+        throw const AdoptionRequestRepositoryException(
+          'Only pending adoption requests can be accepted or rejected.',
+        );
+      }
+
+      final updates = <String, Object>{
+        'status': decision,
+        'updatedAt': FieldValue.serverTimestamp(),
+        if (decision == 'accepted') 'acceptedAt': FieldValue.serverTimestamp(),
+        if (decision == 'rejected') 'closedAt': FieldValue.serverTimestamp(),
+      };
+
+      final trimmedNote = providerNote?.trim();
+      if (trimmedNote != null && trimmedNote.isNotEmpty) {
+        updates['providerNote'] = trimmedNote;
+      }
+
+      transaction.update(requestReference, updates);
     });
   }
 }
