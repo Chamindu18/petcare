@@ -5,8 +5,12 @@ class GenerateLocalHealthSummary {
 
   String call(AIPetContext context) {
     final activeConditions = context.conditions
-        .where((c) => c.status.toLowerCase() == 'active')
+        .where((condition) => condition.status.toLowerCase() == 'active')
         .length;
+
+    final recentVaccination = context.vaccinations.isNotEmpty
+        ? context.vaccinations.last.name
+        : 'No vaccination records';
 
     return '''
 Pet Name: ${context.pet.name}
@@ -25,9 +29,13 @@ Active Conditions: $activeConditions
 
 Vaccinations: ${context.vaccinations.length}
 
+Most Recent Vaccination:
+$recentVaccination
+
 Treatments: ${context.treatments.length}
 
-Health Measurements: ${context.measurements.length}
+Health Measurements:
+${context.measurements.length}
 ''';
   }
 }
