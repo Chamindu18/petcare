@@ -8,12 +8,23 @@ class GenerateLocalPreventiveCare {
         .where((v) => v.nextDueDate != null)
         .length;
 
+    final overdueVaccinations = context.vaccinations.where((v) {
+      if (v.nextDueDate == null) {
+        return false;
+      }
+
+      return v.nextDueDate!.isBefore(DateTime.now());
+    }).length;
+
     return '''
 Vaccination Records:
 ${context.vaccinations.length}
 
-Upcoming Vaccination Reviews:
+Vaccinations With Due Dates:
 $dueVaccinations
+
+Overdue Vaccinations:
+$overdueVaccinations
 
 Medical Conditions:
 ${context.conditions.length}
@@ -21,8 +32,7 @@ ${context.conditions.length}
 Health Measurements:
 ${context.measurements.length}
 
-Continue monitoring health records
-and vaccination schedules regularly.
+Continue monitoring vaccination schedules and health records.
 ''';
   }
 }

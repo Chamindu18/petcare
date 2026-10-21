@@ -11,11 +11,14 @@ import '../../domain/usecases/generate_local_vet_prep.dart';
 
 import '../../domain/usecases/generate_pet_overview.dart';
 import '../providers/selected_pet_provider.dart';
+import '../../domain/usecases/create_health_summary_from_context.dart';
 
 class AIProvider extends ChangeNotifier {
   bool isLoading = false;
   final GenerateLocalHealthSummary _healthSummaryGenerator =
       const GenerateLocalHealthSummary();
+  final CreateHealthSummaryFromContext _contextSummaryGenerator =
+      const CreateHealthSummaryFromContext();
 
   final GenerateLocalPreventiveCare _preventiveCareGenerator =
       const GenerateLocalPreventiveCare();
@@ -181,5 +184,17 @@ class AIProvider extends ChangeNotifier {
 
   bool hasContext() {
     return petOverview != null;
+  }
+
+  Future<void> buildSummaryFromContext(AIPetContext context) async {
+    isLoading = true;
+
+    notifyListeners();
+
+    healthSummary = _contextSummaryGenerator(context);
+
+    isLoading = false;
+
+    notifyListeners();
   }
 }

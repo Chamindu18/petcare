@@ -4,28 +4,41 @@ class GenerateLocalVetPrep {
   const GenerateLocalVetPrep();
 
   String call(AIPetContext context) {
+    final activeTreatments = context.treatments
+        .where(
+          (treatment) =>
+              treatment.status.toLowerCase() == 'active' ||
+              treatment.status.toLowerCase() == 'ongoing',
+        )
+        .length;
+
+    final activeConditions = context.conditions
+        .where((condition) => condition.status.toLowerCase() == 'active')
+        .length;
+
     return '''
-Pet:
-${context.pet.name}
+Pet: ${context.pet.name}
 
-Conditions:
-${context.conditions.length}
+Active Conditions:
+$activeConditions
 
-Treatments:
-${context.treatments.length}
+Active Treatments:
+$activeTreatments
 
-Measurements:
-${context.measurements.length}
+Vaccinations:
+${context.vaccinations.length}
 
 Topics to discuss:
 
-• Existing conditions
+• Current medical conditions
 
 • Ongoing treatments
 
-• Recent measurements
+• Recent health measurements
 
 • Vaccination schedule
+
+• Overall health monitoring
 ''';
   }
 }
