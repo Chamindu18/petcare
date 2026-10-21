@@ -3,9 +3,43 @@ import 'package:flutter/material.dart';
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/petcare_background.dart';
+import '../../../pets/domain/entities/pet.dart';
+import '../providers/selected_pet_provider.dart';
 
-class AIHubPage extends StatelessWidget {
+class AIHubPage extends StatefulWidget {
   const AIHubPage({super.key});
+
+  @override
+  State<AIHubPage> createState() => _AIHubPageState();
+}
+
+class _AIHubPageState extends State<AIHubPage> {
+  final SelectedPetProvider _petProvider = SelectedPetProvider();
+
+  void _loadTestPet() {
+    _petProvider.selectPet(
+      Pet(
+        petId: 'demo',
+        ownerId: 'demo',
+        name: 'Milo',
+        species: 'Dog',
+        breed: 'Golden Retriever',
+        dob: DateTime(2023, 1, 1),
+        gender: 'Male',
+        weight: 24.5,
+        imageUrl: '',
+        notes: '',
+        status: 'active',
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadTestPet();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,20 +111,50 @@ class AIHubPage extends StatelessWidget {
 
                         const SizedBox(width: 16),
 
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Select Pet',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text('Pet information will appear here'),
-                            ],
+                        Expanded(
+                          child: AnimatedBuilder(
+                            animation: _petProvider,
+                            builder: (context, _) {
+                              final pet = _petProvider.selectedPet;
+
+                              if (pet == null) {
+                                return const Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Select Pet',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text('No pet selected'),
+                                  ],
+                                );
+                              }
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    pet.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 4),
+
+                                  Text(
+                                    '${pet.breed} • ${pet.ageInYears} years',
+                                  ),
+
+                                  Text('${pet.weight} kg'),
+                                ],
+                              );
+                            },
                           ),
                         ),
                       ],
