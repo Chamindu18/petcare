@@ -5,6 +5,7 @@ import '../widgets/ai_card.dart';
 import '../../../../core/widgets/petcare_background.dart';
 import '../../domain/entities/ai_pet_context.dart';
 import '../../domain/usecases/generate_pet_overview.dart';
+import '../../domain/usecases/format_pet_context.dart';
 
 class HealthSummaryPage extends StatefulWidget {
   const HealthSummaryPage({super.key, this.contextData});
@@ -19,6 +20,7 @@ class _HealthSummaryPageState extends State<HealthSummaryPage> {
   final AIProvider provider = AIProvider();
 
   final GeneratePetOverview _overviewGenerator = const GeneratePetOverview();
+  final FormatPetContext _formatter = const FormatPetContext();
   @override
   void initState() {
     super.initState();
@@ -51,6 +53,7 @@ class _HealthSummaryPageState extends State<HealthSummaryPage> {
               }
 
               final overview = _overviewGenerator(widget.contextData!);
+              final formattedContext = _formatter(widget.contextData!);
 
               return SingleChildScrollView(
                 child: Column(
@@ -60,29 +63,7 @@ class _HealthSummaryPageState extends State<HealthSummaryPage> {
                       content: provider.healthSummary,
                     ),
 
-                    AICard(
-                      title: 'Pet Overview',
-                      content:
-                          '''
-                          Pet Name: ${overview['petName']}
-
-                          Species: ${overview['species']}
-
-                          Breed: ${overview['breed']}
-
-                          Age: ${overview['age']} years
-
-                          Weight: ${overview['weight']} kg
-
-                          Conditions: ${overview['conditionCount']}
-
-                          Vaccinations: ${overview['vaccinationCount']}
-
-                          Treatments: ${overview['treatmentCount']}
-
-                          Measurements: ${overview['measurementCount']}
-                          ''',
-                    ),
+                    AICard(title: 'Pet Overview', content: formattedContext),
                   ],
                 ),
               );
