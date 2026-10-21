@@ -141,4 +141,16 @@ class AIProvider extends ChangeNotifier {
 
     notifyListeners();
   }
+
+  Future<void> loadContextSummary(AIPetContext context) async {
+    await buildPetOverview(context);
+
+    await buildHealthSummary(context);
+
+    await buildPreventiveCare(context);
+
+    await buildVetVisitPrep(context);
+
+    notifyListeners();
+  }
 }
