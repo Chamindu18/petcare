@@ -4,14 +4,20 @@ class GenerateLocalPreventiveCare {
   const GenerateLocalPreventiveCare();
 
   String call(AIPetContext context) {
+    final dueVaccines = context.vaccinations
+        .where((v) => v.nextDueDate != null)
+        .length;
+
     return '''
-Preventive recommendations will be generated using:
+Vaccination Records: ${context.vaccinations.length}
 
-• ${context.vaccinations.length} vaccination records
+Upcoming Vaccine Reviews: $dueVaccines
 
-• ${context.conditions.length} medical conditions
+Medical Conditions: ${context.conditions.length}
 
-• ${context.measurements.length} health measurements
+Health Measurements: ${context.measurements.length}
+
+Preventive recommendations will be generated from these records.
 ''';
   }
 }

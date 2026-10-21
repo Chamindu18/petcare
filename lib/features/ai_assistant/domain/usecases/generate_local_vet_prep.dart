@@ -5,13 +5,15 @@ class GenerateLocalVetPrep {
 
   String call(AIPetContext context) {
     return '''
-Prepare discussion around:
+Pet: ${context.pet.name}
 
-• ${context.conditions.length} conditions
+Conditions: ${context.conditions.length}
 
-• ${context.treatments.length} treatments
+Treatments: ${context.treatments.length}
 
-• ${context.measurements.length} measurements
+Measurements: ${context.measurements.length}
+
+Prepare discussion around these records before the appointment.
 ''';
   }
 }
