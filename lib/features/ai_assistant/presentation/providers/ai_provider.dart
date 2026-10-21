@@ -120,19 +120,37 @@ class AIProvider extends ChangeNotifier {
   }
 
   Future<void> buildHealthSummary(AIPetContext context) async {
+    isLoading = true;
+
+    notifyListeners();
+
     healthSummary = _healthSummaryGenerator(context);
+
+    isLoading = false;
 
     notifyListeners();
   }
 
   Future<void> buildPreventiveCare(AIPetContext context) async {
+    isLoading = true;
+
+    notifyListeners();
+
     preventiveCare = _preventiveCareGenerator(context);
+
+    isLoading = false;
 
     notifyListeners();
   }
 
   Future<void> buildVetVisitPrep(AIPetContext context) async {
+    isLoading = true;
+
+    notifyListeners();
+
     vetVisitPrep = _vetPrepGenerator(context);
+
+    isLoading = false;
 
     notifyListeners();
   }
@@ -144,13 +162,19 @@ class AIProvider extends ChangeNotifier {
   }
 
   Future<void> loadContextSummary(AIPetContext context) async {
-    await buildPetOverview(context);
+    isLoading = true;
 
-    await buildHealthSummary(context);
+    notifyListeners();
 
-    await buildPreventiveCare(context);
+    petOverview = _overviewGenerator(context);
 
-    await buildVetVisitPrep(context);
+    healthSummary = _healthSummaryGenerator(context);
+
+    preventiveCare = _preventiveCareGenerator(context);
+
+    vetVisitPrep = _vetPrepGenerator(context);
+
+    isLoading = false;
 
     notifyListeners();
   }
