@@ -178,4 +178,8 @@ class AIProvider extends ChangeNotifier {
 
     notifyListeners();
   }
+
+  bool hasContext() {
+    return petOverview != null;
+  }
 }
