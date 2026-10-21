@@ -1,11 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:petcare/features/pets/domain/entities/pet.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/petcare_background.dart';
 
-class AIHubPage extends StatelessWidget {
-  const AIHubPage({super.key});
+class AIHubPage extends StatefulWidget {
+  const AIHubPage({super.key, this.pets});
+
+  final List<Pet>? pets;
+
+  @override
+  State<AIHubPage> createState() => _AIHubPageState();
+}
+
+class _AIHubPageState extends State<AIHubPage> {
+  Pet? selectedPet;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.pets != null && widget.pets!.isNotEmpty) {
+      selectedPet = widget.pets!.first;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +69,14 @@ class AIHubPage extends StatelessWidget {
 
                   const SizedBox(height: 24),
 
+                  Text(
+                    'Selected Pet',
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+
+                  const SizedBox(height: 10),
+
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -62,36 +89,91 @@ class AIHubPage extends StatelessWidget {
                     child: Row(
                       children: [
                         Container(
-                          width: 60,
-                          height: 60,
+                          width: 70,
+                          height: 70,
+                          clipBehavior: Clip.antiAlias,
                           decoration: const BoxDecoration(
-                            color: AppTheme.primary,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
-                            Icons.pets,
-                            color: AppTheme.white,
-                            size: 30,
-                          ),
+                          child: selectedPet?.imageUrl.isNotEmpty == true
+                              ? Image.network(
+                                  selectedPet!.imageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) {
+                                    return Container(
+                                      color: AppTheme.primary,
+                                      child: const Icon(
+                                        Icons.pets,
+                                        color: AppTheme.white,
+                                        size: 32,
+                                      ),
+                                    );
+                                  },
+                                )
+                              : Container(
+                                  color: AppTheme.primary,
+                                  child: const Icon(
+                                    Icons.pets,
+                                    color: AppTheme.white,
+                                    size: 32,
+                                  ),
+                                ),
                         ),
 
                         const SizedBox(width: 16),
 
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Select Pet',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 16,
+                        Expanded(
+                          child: widget.pets == null || widget.pets!.isEmpty
+                              ? const Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'No pets available',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    DropdownButtonHideUnderline(
+                                      child: DropdownButton<Pet>(
+                                        value: selectedPet,
+                                        isExpanded: true,
+                                        items: widget.pets!
+                                            .map(
+                                              (pet) => DropdownMenuItem<Pet>(
+                                                value: pet,
+                                                child: Text(pet.name),
+                                              ),
+                                            )
+                                            .toList(),
+                                        onChanged: (pet) {
+                                          if (pet == null) return;
+
+                                          setState(() {
+                                            selectedPet = pet;
+                                          });
+                                        },
+                                      ),
+                                    ),
+
+                                    const SizedBox(height: 4),
+
+                                    Text(
+                                      selectedPet?.species ?? '',
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+
+                                    Text(
+                                      '${selectedPet?.ageInYears ?? 0} years • ${selectedPet?.weight ?? 0} kg',
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              SizedBox(height: 4),
-                              Text('Pet information will appear here'),
-                            ],
-                          ),
                         ),
                       ],
                     ),

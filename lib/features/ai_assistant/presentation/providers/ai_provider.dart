@@ -1,9 +1,32 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/ai_message.dart';
+import '../../../pets/domain/entities/pet.dart';
+
+import '../../domain/entities/ai_pet_context.dart';
+
+import '../../domain/usecases/generate_local_health_summary.dart';
+import '../../domain/usecases/generate_local_preventive_care.dart';
+import '../../domain/usecases/generate_local_vet_prep.dart';
+
+import '../../domain/usecases/generate_pet_overview.dart';
+
+import '../../domain/usecases/create_health_summary_from_context.dart';
 
 class AIProvider extends ChangeNotifier {
   bool isLoading = false;
+  final GenerateLocalHealthSummary _healthSummaryGenerator =
+      const GenerateLocalHealthSummary();
+  final CreateHealthSummaryFromContext _contextSummaryGenerator =
+      const CreateHealthSummaryFromContext();
+
+  final GenerateLocalPreventiveCare _preventiveCareGenerator =
+      const GenerateLocalPreventiveCare();
+
+  final GenerateLocalVetPrep _vetPrepGenerator = const GenerateLocalVetPrep();
+  final GeneratePetOverview _overviewGenerator = const GeneratePetOverview();
+
+  Map<String, dynamic>? petOverview;
 
   final List<AIMessage> messages = [
     AIMessage(
@@ -15,6 +38,15 @@ class AIProvider extends ChangeNotifier {
   String healthSummary = '';
   String preventiveCare = '';
   String vetVisitPrep = '';
+
+  Pet? _selectedPet;
+
+  Pet? get selectedPet => _selectedPet;
+
+  void setSelectedPet(Pet pet) {
+    _selectedPet = pet;
+    notifyListeners();
+  }
 
   Future<void> sendMessage(String text) async {
     if (text.trim().isEmpty) return;
@@ -46,22 +78,11 @@ class AIProvider extends ChangeNotifier {
     await Future.delayed(const Duration(seconds: 1));
 
     healthSummary = '''
-HEALTH STATUS
+  No pet health records connected yet.
 
-🟢 Good
-
-SUMMARY
-
-• Vaccinations are up to date
-
-• No active conditions
-
-• Stable weight
-
-RECOMMENDATION
-
-Continue regular wellness monitoring.
-''';
+  Health summaries will be generated
+  from the selected pet records.
+  ''';
 
     isLoading = false;
     notifyListeners();
@@ -74,20 +95,11 @@ Continue regular wellness monitoring.
     await Future.delayed(const Duration(seconds: 1));
 
     preventiveCare = '''
-PRIORITY RECOMMENDATIONS
+  No preventive recommendations available.
 
-• Annual vaccination review
-
-• Monthly weight monitoring
-
-• Dental health checks
-
-• Maintain exercise routine
-
-NEXT ACTION
-
-Schedule a wellness visit within the next few months.
-''';
+  Recommendations will be generated
+  from the selected pet records.
+  ''';
 
     isLoading = false;
     notifyListeners();
@@ -100,26 +112,89 @@ Schedule a wellness visit within the next few months.
     await Future.delayed(const Duration(seconds: 1));
 
     vetVisitPrep = '''
-DISCUSSION POINTS
+  No visit preparation data available.
 
-1. Are vaccinations current?
-
-2. Is the diet still appropriate?
-
-3. Is the pet's weight healthy?
-
-4. Are any screenings recommended?
-
-BRING TO THE VISIT
-
-• Vaccination records
-
-• Treatment history
-
-• Recent observations or concerns
-''';
+  Preparation notes will be generated
+  from the selected pet records.
+  ''';
 
     isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> buildHealthSummary(AIPetContext context) async {
+    isLoading = true;
+
+    notifyListeners();
+
+    healthSummary = _healthSummaryGenerator(context);
+
+    isLoading = false;
+
+    notifyListeners();
+  }
+
+  Future<void> buildPreventiveCare(AIPetContext context) async {
+    isLoading = true;
+
+    notifyListeners();
+
+    preventiveCare = _preventiveCareGenerator(context);
+
+    isLoading = false;
+
+    notifyListeners();
+  }
+
+  Future<void> buildVetVisitPrep(AIPetContext context) async {
+    isLoading = true;
+
+    notifyListeners();
+
+    vetVisitPrep = _vetPrepGenerator(context);
+
+    isLoading = false;
+
+    notifyListeners();
+  }
+
+  Future<void> buildPetOverview(AIPetContext context) async {
+    petOverview = _overviewGenerator(context);
+
+    notifyListeners();
+  }
+
+  Future<void> loadContextSummary(AIPetContext context) async {
+    isLoading = true;
+
+    notifyListeners();
+
+    petOverview = _overviewGenerator(context);
+
+    healthSummary = _healthSummaryGenerator(context);
+
+    preventiveCare = _preventiveCareGenerator(context);
+
+    vetVisitPrep = _vetPrepGenerator(context);
+
+    isLoading = false;
+
+    notifyListeners();
+  }
+
+  bool hasContext() {
+    return petOverview != null;
+  }
+
+  Future<void> buildSummaryFromContext(AIPetContext context) async {
+    isLoading = true;
+
+    notifyListeners();
+
+    healthSummary = _contextSummaryGenerator(context);
+
+    isLoading = false;
+
     notifyListeners();
   }
 }
