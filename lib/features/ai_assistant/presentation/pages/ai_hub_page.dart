@@ -1,25 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:petcare/features/pets/domain/entities/pet.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/petcare_background.dart';
-import '../providers/selected_pet_provider.dart';
 
 class AIHubPage extends StatefulWidget {
-  const AIHubPage({super.key});
+  const AIHubPage({super.key, this.pets});
+
+  final List<Pet>? pets;
 
   @override
   State<AIHubPage> createState() => _AIHubPageState();
 }
 
 class _AIHubPageState extends State<AIHubPage> {
-  final SelectedPetProvider _petProvider = SelectedPetProvider();
-
-  @override
-  void initState() {
-    super.initState();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -63,6 +58,13 @@ class _AIHubPageState extends State<AIHubPage> {
 
                   const SizedBox(height: 24),
 
+                  Text(
+                    'Selected Pet',
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+
+                  const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -91,50 +93,38 @@ class _AIHubPageState extends State<AIHubPage> {
                         const SizedBox(width: 16),
 
                         Expanded(
-                          child: AnimatedBuilder(
-                            animation: _petProvider,
-                            builder: (context, _) {
-                              final pet = _petProvider.selectedPet;
-
-                              if (pet == null) {
-                                return const Column(
+                          child: widget.pets == null || widget.pets!.isEmpty
+                              ? const Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Select Pet',
+                                      'Selected Pet',
                                       style: TextStyle(
                                         fontWeight: FontWeight.w800,
                                         fontSize: 16,
                                       ),
                                     ),
                                     SizedBox(height: 4),
-                                    Text('No pet selected'),
+                                    Text('No pets available'),
                                   ],
-                                );
-                              }
-
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    pet.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 16,
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      widget.pets!.first.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 16,
+                                      ),
                                     ),
-                                  ),
-
-                                  const SizedBox(height: 4),
-
-                                  Text(
-                                    '${pet.breed} • ${pet.ageInYears} years',
-                                  ),
-
-                                  Text('${pet.weight} kg'),
-                                ],
-                              );
-                            },
-                          ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${widget.pets!.first.breed} • ${widget.pets!.first.ageInYears} years',
+                                    ),
+                                    Text('${widget.pets!.first.weight} kg'),
+                                  ],
+                                ),
                         ),
                       ],
                     ),
