@@ -15,6 +15,17 @@ class AIHubPage extends StatefulWidget {
 }
 
 class _AIHubPageState extends State<AIHubPage> {
+  Pet? selectedPet;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.pets != null && widget.pets!.isNotEmpty) {
+      selectedPet = widget.pets!.first;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -65,6 +76,7 @@ class _AIHubPageState extends State<AIHubPage> {
                   ),
 
                   const SizedBox(height: 10),
+
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -77,17 +89,35 @@ class _AIHubPageState extends State<AIHubPage> {
                     child: Row(
                       children: [
                         Container(
-                          width: 60,
-                          height: 60,
+                          width: 70,
+                          height: 70,
+                          clipBehavior: Clip.antiAlias,
                           decoration: const BoxDecoration(
-                            color: AppTheme.primary,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
-                            Icons.pets,
-                            color: AppTheme.white,
-                            size: 30,
-                          ),
+                          child: selectedPet?.imageUrl.isNotEmpty == true
+                              ? Image.network(
+                                  selectedPet!.imageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) {
+                                    return Container(
+                                      color: AppTheme.primary,
+                                      child: const Icon(
+                                        Icons.pets,
+                                        color: AppTheme.white,
+                                        size: 32,
+                                      ),
+                                    );
+                                  },
+                                )
+                              : Container(
+                                  color: AppTheme.primary,
+                                  child: const Icon(
+                                    Icons.pets,
+                                    color: AppTheme.white,
+                                    size: 32,
+                                  ),
+                                ),
                         ),
 
                         const SizedBox(width: 16),
@@ -98,31 +128,50 @@ class _AIHubPageState extends State<AIHubPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Selected Pet',
+                                      'No pets available',
                                       style: TextStyle(
                                         fontWeight: FontWeight.w800,
                                         fontSize: 16,
                                       ),
                                     ),
-                                    SizedBox(height: 4),
-                                    Text('No pets available'),
                                   ],
                                 )
                               : Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      widget.pets!.first.name,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 16,
+                                    DropdownButtonHideUnderline(
+                                      child: DropdownButton<Pet>(
+                                        value: selectedPet,
+                                        isExpanded: true,
+                                        items: widget.pets!
+                                            .map(
+                                              (pet) => DropdownMenuItem<Pet>(
+                                                value: pet,
+                                                child: Text(pet.name),
+                                              ),
+                                            )
+                                            .toList(),
+                                        onChanged: (pet) {
+                                          if (pet == null) return;
+
+                                          setState(() {
+                                            selectedPet = pet;
+                                          });
+                                        },
                                       ),
                                     ),
+
                                     const SizedBox(height: 4),
+
                                     Text(
-                                      '${widget.pets!.first.breed} • ${widget.pets!.first.ageInYears} years',
+                                      selectedPet?.species ?? '',
+                                      style: const TextStyle(fontSize: 14),
                                     ),
-                                    Text('${widget.pets!.first.weight} kg'),
+
+                                    Text(
+                                      '${selectedPet?.ageInYears ?? 0} years • ${selectedPet?.weight ?? 0} kg',
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
                                   ],
                                 ),
                         ),
