@@ -7,10 +7,14 @@ import '../../../health/domain/entities/medical_condition.dart';
 import '../../../health/domain/entities/vaccination.dart';
 import '../../../health/domain/entities/treatment.dart';
 import '../../../health/domain/entities/health_measurement.dart';
+import '../../domain/usecases/generate_pet_overview.dart';
 
 class SelectedPetProvider extends ChangeNotifier {
   Pet? _selectedPet;
   final CreatePetContext _createPetContext = const CreatePetContext();
+  final GeneratePetOverview _overviewGenerator = const GeneratePetOverview();
+
+  Map<String, dynamic>? petOverview;
 
   AIPetContext? _context;
 
@@ -50,6 +54,16 @@ class SelectedPetProvider extends ChangeNotifier {
       treatments: treatments,
       measurements: measurements,
     );
+
+    notifyListeners();
+  }
+
+  void buildOverview() {
+    if (_context == null) {
+      return;
+    }
+
+    petOverview = _overviewGenerator(_context!);
 
     notifyListeners();
   }
