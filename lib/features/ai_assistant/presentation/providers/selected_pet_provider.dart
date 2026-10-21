@@ -8,6 +8,7 @@ import '../../../health/domain/entities/vaccination.dart';
 import '../../../health/domain/entities/treatment.dart';
 import '../../../health/domain/entities/health_measurement.dart';
 import '../../domain/usecases/generate_pet_overview.dart';
+import '../../../health/presentation/providers/health_controller.dart';
 
 class SelectedPetProvider extends ChangeNotifier {
   Pet? _selectedPet;
@@ -66,5 +67,22 @@ class SelectedPetProvider extends ChangeNotifier {
     petOverview = _overviewGenerator(_context!);
 
     notifyListeners();
+  }
+
+  Future<void> buildContextFromHealthController({
+    required Pet pet,
+    required HealthController controller,
+  }) async {
+    await controller.loadHealthRecords(pet.petId);
+
+    buildContext(
+      pet: pet,
+      conditions: controller.medicalConditions,
+      vaccinations: controller.vaccinations,
+      treatments: controller.treatments,
+      measurements: controller.healthMeasurements,
+    );
+
+    buildOverview();
   }
 }
