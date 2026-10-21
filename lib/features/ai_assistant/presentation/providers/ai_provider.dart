@@ -10,7 +10,7 @@ import '../../domain/usecases/generate_local_preventive_care.dart';
 import '../../domain/usecases/generate_local_vet_prep.dart';
 
 import '../../domain/usecases/generate_pet_overview.dart';
-import '../providers/selected_pet_provider.dart';
+
 import '../../domain/usecases/create_health_summary_from_context.dart';
 
 class AIProvider extends ChangeNotifier {

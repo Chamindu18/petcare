@@ -56,7 +56,6 @@ class _HealthSummaryPageState extends State<HealthSummaryPage> {
                 );
               }
 
-              final overview = _overviewGenerator(widget.contextData!);
               final formattedContext = _formatter(widget.contextData!);
 
               return SingleChildScrollView(
