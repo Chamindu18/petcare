@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import '../providers/ai_provider.dart';
 import '../widgets/ai_card.dart';
 import '../../../../core/widgets/petcare_background.dart';
+import '../../domain/entities/ai_pet_context.dart';
 
 class HealthSummaryPage extends StatefulWidget {
-  const HealthSummaryPage({super.key});
+  const HealthSummaryPage({super.key, this.contextData});
+
+  final AIPetContext? contextData;
 
   @override
   State<HealthSummaryPage> createState() => _HealthSummaryPageState();
@@ -38,7 +41,9 @@ class _HealthSummaryPageState extends State<HealthSummaryPage> {
 
               return SingleChildScrollView(
                 child: AICard(
-                  title: 'Pet Health Summary',
+                  title: widget.contextData == null
+                      ? 'Pet Health Summary'
+                      : '${widget.contextData!.pet.name} Health Summary',
                   content: provider.healthSummary,
                 ),
               );

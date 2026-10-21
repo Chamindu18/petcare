@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import '../providers/ai_provider.dart';
 import '../widgets/ai_card.dart';
 import '../../../../core/widgets/petcare_background.dart';
+import '../../domain/entities/ai_pet_context.dart';
 
 class VetVisitPreparationPage extends StatefulWidget {
-  const VetVisitPreparationPage({super.key});
+  const VetVisitPreparationPage({super.key, this.contextData});
+
+  final AIPetContext? contextData;
 
   @override
   State<VetVisitPreparationPage> createState() =>
