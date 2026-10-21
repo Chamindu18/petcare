@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/petcare_background.dart';
-import '../../../pets/domain/entities/pet.dart';
 import '../providers/selected_pet_provider.dart';
 
 class AIHubPage extends StatefulWidget {
@@ -16,29 +15,9 @@ class AIHubPage extends StatefulWidget {
 class _AIHubPageState extends State<AIHubPage> {
   final SelectedPetProvider _petProvider = SelectedPetProvider();
 
-  void _loadTestPet() {
-    _petProvider.selectPet(
-      Pet(
-        petId: 'demo',
-        ownerId: 'demo',
-        name: 'Milo',
-        species: 'Dog',
-        breed: 'Golden Retriever',
-        dob: DateTime(2023, 1, 1),
-        gender: 'Male',
-        weight: 24.5,
-        imageUrl: '',
-        notes: '',
-        status: 'active',
-      ),
-    );
-  }
-
   @override
   void initState() {
     super.initState();
-
-    _loadTestPet();
   }
 
   @override

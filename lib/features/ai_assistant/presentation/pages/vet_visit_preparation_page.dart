@@ -23,7 +23,11 @@ class _VetVisitPreparationPageState extends State<VetVisitPreparationPage> {
   void initState() {
     super.initState();
 
-    provider.generateVetVisitPrep();
+    if (widget.contextData == null) {
+      provider.generateVetVisitPrep();
+    } else {
+      provider.loadContextSummary(widget.contextData!);
+    }
   }
 
   @override

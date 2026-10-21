@@ -23,7 +23,11 @@ class _PreventiveInsightsPageState extends State<PreventiveInsightsPage> {
   void initState() {
     super.initState();
 
-    provider.generatePreventiveCare();
+    if (widget.contextData == null) {
+      provider.generatePreventiveCare();
+    } else {
+      provider.loadContextSummary(widget.contextData!);
+    }
   }
 
   @override

@@ -28,7 +28,7 @@ class _HealthSummaryPageState extends State<HealthSummaryPage> {
     if (widget.contextData == null) {
       provider.generateHealthSummary();
     } else {
-      provider.buildSummaryFromContext(widget.contextData!);
+      provider.loadContextSummary(widget.contextData!);
     }
   }
 
