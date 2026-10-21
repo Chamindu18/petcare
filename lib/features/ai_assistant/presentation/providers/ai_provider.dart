@@ -3,8 +3,26 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/ai_message.dart';
 import '../../../pets/domain/entities/pet.dart';
 
+import '../../domain/entities/ai_pet_context.dart';
+
+import '../../domain/usecases/generate_local_health_summary.dart';
+import '../../domain/usecases/generate_local_preventive_care.dart';
+import '../../domain/usecases/generate_local_vet_prep.dart';
+
+import '../../domain/usecases/generate_pet_overview.dart';
+
 class AIProvider extends ChangeNotifier {
   bool isLoading = false;
+  final GenerateLocalHealthSummary _healthSummaryGenerator =
+      const GenerateLocalHealthSummary();
+
+  final GenerateLocalPreventiveCare _preventiveCareGenerator =
+      const GenerateLocalPreventiveCare();
+
+  final GenerateLocalVetPrep _vetPrepGenerator = const GenerateLocalVetPrep();
+  final GeneratePetOverview _overviewGenerator = const GeneratePetOverview();
+
+  Map<String, dynamic>? petOverview;
 
   final List<AIMessage> messages = [
     AIMessage(
@@ -56,11 +74,11 @@ class AIProvider extends ChangeNotifier {
     await Future.delayed(const Duration(seconds: 1));
 
     healthSummary = '''
-No pet health records connected yet.
+  No pet health records connected yet.
 
-Health summaries will be generated
-from the selected pet records.
-''';
+  Health summaries will be generated
+  from the selected pet records.
+  ''';
 
     isLoading = false;
     notifyListeners();
@@ -73,11 +91,11 @@ from the selected pet records.
     await Future.delayed(const Duration(seconds: 1));
 
     preventiveCare = '''
-No preventive recommendations available.
+  No preventive recommendations available.
 
-Recommendations will be generated
-from the selected pet records.
-''';
+  Recommendations will be generated
+  from the selected pet records.
+  ''';
 
     isLoading = false;
     notifyListeners();
@@ -90,13 +108,37 @@ from the selected pet records.
     await Future.delayed(const Duration(seconds: 1));
 
     vetVisitPrep = '''
-No visit preparation data available.
+  No visit preparation data available.
 
-Preparation notes will be generated
-from the selected pet records.
-''';
+  Preparation notes will be generated
+  from the selected pet records.
+  ''';
 
     isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> buildHealthSummary(AIPetContext context) async {
+    healthSummary = _healthSummaryGenerator(context);
+
+    notifyListeners();
+  }
+
+  Future<void> buildPreventiveCare(AIPetContext context) async {
+    preventiveCare = _preventiveCareGenerator(context);
+
+    notifyListeners();
+  }
+
+  Future<void> buildVetVisitPrep(AIPetContext context) async {
+    vetVisitPrep = _vetPrepGenerator(context);
+
+    notifyListeners();
+  }
+
+  Future<void> buildPetOverview(AIPetContext context) async {
+    petOverview = _overviewGenerator(context);
+
     notifyListeners();
   }
 }
