@@ -5,6 +5,8 @@ import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/petcare_background.dart';
 import '../../../health/presentation/providers/health_controller.dart';
+import '../../domain/usecases/create_pet_context.dart';
+import '../../domain/entities/ai_pet_context.dart';
 
 class AIHubPage extends StatefulWidget {
   const AIHubPage({super.key, this.pets, this.healthController});
@@ -25,6 +27,9 @@ class _AIHubPageState extends State<AIHubPage> {
 
     if (widget.pets != null && widget.pets!.isNotEmpty) {
       selectedPet = widget.pets!.first;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _buildContext();
+      });
     }
   }
 
@@ -101,7 +106,7 @@ class _AIHubPageState extends State<AIHubPage> {
                               ? Image.network(
                                   selectedPet!.imageUrl,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) {
+                                  errorBuilder: (_, _, _) {
                                     return Container(
                                       color: AppTheme.primary,
                                       child: const Icon(
@@ -153,12 +158,13 @@ class _AIHubPageState extends State<AIHubPage> {
                                               ),
                                             )
                                             .toList(),
-                                        onChanged: (pet) {
+                                        onChanged: (pet) async {
                                           if (pet == null) return;
 
                                           setState(() {
                                             selectedPet = pet;
                                           });
+                                          await _buildContext();
                                         },
                                       ),
                                     ),
@@ -287,6 +293,25 @@ class _AIHubPageState extends State<AIHubPage> {
         border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.35)),
       ),
       child: Text(title),
+    );
+  }
+
+  final CreatePetContext _createPetContext = const CreatePetContext();
+
+  AIPetContext? _currentContext;
+  Future<void> _buildContext() async {
+    if (selectedPet == null || widget.healthController == null) {
+      return;
+    }
+
+    await widget.healthController!.loadHealthRecords(selectedPet!.petId);
+
+    _currentContext = _createPetContext(
+      pet: selectedPet!,
+      conditions: widget.healthController!.medicalConditions,
+      vaccinations: widget.healthController!.vaccinations,
+      treatments: widget.healthController!.treatments,
+      measurements: widget.healthController!.healthMeasurements,
     );
   }
 }
