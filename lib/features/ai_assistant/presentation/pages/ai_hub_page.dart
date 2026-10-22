@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:petcare/features/ai_assistant/presentation/pages/ai_chat_page.dart';
 import 'package:petcare/features/pets/domain/entities/pet.dart';
 
 import '../../../../app/router/app_router.dart';
@@ -200,10 +201,7 @@ class _AIHubPageState extends State<AIHubPage> {
 
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              HealthSummaryPage(contextData: _currentContext),
-                        ),
+                        MaterialPageRoute(builder: (_) => const AIChatPage()),
                       );
                     },
                     child: Container(
@@ -261,7 +259,17 @@ class _AIHubPageState extends State<AIHubPage> {
                     subtitle: 'Understand pet health records',
                     icon: Icons.description_rounded,
                     onTap: () {
-                      Navigator.pushNamed(context, AppRouter.healthSummary);
+                      if (_currentContext == null) {
+                        return;
+                      }
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              HealthSummaryPage(contextData: _currentContext),
+                        ),
+                      );
                     },
                   ),
 
