@@ -4,11 +4,13 @@ import 'package:petcare/features/pets/domain/entities/pet.dart';
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/petcare_background.dart';
+import '../../../health/presentation/providers/health_controller.dart';
 
 class AIHubPage extends StatefulWidget {
-  const AIHubPage({super.key, this.pets});
+  const AIHubPage({super.key, this.pets, this.healthController});
 
   final List<Pet>? pets;
+  final HealthController? healthController;
 
   @override
   State<AIHubPage> createState() => _AIHubPageState();
