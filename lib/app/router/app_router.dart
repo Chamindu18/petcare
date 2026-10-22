@@ -77,9 +77,14 @@ import '../../features/ai_assistant/presentation/pages/vet_visit_preparation_pag
 import 'adoption_provider_access_gate.dart';
 import 'owner_access_gate.dart';
 import 'role_based_home_page.dart';
+import '../../features/appointments/presentation/pages/my_appointments_page.dart';
 
 import '../../features/appointments/domain/entities/appointment.dart';
 import '../../features/appointments/presentation/pages/appointment_confirmation_page.dart';
+import '../../features/appointments/data/repositories/firebase_appointment_repository.dart';
+import '../../features/appointments/domain/usecases/appointment_usecases.dart';
+import '../../features/appointments/presentation/providers/appointment_provider.dart';
+
 
 class AppRouter {
   AppRouter._();
@@ -121,6 +126,7 @@ class AppRouter {
   static const String preventiveInsights = '/preventive-insights';
   static const String vetVisitPreparation = '/vet-visit-preparation';
   static const String appointmentConfirmation = '/appointment-confirmation';
+  static const String myAppointments = '/my-appointments';
 
   // Routes whose data and workflows are specific to pet owners.
   // Adoption routes intentionally remain under their existing provider gate
@@ -234,6 +240,7 @@ class AppRouter {
       healthSummary,
       preventiveInsights,
       vetVisitPreparation,
+      myAppointments,
     };
     // Protect routes that require authentication.
     if (protectedRoutes.contains(settings.name) && !isAuthenticated) {
@@ -584,6 +591,20 @@ class AppRouter {
           builder: (_) => AppointmentConfirmationPage(appointment: appointment),
           settings: settings,
         );
+
+        case myAppointments:
+  final appointmentRepository = FirebaseAppointmentRepository();
+
+  final appointmentProvider = AppointmentProvider(
+  getAppointments: GetAppointments(appointmentRepository),
+);
+
+  return MaterialPageRoute(
+    builder: (_) => MyAppointmentsPage(
+      provider: appointmentProvider,
+    ),
+    settings: settings,
+  );
 
       case bookAppointment:
         final hospitalId = settings.arguments;
