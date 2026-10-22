@@ -7,6 +7,9 @@ import '../../../../core/widgets/petcare_background.dart';
 import '../../../health/presentation/providers/health_controller.dart';
 import '../../domain/usecases/create_pet_context.dart';
 import '../../domain/entities/ai_pet_context.dart';
+import 'health_summary_page.dart';
+import 'preventive_insights_page.dart';
+import 'vet_visit_preparation_page.dart';
 
 class AIHubPage extends StatefulWidget {
   const AIHubPage({super.key, this.pets, this.healthController});
@@ -191,7 +194,17 @@ class _AIHubPageState extends State<AIHubPage> {
 
                   GestureDetector(
                     onTap: () {
-                      Navigator.pushNamed(context, AppRouter.aiChat);
+                      if (_currentContext == null) {
+                        return;
+                      }
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              HealthSummaryPage(contextData: _currentContext),
+                        ),
+                      );
                     },
                     child: Container(
                       padding: const EdgeInsets.all(18),
@@ -257,9 +270,17 @@ class _AIHubPageState extends State<AIHubPage> {
                     subtitle: 'Upcoming care insights',
                     icon: Icons.health_and_safety_rounded,
                     onTap: () {
-                      Navigator.pushNamed(
+                      if (_currentContext == null) {
+                        return;
+                      }
+
+                      Navigator.push(
                         context,
-                        AppRouter.preventiveInsights,
+                        MaterialPageRoute(
+                          builder: (_) => PreventiveInsightsPage(
+                            contextData: _currentContext,
+                          ),
+                        ),
                       );
                     },
                   ),
@@ -269,9 +290,17 @@ class _AIHubPageState extends State<AIHubPage> {
                     subtitle: 'Prepare for appointments',
                     icon: Icons.medical_services_rounded,
                     onTap: () {
-                      Navigator.pushNamed(
+                      if (_currentContext == null) {
+                        return;
+                      }
+
+                      Navigator.push(
                         context,
-                        AppRouter.vetVisitPreparation,
+                        MaterialPageRoute(
+                          builder: (_) => VetVisitPreparationPage(
+                            contextData: _currentContext,
+                          ),
+                        ),
                       );
                     },
                   ),
