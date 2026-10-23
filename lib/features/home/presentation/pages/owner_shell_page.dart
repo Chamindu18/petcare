@@ -221,6 +221,7 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             userName: userName,
             photoUrl: photoUrl,
             notificationRepository: widget.notificationRepository,
+            onAppointmentsTap: () => _onTabSelected(2),
           ),
           MyPetsPage(
             controller: _petsController,
