@@ -195,13 +195,12 @@ class _AIHubPageState extends State<AIHubPage> {
 
                   GestureDetector(
                     onTap: () {
-                      if (_currentContext == null) {
-                        return;
-                      }
-
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const AIChatPage()),
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              AIChatPage(contextData: _currentContext),
+                        ),
                       );
                     },
                     child: Container(

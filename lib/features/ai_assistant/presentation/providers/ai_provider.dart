@@ -48,24 +48,103 @@ class AIProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sendMessage(String text) async {
-    if (text.trim().isEmpty) return;
+  Future<void> sendPetAwareMessage({
+    required String text,
+    required AIPetContext? context,
+  }) async {
+    if (text.trim().isEmpty) {
+      return;
+    }
 
-    messages.add(AIMessage(message: text, isUser: true));
-
-    notifyListeners();
+    addUserMessage(text);
 
     isLoading = true;
     notifyListeners();
 
-    await Future.delayed(const Duration(seconds: 1));
+    await Future.delayed(const Duration(milliseconds: 500));
 
-    messages.add(
-      AIMessage(
-        message: "This is a sample AI response for '$text'",
-        isUser: false,
-      ),
-    );
+    String response;
+
+    if (context == null) {
+      response =
+          'Please select a pet first to receive personalised AI assistance.';
+    } else {
+      final question = text.toLowerCase();
+
+      if (question.contains('summary')) {
+        response =
+            '''
+            ${context.pet.name} currently has:
+
+            • ${context.conditions.length} medical conditions
+
+            • ${context.vaccinations.length} vaccinations
+
+            • ${context.treatments.length} treatments
+
+            • ${context.measurements.length} health measurements
+            ''';
+      } else if (question.contains('vaccination')) {
+        response =
+            '''
+              ${context.pet.name} has
+              ${context.vaccinations.length}
+              recorded vaccinations.
+              ''';
+      } else if (question.contains('condition')) {
+        response =
+            '''
+            ${context.pet.name} has
+            ${context.conditions.length}
+            recorded medical conditions.
+            ''';
+      } else if (question.contains('treatment')) {
+        response =
+            '''
+              ${context.pet.name} has
+              ${context.treatments.length}
+              recorded treatments.
+              ''';
+      } else if (question.contains('vet')) {
+        response = '''
+          Suggested vet discussion topics:
+
+          • Current medical conditions
+
+          • Vaccination history
+
+          • Treatments
+
+          • Recent measurements
+          ''';
+      } else {
+        response = '''
+          I can help with:
+
+          • Health Summary
+
+          • Vaccinations
+
+          • Medical Conditions
+
+          • Treatments
+
+          • Vet Visit Preparation
+
+          Try asking:
+
+          "summary"
+
+          "vaccinations"
+
+          "conditions"
+
+          "vet advice"
+          ''';
+      }
+    }
+
+    addAssistantMessage(response);
 
     isLoading = false;
     notifyListeners();
@@ -194,6 +273,18 @@ class AIProvider extends ChangeNotifier {
     healthSummary = _contextSummaryGenerator(context);
 
     isLoading = false;
+
+    notifyListeners();
+  }
+
+  void addUserMessage(String message) {
+    messages.add(AIMessage(message: message, isUser: true));
+
+    notifyListeners();
+  }
+
+  void addAssistantMessage(String message) {
+    messages.add(AIMessage(message: message, isUser: false));
 
     notifyListeners();
   }
