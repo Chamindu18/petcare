@@ -185,14 +185,21 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
   }
 
   void _onTabSelected(int index) {
-    if (_currentIndex == index) {
-      return;
+  if (_currentIndex == index) {
+    if (index == 2) {
+      _appointmentProvider.loadAppointments();
     }
-
-    setState(() {
-      _currentIndex = index;
-    });
+    return;
   }
+
+  setState(() {
+    _currentIndex = index;
+  });
+
+  if (index == 2) {
+    _appointmentProvider.loadAppointments();
+  }
+}
 
   void _openAddPet() {
     Navigator.pushNamed(context, AppRouter.addPet, arguments: _petsController);
