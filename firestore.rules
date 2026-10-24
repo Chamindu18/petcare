@@ -93,19 +93,91 @@ service cloud.firestore {
       // Users can read only their own profile.
       allow read: if isCurrentUser(uid);
 
-      // Public registration creates an owner profile only.
+      // Public registration can create owner profiles only.
+      // Require the complete, supported document schema.
       allow create: if isCurrentUser(uid)
+        && request.resource.data.keys().hasAll([
+          'uid',
+          'fullName',
+          'displayName',
+          'email',
+          'phone',
+          'role',
+          'notificationEnabled',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'fullName',
+          'displayName',
+          'email',
+          'phone',
+          'role',
+          'notificationEnabled',
+          'createdAt',
+          'updatedAt'
+        ])
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.role == 'owner';
+        && request.resource.data.role == 'owner'
+        && request.resource.data.fullName is string
+        && request.resource.data.fullName.size() > 0
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName
+          == request.resource.data.fullName
+        && request.resource.data.email is string
+        && request.resource.data.phone is string
+        && request.resource.data.notificationEnabled is bool
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
 
-      // Users can update their own profile but cannot change their UID or role.
+      // Allow only approved profile updates.
+      // UID, role, email, creation time, and arbitrary fields
+      // cannot be changed by client-side updates.
       allow update: if isCurrentUser(uid)
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.role == resource.data.role;
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly([
+            'fullName',
+            'displayName',
+            'phone',
+            'notificationEnabled',
+            'updatedAt'
+          ])
+        && request.resource.data.updatedAt == request.time
+        && (
+          !request.resource.data.diff(resource.data)
+            .affectedKeys()
+            .hasAny(['fullName', 'displayName'])
+          || (
+            request.resource.data.diff(resource.data)
+              .affectedKeys()
+              .hasAll(['fullName', 'displayName'])
+            && request.resource.data.fullName is string
+            && request.resource.data.fullName.size() > 0
+            && request.resource.data.displayName is string
+            && request.resource.data.displayName
+              == request.resource.data.fullName
+          )
+        )
+        && (
+          !request.resource.data.diff(resource.data)
+            .affectedKeys()
+            .hasAny(['phone'])
+          || request.resource.data.phone is string
+        )
+        && (
+          !request.resource.data.diff(resource.data)
+            .affectedKeys()
+            .hasAny(['notificationEnabled'])
+          || request.resource.data.notificationEnabled is bool
+        );
 
-      // Privileged profiles require trusted account-lifecycle handling.
-      allow delete: if isCurrentUser(uid)
-        && resource.data.role == 'owner';
+      // Client-side profile deletion is disabled until a coordinated
+      // Firebase Authentication and Firestore deletion workflow exists.
+      allow delete: if false;
     }
 
     // ============================================================
