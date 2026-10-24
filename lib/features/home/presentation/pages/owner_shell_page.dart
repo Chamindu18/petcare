@@ -43,6 +43,10 @@ import '../../../profile/domain/repositories/profile_repository.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
 
 import '../../../ai_assistant/presentation/pages/ai_hub_page.dart';
+import '../../../appointments/data/repositories/firebase_appointment_repository.dart';
+import '../../../appointments/domain/usecases/appointment_usecases.dart';
+import '../../../appointments/presentation/pages/my_appointments_page.dart';
+import '../../../appointments/presentation/providers/appointment_provider.dart';
 
 class OwnerShellPage extends StatefulWidget {
   const OwnerShellPage({
@@ -74,6 +78,9 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
 
   late final HealthController _healthController;
   bool _ownsHealthController = false;
+
+  late final AppointmentProvider _appointmentProvider;
+  bool _ownsAppointmentProvider = false;
 
   @override
   void initState() {
@@ -151,6 +158,14 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
       );
 
       _ownsHealthController = true;
+
+      final appointmentRepository = FirebaseAppointmentRepository();
+
+      _appointmentProvider = AppointmentProvider(
+        getAppointments: GetAppointments(appointmentRepository),
+      );
+
+      _ownsAppointmentProvider = true;
     }
   }
 
@@ -163,19 +178,28 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
     if (_ownsHealthController) {
       _healthController.dispose();
     }
-
+    if (_ownsAppointmentProvider) {
+      _appointmentProvider.dispose();
+    }
     super.dispose();
   }
 
   void _onTabSelected(int index) {
-    if (_currentIndex == index) {
-      return;
+  if (_currentIndex == index) {
+    if (index == 2) {
+      _appointmentProvider.loadAppointments();
     }
-
-    setState(() {
-      _currentIndex = index;
-    });
+    return;
   }
+
+  setState(() {
+    _currentIndex = index;
+  });
+
+  if (index == 2) {
+    _appointmentProvider.loadAppointments();
+  }
+}
 
   void _openAddPet() {
     Navigator.pushNamed(context, AppRouter.addPet, arguments: _petsController);
@@ -204,6 +228,7 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             userName: userName,
             photoUrl: photoUrl,
             notificationRepository: widget.notificationRepository,
+            onAppointmentsTap: () => _onTabSelected(2),
           ),
           MyPetsPage(
             controller: _petsController,
@@ -211,14 +236,8 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             ownsController: false,
             ownsHealthController: false,
           ),
-          const _ComingSoonTab(
-            title: 'Appointments',
-            icon: Icons.calendar_month_rounded,
-          ),
-          AIHubPage(
-            pets: _petsController.pets,
-            healthController: _healthController,
-          ),
+          MyAppointmentsPage(provider: _appointmentProvider),
+          AIHubPage(pets: _petsController.pets),
 
           ProfilePage(
             profileRepository: widget.profileRepository,
@@ -358,52 +377,4 @@ class _OwnerNavItem {
 
   final String label;
   final IconData icon;
-}
-
-class _ComingSoonTab extends StatelessWidget {
-  const _ComingSoonTab({required this.title, required this.icon});
-
-  final String title;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: AppTheme.secondary.withValues(alpha: 0.24),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 34, color: AppTheme.deepBrown),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: AppTheme.espresso,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'This section will be available soon.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium
-                    ?.copyWith(color: AppTheme.deepBrown, height: 1.45),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
