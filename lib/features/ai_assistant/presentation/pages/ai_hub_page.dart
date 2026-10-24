@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:petcare/features/ai_assistant/presentation/pages/ai_chat_page.dart';
 import 'package:petcare/features/pets/domain/entities/pet.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/petcare_background.dart';
+import '../../../health/presentation/providers/health_controller.dart';
+import '../../domain/usecases/create_pet_context.dart';
+import '../../domain/entities/ai_pet_context.dart';
+import 'health_summary_page.dart';
+import 'preventive_insights_page.dart';
+import 'vet_visit_preparation_page.dart';
 
 class AIHubPage extends StatefulWidget {
-  const AIHubPage({super.key, this.pets});
+  const AIHubPage({super.key, this.pets, this.healthController});
 
   final List<Pet>? pets;
+  final HealthController? healthController;
 
   @override
   State<AIHubPage> createState() => _AIHubPageState();
@@ -23,6 +31,9 @@ class _AIHubPageState extends State<AIHubPage> {
 
     if (widget.pets != null && widget.pets!.isNotEmpty) {
       selectedPet = widget.pets!.first;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _buildContext();
+      });
     }
   }
 
@@ -99,7 +110,7 @@ class _AIHubPageState extends State<AIHubPage> {
                               ? Image.network(
                                   selectedPet!.imageUrl,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) {
+                                  errorBuilder: (_, _, _) {
                                     return Container(
                                       color: AppTheme.primary,
                                       child: const Icon(
@@ -151,12 +162,13 @@ class _AIHubPageState extends State<AIHubPage> {
                                               ),
                                             )
                                             .toList(),
-                                        onChanged: (pet) {
+                                        onChanged: (pet) async {
                                           if (pet == null) return;
 
                                           setState(() {
                                             selectedPet = pet;
                                           });
+                                          await _buildContext();
                                         },
                                       ),
                                     ),
@@ -183,7 +195,13 @@ class _AIHubPageState extends State<AIHubPage> {
 
                   GestureDetector(
                     onTap: () {
-                      Navigator.pushNamed(context, AppRouter.aiChat);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              AIChatPage(contextData: _currentContext),
+                        ),
+                      );
                     },
                     child: Container(
                       padding: const EdgeInsets.all(18),
@@ -240,7 +258,17 @@ class _AIHubPageState extends State<AIHubPage> {
                     subtitle: 'Understand pet health records',
                     icon: Icons.description_rounded,
                     onTap: () {
-                      Navigator.pushNamed(context, AppRouter.healthSummary);
+                      if (_currentContext == null) {
+                        return;
+                      }
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              HealthSummaryPage(contextData: _currentContext),
+                        ),
+                      );
                     },
                   ),
 
@@ -249,9 +277,17 @@ class _AIHubPageState extends State<AIHubPage> {
                     subtitle: 'Upcoming care insights',
                     icon: Icons.health_and_safety_rounded,
                     onTap: () {
-                      Navigator.pushNamed(
+                      if (_currentContext == null) {
+                        return;
+                      }
+
+                      Navigator.push(
                         context,
-                        AppRouter.preventiveInsights,
+                        MaterialPageRoute(
+                          builder: (_) => PreventiveInsightsPage(
+                            contextData: _currentContext,
+                          ),
+                        ),
                       );
                     },
                   ),
@@ -261,9 +297,17 @@ class _AIHubPageState extends State<AIHubPage> {
                     subtitle: 'Prepare for appointments',
                     icon: Icons.medical_services_rounded,
                     onTap: () {
-                      Navigator.pushNamed(
+                      if (_currentContext == null) {
+                        return;
+                      }
+
+                      Navigator.push(
                         context,
-                        AppRouter.vetVisitPreparation,
+                        MaterialPageRoute(
+                          builder: (_) => VetVisitPreparationPage(
+                            contextData: _currentContext,
+                          ),
+                        ),
                       );
                     },
                   ),
@@ -285,6 +329,25 @@ class _AIHubPageState extends State<AIHubPage> {
         border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.35)),
       ),
       child: Text(title),
+    );
+  }
+
+  final CreatePetContext _createPetContext = const CreatePetContext();
+
+  AIPetContext? _currentContext;
+  Future<void> _buildContext() async {
+    if (selectedPet == null || widget.healthController == null) {
+      return;
+    }
+
+    await widget.healthController!.loadHealthRecords(selectedPet!.petId);
+
+    _currentContext = _createPetContext(
+      pet: selectedPet!,
+      conditions: widget.healthController!.medicalConditions,
+      vaccinations: widget.healthController!.vaccinations,
+      treatments: widget.healthController!.treatments,
+      measurements: widget.healthController!.healthMeasurements,
     );
   }
 }
