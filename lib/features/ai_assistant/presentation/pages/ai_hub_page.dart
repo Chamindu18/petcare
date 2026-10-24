@@ -99,7 +99,7 @@ class _AIHubPageState extends State<AIHubPage> {
                               ? Image.network(
                                   selectedPet!.imageUrl,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) {
+                                  errorBuilder: (_, _, _) {
                                     return Container(
                                       color: AppTheme.primary,
                                       child: const Icon(
