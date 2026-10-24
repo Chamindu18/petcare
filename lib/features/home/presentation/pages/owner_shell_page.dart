@@ -215,7 +215,10 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             title: 'Appointments',
             icon: Icons.calendar_month_rounded,
           ),
-          AIHubPage(pets: _petsController.pets),
+          AIHubPage(
+            pets: _petsController.pets,
+            healthController: _healthController,
+          ),
 
           ProfilePage(
             profileRepository: widget.profileRepository,
