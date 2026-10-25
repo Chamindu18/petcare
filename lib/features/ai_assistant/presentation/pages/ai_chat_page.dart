@@ -31,66 +31,126 @@ class _AIChatPageState extends State<AIChatPage> {
 
     if (q.contains('summary')) {
       return '''
-${contextData.pet.name} currently has:
+      ${contextData.pet.name} Health Summary
 
-• ${contextData.conditions.length} medical conditions
-• ${contextData.vaccinations.length} vaccinations
-• ${contextData.treatments.length} treatments
-• ${contextData.measurements.length} health measurements
-''';
-    }
-
-    if (q.contains('vaccination')) {
-      return '''
-${contextData.pet.name} has
-${contextData.vaccinations.length}
-recorded vaccinations.
-''';
+      Conditions: ${contextData.conditions.length}
+      Vaccinations: ${contextData.vaccinations.length}
+      Treatments: ${contextData.treatments.length}
+      Measurements: ${contextData.measurements.length}
+      ''';
     }
 
     if (q.contains('condition')) {
+      if (contextData.conditions.isEmpty) {
+        return '${contextData.pet.name} has no recorded medical conditions.';
+      }
+
+      final conditions = contextData.conditions
+          .take(5)
+          .map((c) => '• ${c.name}')
+          .join('\n\t');
+
       return '''
-${contextData.pet.name} has
-${contextData.conditions.length}
-recorded medical conditions.
-''';
+          Medical Conditions:
+
+          $conditions
+          ''';
+    }
+
+    if (q.contains('vaccination')) {
+      if (contextData.vaccinations.isEmpty) {
+        return '${contextData.pet.name} has no recorded vaccinations.';
+      }
+
+      final vaccinations = contextData.vaccinations
+          .take(5)
+          .map((v) => '• ${v.name}')
+          .join('\n');
+
+      return '''
+                Vaccinations:
+
+                $vaccinations
+                ''';
     }
 
     if (q.contains('treatment')) {
+      if (contextData.treatments.isEmpty) {
+        return '${contextData.pet.name} has no recorded treatments.';
+      }
+
+      final treatments = contextData.treatments
+          .take(5)
+          .map((t) => '• ${t.name}')
+          .join('\n');
+
       return '''
-${contextData.pet.name} has
-${contextData.treatments.length}
-recorded treatments.
-''';
+                Treatments:
+
+                $treatments
+                ''';
+    }
+
+    if (q.contains('measurement')) {
+      return '''
+      ${contextData.pet.name} has
+      ${contextData.measurements.length}
+      health measurements recorded.
+      ''';
     }
 
     if (q.contains('vet')) {
       return '''
-        Suggested vet discussion topics:
+            Suggested Vet Discussion Topics
 
-        • Medical conditions
+            • Review medical conditions
 
-        • Vaccination history
+            • Review vaccination history
 
-        • Treatments
+            • Review treatments
 
-        • Recent measurements
-        ''';
+            • Discuss recent measurements
+
+            • Ask about preventive care recommendations
+            ''';
+    }
+
+    if (q.contains('preventive')) {
+      return '''
+          Preventive Care Overview
+
+          Vaccinations:
+          ${contextData.vaccinations.length}
+
+          Conditions:
+          ${contextData.conditions.length}
+
+          Treatments:
+          ${contextData.treatments.length}
+
+          Continue routine health monitoring and veterinary checkups.
+          ''';
     }
 
     return '''
-I can help with:
+              I can help with:
 
-• Health Summary
+              • summary
 
-• Vaccinations
+              • conditions
 
-• Conditions
+              • vaccinations
 
-• Treatments
+              • treatments
 
-• Vet Visit Preparation
-''';
+              • measurements
+
+              • preventive care
+
+              • vet advice
+
+              Try typing one of the above.
+              ''';
   }
 
   @override
@@ -103,25 +163,6 @@ I can help with:
 
           Column(
             children: [
-              Expanded(
-                child: AnimatedBuilder(
-                  animation: provider,
-                  builder: (_, _) {
-                    return ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: provider.messages.length,
-                      itemBuilder: (context, index) {
-                        final message = provider.messages[index];
-
-                        return ChatBubble(
-                          message: message.message,
-                          isUser: message.isUser,
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
               if (widget.contextData != null)
                 Container(
                   width: double.infinity,
@@ -147,6 +188,26 @@ I can help with:
                     ],
                   ),
                 ),
+              Expanded(
+                child: AnimatedBuilder(
+                  animation: provider,
+                  builder: (_, _) {
+                    return ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: provider.messages.length,
+                      itemBuilder: (context, index) {
+                        final message = provider.messages[index];
+
+                        return ChatBubble(
+                          message: message.message,
+                          isUser: message.isUser,
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
                 child: SingleChildScrollView(
@@ -154,29 +215,29 @@ I can help with:
                   child: Row(
                     children: [
                       _SuggestionChip(
-                        label: 'Health',
-                        prompt: 'Give me pet health advice',
+                        label: 'Summary',
+                        prompt: 'summary',
                         controller: controller,
                       ),
                       const SizedBox(width: 8),
 
                       _SuggestionChip(
-                        label: 'Nutrition',
-                        prompt: 'Tell me about pet nutrition',
+                        label: 'Vaccinations',
+                        prompt: 'vaccinations',
                         controller: controller,
                       ),
                       const SizedBox(width: 8),
 
                       _SuggestionChip(
-                        label: 'Behavior',
-                        prompt: 'Help me understand pet behavior',
+                        label: 'Conditions',
+                        prompt: 'conditions',
                         controller: controller,
                       ),
                       const SizedBox(width: 8),
 
                       _SuggestionChip(
-                        label: 'General',
-                        prompt: 'General pet care tips',
+                        label: 'Vet Advice',
+                        prompt: 'vet advice',
                         controller: controller,
                       ),
                     ],
@@ -214,8 +275,6 @@ I can help with:
                         provider.addAssistantMessage(
                           _generateResponse(question),
                         );
-
-                        controller.clear();
 
                         controller.clear();
                       },
