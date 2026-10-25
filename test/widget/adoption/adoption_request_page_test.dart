@@ -11,17 +11,23 @@ class _FakeAdoptionRequestRepository implements AdoptionRequestRepository {
   bool createRequestCalled = false;
   String? submittedListingId;
   String? submittedProviderId;
+  String? submittedRecipientId;
+  String? submittedRecipientType;
   String? submittedMessage;
 
   @override
   Future<void> createRequest({
     required String listingId,
     required String providerId,
+    String? recipientId,
+    String recipientType = 'adoption_provider',
     String? message,
   }) async {
     createRequestCalled = true;
     submittedListingId = listingId;
     submittedProviderId = providerId;
+    submittedRecipientId = recipientId;
+    submittedRecipientType = recipientType;
     submittedMessage = message;
   }
 
@@ -105,6 +111,8 @@ void main() {
       expect(repository.createRequestCalled, isTrue);
       expect(repository.submittedListingId, 'listing-1');
       expect(repository.submittedProviderId, 'provider-1');
+      expect(repository.submittedRecipientId, 'provider-1');
+      expect(repository.submittedRecipientType, 'adoption_provider');
       expect(repository.submittedMessage, 'I would love to adopt Buddy.');
     },
   );

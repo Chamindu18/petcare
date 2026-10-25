@@ -26,6 +26,8 @@ void main() {
     final map = model.toMap();
 
     expect(map['providerId'], 'provider-1');
+    expect(map['listingOwnerType'], 'adoption_provider');
+    expect(map['listingOwnerId'], 'provider-1');
     expect(map['petName'], 'Buddy');
     expect(map['species'], 'Dog');
     expect(map['breed'], 'Golden Retriever');
@@ -62,4 +64,27 @@ void main() {
     expect(map.containsKey('imageAsset'), isFalse);
     expect(map.containsKey('contactNote'), isFalse);
   });
+
+  test('does not serialize the legacy providerId for owner listings', () {
+    final listing = AdoptionListing(
+      listingId: 'owner-listing',
+      providerId: '',
+      listingOwnerType: 'owner',
+      listingOwnerId: 'owner-1',
+      petName: 'Milo',
+      species: 'Cat',
+      gender: 'Male',
+      description: 'Cat looking for a home.',
+      location: 'Kandy',
+      status: 'available',
+      createdAt: DateTime(2026, 10, 1),
+      updatedAt: DateTime(2026, 10, 1),
+    );
+
+    final map = AdoptionListingModel.fromEntity(listing).toMap();
+    expect(map['listingOwnerType'], 'owner');
+    expect(map['listingOwnerId'], 'owner-1');
+    expect(map.containsKey('providerId'), isFalse);
+  });
+
 }

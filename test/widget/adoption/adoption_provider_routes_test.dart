@@ -13,18 +13,21 @@ class _BuildContextStub implements BuildContext {
 }
 
 void main() {
-  const providerRoutes = [
+  const protectedAdoptionRoutes = [
+    AppRouter.adoptionListings,
     AppRouter.adoptionProviderDashboard,
     AppRouter.adoptionRequests,
     AppRouter.myAdoptionListings,
     AppRouter.createEditAdoptionListing,
+    AppRouter.ownerRehomingDashboard,
+    AppRouter.myAdoptionRequests,
   ];
 
-  test('redirects signed-out users from provider routes to login', () {
+  test('redirects signed-out users from protected adoption routes to login', () {
     final auth = MockFirebaseAuth(signedIn: false);
     final routeGenerator = AppRouter.routeGenerator(auth: auth);
 
-    for (final routeName in providerRoutes) {
+    for (final routeName in protectedAdoptionRoutes) {
       final route = routeGenerator(RouteSettings(name: routeName));
 
       expect(route, isA<MaterialPageRoute>(), reason: routeName);
@@ -37,11 +40,11 @@ void main() {
     }
   });
 
-  test('registers provider routes for authenticated users', () {
+  test('registers protected adoption routes for authenticated users', () {
     final auth = MockFirebaseAuth(signedIn: true);
     final routeGenerator = AppRouter.routeGenerator(auth: auth);
 
-    for (final routeName in providerRoutes) {
+    for (final routeName in protectedAdoptionRoutes) {
       final route = routeGenerator(RouteSettings(name: routeName));
 
       expect(route, isA<MaterialPageRoute>(), reason: routeName);
