@@ -27,7 +27,6 @@ import '../../../health/domain/usecases/update_medical_condition.dart';
 import '../../../health/domain/usecases/update_treatment.dart';
 import '../../../health/domain/usecases/update_vaccination.dart';
 import '../../../health/presentation/providers/health_controller.dart';
-import 'home_page.dart';
 import '../../../notifications/domain/repositories/notification_repository.dart';
 import '../../../pets/data/repositories/cloudinary_pet_image_repository.dart';
 import '../../../pets/data/repositories/firebase_pet_repository.dart';
@@ -41,14 +40,19 @@ import '../../../pets/presentation/pages/my_pets_page.dart';
 import '../../../pets/presentation/providers/pets_controller.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
-
 import '../../../ai_assistant/presentation/pages/ai_hub_page.dart';
+import '../../../appointments/data/repositories/firebase_appointment_repository.dart';
+import '../../../appointments/domain/usecases/appointment_usecases.dart';
+import '../../../appointments/presentation/pages/my_appointments_page.dart';
+import '../../../appointments/presentation/providers/appointment_provider.dart';
+import 'home_page.dart';
 
 class OwnerShellPage extends StatefulWidget {
   const OwnerShellPage({
     super.key,
     this.petsController,
     this.healthController,
+    this.appointmentProvider,
     this.auth,
     this.notificationRepository,
     this.profileRepository,
@@ -57,6 +61,7 @@ class OwnerShellPage extends StatefulWidget {
 
   final PetsController? petsController;
   final HealthController? healthController;
+  final AppointmentProvider? appointmentProvider;
   final FirebaseAuth? auth;
   final NotificationRepository? notificationRepository;
   final ProfileRepository? profileRepository;
@@ -75,16 +80,22 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
   late final HealthController _healthController;
   bool _ownsHealthController = false;
 
+  late final AppointmentProvider _appointmentProvider;
+  bool _ownsAppointmentProvider = false;
+
   @override
   void initState() {
     super.initState();
 
+    // ------------------------------------------------------------
+    // Pet controller
+    // ------------------------------------------------------------
     if (widget.petsController != null) {
       _petsController = widget.petsController!;
       _ownsPetsController = false;
     } else {
       final repository = FirebasePetRepository(
-        auth: FirebaseAuth.instance,
+        auth: widget.auth ?? FirebaseAuth.instance,
         firestore: FirebaseFirestore.instance,
       );
 
@@ -105,16 +116,16 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
       _ownsPetsController = true;
     }
 
+    // ------------------------------------------------------------
+    // Health controller
+    // ------------------------------------------------------------
     if (widget.healthController != null) {
       _healthController = widget.healthController!;
       _ownsHealthController = false;
     } else {
       final medicalConditionRepository = FirebaseMedicalConditionRepository();
-
       final vaccinationRepository = FirebaseVaccinationRepository();
-
       final treatmentRepository = FirebaseTreatmentRepository();
-
       final healthMeasurementRepository = FirebaseHealthMeasurementRepository();
 
       _healthController = HealthController(
@@ -152,6 +163,24 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
 
       _ownsHealthController = true;
     }
+
+    // ------------------------------------------------------------
+    // Appointment provider
+    // ------------------------------------------------------------
+    if (widget.appointmentProvider != null) {
+      _appointmentProvider = widget.appointmentProvider!;
+      _ownsAppointmentProvider = false;
+    } else {
+      final appointmentRepository = FirebaseAppointmentRepository(
+        auth: widget.auth ?? FirebaseAuth.instance,
+      );
+
+      _appointmentProvider = AppointmentProvider(
+        getAppointments: GetAppointments(appointmentRepository),
+      );
+
+      _ownsAppointmentProvider = true;
+    }
   }
 
   @override
@@ -164,17 +193,28 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
       _healthController.dispose();
     }
 
+    if (_ownsAppointmentProvider) {
+      _appointmentProvider.dispose();
+    }
+
     super.dispose();
   }
 
   void _onTabSelected(int index) {
     if (_currentIndex == index) {
+      if (index == 2) {
+        _appointmentProvider.loadAppointments();
+      }
       return;
     }
 
     setState(() {
       _currentIndex = index;
     });
+
+    if (index == 2) {
+      _appointmentProvider.loadAppointments();
+    }
   }
 
   void _openAddPet() {
@@ -204,6 +244,7 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             userName: userName,
             photoUrl: photoUrl,
             notificationRepository: widget.notificationRepository,
+            onAppointmentsTap: () => _onTabSelected(2),
           ),
           MyPetsPage(
             controller: _petsController,
@@ -211,15 +252,11 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             ownsController: false,
             ownsHealthController: false,
           ),
-          const _ComingSoonTab(
-            title: 'Appointments',
-            icon: Icons.calendar_month_rounded,
-          ),
+          MyAppointmentsPage(provider: _appointmentProvider),
           AIHubPage(
             pets: _petsController.pets,
             healthController: _healthController,
           ),
-
           ProfilePage(
             profileRepository: widget.profileRepository,
             authRepository: widget.authRepository,
@@ -358,52 +395,4 @@ class _OwnerNavItem {
 
   final String label;
   final IconData icon;
-}
-
-class _ComingSoonTab extends StatelessWidget {
-  const _ComingSoonTab({required this.title, required this.icon});
-
-  final String title;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: AppTheme.secondary.withValues(alpha: 0.24),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 34, color: AppTheme.deepBrown),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: AppTheme.espresso,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'This section will be available soon.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium
-                    ?.copyWith(color: AppTheme.deepBrown, height: 1.45),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

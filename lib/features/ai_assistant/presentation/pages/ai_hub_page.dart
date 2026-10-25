@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:petcare/features/ai_assistant/presentation/pages/ai_chat_page.dart';
 import 'package:petcare/features/pets/domain/entities/pet.dart';
 
-import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/petcare_background.dart';
 import '../../../health/presentation/providers/health_controller.dart';

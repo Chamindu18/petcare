@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../providers/ai_provider.dart';
-import '../widgets/ai_card.dart';
 import '../../../../core/widgets/petcare_background.dart';
 import '../../domain/entities/ai_pet_context.dart';
-import '../../domain/usecases/generate_pet_overview.dart';
 import '../../domain/usecases/format_pet_context.dart';
+import '../providers/ai_provider.dart';
+import '../widgets/ai_card.dart';
 
 class HealthSummaryPage extends StatefulWidget {
   const HealthSummaryPage({super.key, this.contextData});
@@ -18,9 +17,8 @@ class HealthSummaryPage extends StatefulWidget {
 
 class _HealthSummaryPageState extends State<HealthSummaryPage> {
   final AIProvider provider = AIProvider();
-
-  final GeneratePetOverview _overviewGenerator = const GeneratePetOverview();
   final FormatPetContext _formatter = const FormatPetContext();
+
   @override
   void initState() {
     super.initState();
@@ -39,7 +37,6 @@ class _HealthSummaryPageState extends State<HealthSummaryPage> {
       body: Stack(
         children: [
           const Positioned.fill(child: PetCareBackground()),
-
           AnimatedBuilder(
             animation: provider,
             builder: (context, child) {
@@ -65,7 +62,6 @@ class _HealthSummaryPageState extends State<HealthSummaryPage> {
                       title: '${widget.contextData!.pet.name} Health Summary',
                       content: provider.healthSummary,
                     ),
-
                     AICard(title: 'Pet Overview', content: formattedContext),
                   ],
                 ),
