@@ -31,13 +31,20 @@ class _AIChatPageState extends State<AIChatPage> {
 
     if (q.contains('summary')) {
       return '''
-      ${contextData.pet.name} Health Summary
+        ${contextData.pet.name} Health Summary
 
-      Conditions: ${contextData.conditions.length}
-      Vaccinations: ${contextData.vaccinations.length}
-      Treatments: ${contextData.treatments.length}
-      Measurements: ${contextData.measurements.length}
-      ''';
+        📋 Conditions:  ${contextData.conditions.length}
+
+        💉 Vaccinations:  ${contextData.vaccinations.length}
+
+        💊 Treatments:  ${contextData.treatments.length}
+
+        📈 Measurements:  ${contextData.measurements.length}
+
+        Overall Recommendation:
+
+        Continue routine health monitoring and maintain vaccination schedules.
+        ''';
     }
 
     if (q.contains('condition')) {
@@ -47,14 +54,14 @@ class _AIChatPageState extends State<AIChatPage> {
 
       final conditions = contextData.conditions
           .take(5)
-          .map((c) => '• ${c.name}')
-          .join('\n\t');
+          .map((c) => '• ${c.name} (${c.status})')
+          .join('\n');
 
       return '''
-          Medical Conditions:
+            Medical Conditions
 
-          $conditions
-          ''';
+            $conditions
+            ''';
     }
 
     if (q.contains('vaccination')) {
@@ -68,10 +75,13 @@ class _AIChatPageState extends State<AIChatPage> {
           .join('\n');
 
       return '''
-                Vaccinations:
+          Vaccination History
 
-                $vaccinations
-                ''';
+          $vaccinations
+
+          Total:
+          ${contextData.vaccinations.length}
+          ''';
     }
 
     if (q.contains('treatment')) {
@@ -81,14 +91,14 @@ class _AIChatPageState extends State<AIChatPage> {
 
       final treatments = contextData.treatments
           .take(5)
-          .map((t) => '• ${t.name}')
+          .map((t) => '• ${t.name} (${t.status})')
           .join('\n');
 
       return '''
-                Treatments:
+            Treatments
 
-                $treatments
-                ''';
+            $treatments
+            ''';
     }
 
     if (q.contains('measurement')) {
@@ -119,19 +129,44 @@ class _AIChatPageState extends State<AIChatPage> {
       return '''
           Preventive Care Overview
 
-          Vaccinations:
+          💉 Vaccinations:
           ${contextData.vaccinations.length}
 
-          Conditions:
+          📋 Conditions:
           ${contextData.conditions.length}
 
-          Treatments:
+          💊 Treatments:
           ${contextData.treatments.length}
 
-          Continue routine health monitoring and veterinary checkups.
+          Recommendations:
+
+          • Keep vaccinations up to date
+
+          • Monitor health changes regularly
+
+          • Record treatment progress
+
+          • Schedule regular vet checkups
           ''';
     }
 
+    if (q.contains('vet advice')) {
+      return '''
+        Vet Visit Preparation
+
+        Suggested discussion topics:
+
+        • Existing medical conditions
+
+        • Vaccination history
+
+        • Ongoing treatments
+
+        • Recent health measurements
+
+        Bring any recent health observations to the appointment.
+        ''';
+    }
     return '''
               I can help with:
 
@@ -176,14 +211,16 @@ class _AIChatPageState extends State<AIChatPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Selected Pet: ${widget.contextData!.pet.name}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        widget.contextData!.pet.name,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${widget.contextData!.conditions.length} Conditions • '
-                        '${widget.contextData!.vaccinations.length} Vaccinations • '
-                        '${widget.contextData!.treatments.length} Treatments',
+                        '${widget.contextData!.pet.species} • '
+                        '${widget.contextData!.pet.breed}',
                       ),
                     ],
                   ),
@@ -207,6 +244,12 @@ class _AIChatPageState extends State<AIChatPage> {
                   },
                 ),
               ),
+
+              if (provider.isLoading)
+                const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: CircularProgressIndicator(),
+                ),
 
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
