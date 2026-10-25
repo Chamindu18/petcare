@@ -346,8 +346,8 @@ service cloud.firestore {
         && data.keys().hasOnly([
           'providerId', 'listingOwnerType', 'listingOwnerId', 'petName',
           'species', 'breed', 'ageDescription', 'gender', 'description',
-          'location', 'imageAsset', 'status', 'contactNote', 'createdAt',
-          'updatedAt'
+          'location', 'imageAsset', 'status', 'contactNote', 'acceptedRequestId',
+          'createdAt', 'updatedAt'
         ])
         && data.listingOwnerType in ['owner', 'adoption_provider']
         && data.listingOwnerId is string
@@ -357,7 +357,19 @@ service cloud.firestore {
         && data.gender is string
         && data.description is string
         && data.location is string
-        && data.status in ['draft', 'available']
+        && data.status in ['draft', 'available', 'reserved']
+        && (
+          (
+            data.status == 'reserved'
+            && data.get('acceptedRequestId', null) is string
+            && data.get('acceptedRequestId', '').size() > 0
+          )
+          ||
+          (
+            data.status != 'reserved'
+            && !data.keys().hasAny(['acceptedRequestId'])
+          )
+        )
         && data.createdAt is timestamp
         && data.updatedAt is timestamp
         && (!data.keys().hasAny(['breed']) || data.breed is string)
@@ -395,15 +407,92 @@ service cloud.firestore {
         && (!data.keys().hasAny(['contactNote']) || data.contactNote is string);
     }
 
+    function acceptedRequestMatchesReservation(listingId, requestId) {
+      let acceptedRequest = getAfter(
+        /databases/$(database)/documents/adoption_requests/$(requestId)
+      ).data;
+      return acceptedRequest.status == 'accepted'
+        && acceptedRequest.listingId == listingId
+        && acceptedRequest.recipientId == request.auth.uid
+        && acceptedRequest.recipientType == listingOwnerType(resource.data)
+        && acceptedRequest.acceptedAt == request.time
+        && acceptedRequest.updatedAt == request.time;
+    }
+
+    function listingCanBeReserved(listingId) {
+      return request.resource.data.status == 'reserved'
+        && request.resource.data.get('acceptedRequestId', null) is string
+        && request.resource.data.get('acceptedRequestId', '').size() > 0
+        && ownsListing(resource.data)
+        && resource.data.status == 'available'
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'acceptedRequestId', 'updatedAt'
+        ])
+        && acceptedRequestMatchesReservation(
+          listingId,
+          request.resource.data.acceptedRequestId
+        );
+    }
+
+    function normalListingCanBeUpdated() {
+      return (
+          ownsListing(resource.data)
+          && validListingFields(request.resource.data)
+          && request.resource.data.status in ['draft', 'available']
+          && request.resource.data.listingOwnerType == listingOwnerType(resource.data)
+          && request.resource.data.listingOwnerId == listingOwnerId(resource.data)
+          && request.resource.data.get('providerId', '')
+            == resource.data.get('providerId', '')
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'providerId', 'listingOwnerType', 'listingOwnerId', 'petName',
+            'species', 'breed', 'ageDescription', 'gender', 'description',
+            'location', 'imageAsset', 'status', 'contactNote', 'updatedAt'
+          ])
+        )
+        || (
+          // Compatibility for previously released provider clients.
+          isAdoptionProvider()
+          && resource.data.get('providerId', '') == request.auth.uid
+          && request.resource.data.get('providerId', '')
+            == resource.data.get('providerId', '')
+          && request.resource.data.get('listingOwnerType', null)
+            == resource.data.get('listingOwnerType', null)
+          && request.resource.data.get('listingOwnerId', null)
+            == resource.data.get('listingOwnerId', null)
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.updatedAt is timestamp
+          && (
+            validListingFields(request.resource.data)
+            || validLegacyProviderListingFields(request.resource.data)
+          )
+          && request.resource.data.status in ['draft', 'available']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'providerId', 'listingOwnerType', 'listingOwnerId', 'petName',
+            'createdAt', 'species', 'breed', 'ageDescription', 'gender',
+            'description', 'location', 'imageAsset', 'status', 'contactNote',
+            'updatedAt'
+          ])
+        );
+    }
+
     match /adoption_listings/{listingId} {
       // Authenticated users can discover listings; owner-specific management
       // is separately restricted by ownsListing().
-      allow read: if signedIn();
+    allow read: if signedIn()
+        && (
+          resource.data.status != 'draft'
+          || ownsListing(resource.data)
+        );
 
       allow create: if signedIn()
         && (
           (
             validListingFields(request.resource.data)
+            && request.resource.data.status in ['draft', 'available']
             && request.resource.data.createdAt == request.time
             && request.resource.data.updatedAt == request.time
             && (
@@ -430,47 +519,10 @@ service cloud.firestore {
           )
         );
 
-      allow update: if (
-          ownsListing(resource.data)
-          && validListingFields(request.resource.data)
-          && request.resource.data.listingOwnerType == listingOwnerType(resource.data)
-          && request.resource.data.listingOwnerId == listingOwnerId(resource.data)
-          && request.resource.data.get('providerId', '')
-            == resource.data.get('providerId', '')
-          && request.resource.data.createdAt == resource.data.createdAt
-          && request.resource.data.updatedAt == request.time
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'providerId', 'listingOwnerType', 'listingOwnerId', 'petName',
-            'species', 'breed', 'ageDescription', 'gender', 'description',
-            'location', 'imageAsset', 'status', 'contactNote', 'updatedAt'
-          ])
-        )
-        || (
-          // Compatibility for already-released provider clients: preserve
-          // ownership fields while accepting client-side timestamps. Owner
-          // writes never use this exception.
-          isAdoptionProvider()
-          && resource.data.get('providerId', '') == request.auth.uid
-          && request.resource.data.get('providerId', '')
-            == resource.data.get('providerId', '')
-          && request.resource.data.get('listingOwnerType', null)
-            == resource.data.get('listingOwnerType', null)
-          && request.resource.data.get('listingOwnerId', null)
-            == resource.data.get('listingOwnerId', null)
-          && request.resource.data.createdAt is timestamp
-          && request.resource.data.updatedAt is timestamp
-          && (
-            validListingFields(request.resource.data)
-            || validLegacyProviderListingFields(request.resource.data)
-          )
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'providerId', 'listingOwnerType', 'listingOwnerId', 'petName', 'createdAt',
-            'species', 'breed', 'ageDescription', 'gender', 'description',
-            'location', 'imageAsset', 'status', 'contactNote', 'updatedAt'
-          ])
-        );
-
-      allow delete: if ownsListing(resource.data);
+      allow update: if request.resource.data.status == 'reserved'
+        ? listingCanBeReserved(listingId)
+        : normalListingCanBeUpdated();
+      allow delete: if false;
     }
 
     // ============================================================
@@ -579,7 +631,7 @@ service cloud.firestore {
           == resource.data.get('acceptedAt', null);
     }
 
-    function recipientCanDecideRequest() {
+    function recipientCanDecideRequest(requestId) {
       return authorizedRequestRecipient(resource.data)
         && resource.data.status == 'pending'
         && request.resource.data.status in ['accepted', 'rejected']
@@ -599,24 +651,26 @@ service cloud.firestore {
           (request.resource.data.providerNote is string
             && request.resource.data.providerNote.size() <= 500))
         && (
-          (
-            request.resource.data.status == 'accepted'
-            // Acceptance is permitted only while the listing remains available.
-            // Rejection is intentionally allowed for pending requests even if
-            // the listing has since become unavailable.
-            && get(
-              /databases/$(database)/documents/adoption_listings/$(resource.data.listingId)
-            ).data.status == 'available'
-            && request.resource.data.acceptedAt == request.time
-            && request.resource.data.get('closedAt', null)
-              == resource.data.get('closedAt', null)
+          request.resource.data.status == 'accepted'
+          ? (
+              get(
+                /databases/$(database)/documents/adoption_listings/$(resource.data.listingId)
+              ).data.status == 'available'
+              && getAfter(
+                /databases/$(database)/documents/adoption_listings/$(resource.data.listingId)
+              ).data.status == 'reserved'
+              && getAfter(
+                /databases/$(database)/documents/adoption_listings/$(resource.data.listingId)
+              ).data.acceptedRequestId == requestId
+              && request.resource.data.acceptedAt == request.time
+              && request.resource.data.get('closedAt', null)
+                == resource.data.get('closedAt', null)
           )
-          ||
-          (
-            request.resource.data.status == 'rejected'
-            && request.resource.data.closedAt == request.time
-            && request.resource.data.get('acceptedAt', null)
-              == resource.data.get('acceptedAt', null)
+          : (
+              request.resource.data.status == 'rejected'
+              && request.resource.data.closedAt == request.time
+              && request.resource.data.get('acceptedAt', null)
+                == resource.data.get('acceptedAt', null)
           )
         );
     }
@@ -683,7 +737,9 @@ service cloud.firestore {
         && (validNewAdoptionRequest(request.resource.data)
           || validLegacyProviderRequest(request.resource.data));
 
-      allow update: if ownerCanWithdrawRequest() || recipientCanDecideRequest();
+      allow update: if request.resource.data.status == 'withdrawn'
+        ? ownerCanWithdrawRequest()
+        : recipientCanDecideRequest(requestId);
 
       // Withdrawal retains history; clients cannot physically delete requests.
       allow delete: if false;

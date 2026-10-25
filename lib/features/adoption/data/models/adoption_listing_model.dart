@@ -20,6 +20,7 @@ class AdoptionListingModel extends AdoptionListing {
     required super.updatedAt,
     super.listingOwnerType = 'adoption_provider',
     super.listingOwnerId,
+    super.acceptedRequestId,
   });
 
   factory AdoptionListingModel.fromFirestore(
@@ -33,16 +34,19 @@ class AdoptionListingModel extends AdoptionListing {
 
     final createdAt = data['createdAt'];
     final updatedAt = data['updatedAt'];
+
     if (createdAt is! Timestamp) {
       throw StateError('Adoption listing createdAt is invalid.');
     }
+
     if (updatedAt is! Timestamp) {
       throw StateError('Adoption listing updatedAt is invalid.');
     }
 
     // Older provider listings do not have explicit ownership fields.
     final providerId = data['providerId'] as String? ?? '';
-    final ownerType = data['listingOwnerType'] as String? ?? 'adoption_provider';
+    final ownerType =
+        data['listingOwnerType'] as String? ?? 'adoption_provider';
     final ownerId = data['listingOwnerId'] as String? ?? providerId;
 
     return AdoptionListingModel(
@@ -50,6 +54,7 @@ class AdoptionListingModel extends AdoptionListing {
       providerId: providerId,
       listingOwnerType: ownerType,
       listingOwnerId: ownerId,
+      acceptedRequestId: data['acceptedRequestId'] as String?,
       petName: data['petName'] as String,
       species: data['species'] as String,
       breed: data['breed'] as String?,
@@ -70,12 +75,15 @@ class AdoptionListingModel extends AdoptionListing {
     // entity using the pre-ownership fields only. New owner listings must not
     // write providerId.
     final isProviderListing = listing.listingOwnerType == 'adoption_provider';
-    final canonicalOwnerId = listing.listingOwnerId ??
+
+    final canonicalOwnerId =
+        listing.listingOwnerId ??
         (isProviderListing ? listing.providerId : null);
+
     final legacyProviderId = isProviderListing
         ? (listing.providerId.trim().isNotEmpty
-            ? listing.providerId
-            : canonicalOwnerId ?? '')
+              ? listing.providerId
+              : canonicalOwnerId ?? '')
         : '';
 
     return AdoptionListingModel(
@@ -83,6 +91,7 @@ class AdoptionListingModel extends AdoptionListing {
       providerId: legacyProviderId,
       listingOwnerType: listing.listingOwnerType,
       listingOwnerId: canonicalOwnerId,
+      acceptedRequestId: listing.acceptedRequestId,
       petName: listing.petName,
       species: listing.species,
       breed: listing.breed,
@@ -104,6 +113,8 @@ class AdoptionListingModel extends AdoptionListing {
       'listingOwnerType': listingOwnerType,
       if (listingOwnerId != null && listingOwnerId!.trim().isNotEmpty)
         'listingOwnerId': listingOwnerId,
+      if (acceptedRequestId != null && acceptedRequestId!.trim().isNotEmpty)
+        'acceptedRequestId': acceptedRequestId,
       'petName': petName,
       'species': species,
       if (breed != null && breed!.trim().isNotEmpty) 'breed': breed,

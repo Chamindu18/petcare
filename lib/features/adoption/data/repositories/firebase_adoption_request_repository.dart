@@ -151,8 +151,8 @@ class FirebaseAdoptionRequestRepository
       // malformed/unbackfilled requests are intentionally not exposed.
       final query = role == 'owner' || role == 'adoption_provider'
           ? _requestsCollection
-              .where('recipientId', isEqualTo: user.uid)
-              .where('recipientType', isEqualTo: role)
+                .where('recipientId', isEqualTo: user.uid)
+                .where('recipientType', isEqualTo: role)
           : null;
       if (query == null) {
         return Stream<List<AdoptionRequest>>.error(
@@ -293,7 +293,9 @@ class FirebaseAdoptionRequestRepository
         );
       }
 
-      final listingReference = _listingsCollection.doc(data['listingId'] as String);
+      final listingReference = _listingsCollection.doc(
+        data['listingId'] as String,
+      );
       final listingDocument = await transaction.get(listingReference);
       final listing = listingDocument.data();
       if (!listingDocument.exists || listing == null) {
@@ -303,8 +305,10 @@ class FirebaseAdoptionRequestRepository
       }
       final listingType =
           listing['listingOwnerType'] as String? ?? 'adoption_provider';
-      final listingOwnerId = listing['listingOwnerId'] as String? ??
-          listing['providerId'] as String? ?? '';
+      final listingOwnerId =
+          listing['listingOwnerId'] as String? ??
+          listing['providerId'] as String? ??
+          '';
       if (listingOwnerId != user.uid || listingType != role) {
         throw const AdoptionRequestRepositoryException(
           'You no longer own this adoption listing.',
@@ -326,6 +330,14 @@ class FirebaseAdoptionRequestRepository
       if (trimmedNote != null && trimmedNote.isNotEmpty) {
         updates['providerNote'] = trimmedNote;
       }
+      if (decision == 'accepted') {
+        transaction.update(listingReference, {
+          'status': 'reserved',
+          'acceptedRequestId': requestReference.id,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+
       transaction.update(requestReference, updates);
     });
   }

@@ -21,6 +21,7 @@ import {
   query,
   where,
   orderBy,
+  runTransaction,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
@@ -124,6 +125,37 @@ async function seedRequest(id = 'request-1', data = requestData()) {
 
 function authed(uid) {
   return env.authenticatedContext(uid).firestore();
+}
+
+async function acceptRequestAtomically(db, requestId, listingId) {
+  const requestReference = doc(
+    db,
+    `adoption_requests/${requestId}`,
+  );
+  const listingReference = doc(
+    db,
+    `adoption_listings/${listingId}`,
+  );
+
+  await runTransaction(db, async (transaction) => {
+    const requestSnapshot = await transaction.get(requestReference);
+    const listingSnapshot = await transaction.get(listingReference);
+
+    assert.ok(requestSnapshot.exists(), `Missing request: ${requestId}`);
+    assert.ok(listingSnapshot.exists(), `Missing listing: ${listingId}`);
+
+    transaction.update(listingReference, {
+      status: 'reserved',
+      acceptedRequestId: requestId,
+      updatedAt: serverTimestamp(),
+    });
+
+    transaction.update(requestReference, {
+      status: 'accepted',
+      acceptedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  });
 }
 
 test('owner can create and manage only an explicitly owned rehoming listing', async () => {
@@ -319,16 +351,63 @@ test('a requester cannot withdraw after a provider decision', async () => {
 test('only the requester may withdraw a pending request; record is retained', async () => {
   await seedRequest();
   const requesterDb = authed('owner-2');
-  await assertSucceeds(updateDoc(doc(requesterDb, 'adoption_requests/request-1'), {
-    status: 'withdrawn',
-    updatedAt: serverTimestamp(),
-    closedAt: serverTimestamp(),
-  }));
-  const retained = await getDoc(doc(requesterDb, 'adoption_requests/request-1'));
+
+  await assertSucceeds(
+    updateDoc(doc(requesterDb, 'adoption_requests/request-1'), {
+      status: 'withdrawn',
+      updatedAt: serverTimestamp(),
+      closedAt: serverTimestamp(),
+    }),
+  );
+
+  const retained = await getDoc(
+    doc(requesterDb, 'adoption_requests/request-1'),
+  );
   assert.equal(retained.exists(), true);
   assert.equal(retained.data().status, 'withdrawn');
-  await assertFails(deleteDoc(doc(requesterDb, 'adoption_requests/request-1')));
+
+  await assertFails(
+    deleteDoc(doc(requesterDb, 'adoption_requests/request-1')),
+  );
 });
+
+test('draft listings are readable only by their owner', async () => {
+  await env.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), 'adoption_listings/owner-draft'),
+      listing({
+        ownerId: 'owner-1',
+        ownerType: 'owner',
+        status: 'draft',
+      }),
+    );
+  });
+
+  await assertSucceeds(
+    getDoc(doc(authed('owner-1'), 'adoption_listings/owner-draft')),
+  );
+
+  await assertFails(
+    getDoc(doc(authed('owner-2'), 'adoption_listings/owner-draft')),
+  );
+
+  await assertSucceeds(
+    getDoc(doc(authed('owner-2'), 'adoption_listings/provider-listing')),
+  );
+});
+
+test('listing owners cannot hard-delete listing documents', async () => {
+  await assertFails(
+    deleteDoc(doc(authed('owner-1'), 'adoption_listings/owner-listing')),
+  );
+
+  const retained = await getDoc(
+    doc(authed('owner-1'), 'adoption_listings/owner-listing'),
+  );
+
+  assert.equal(retained.exists(), true);
+});
+
 
 test('withdrawal cannot alter unrelated fields or withdraw another user request', async () => {
   await seedRequest();
@@ -346,33 +425,71 @@ test('withdrawal cannot alter unrelated fields or withdraw another user request'
   }));
 });
 
-test('authorized owner of owner listing can accept/reject pending requests', async () => {
+test('owner can atomically accept a request and reserve an owner listing', async () => {
   await seedRequest('owner-recipient', requestData({
     listingId: 'owner-listing',
     recipientId: 'owner-1',
     recipientType: 'owner',
     providerId: undefined,
   }));
+
   const db = authed('owner-1');
-  await assertSucceeds(updateDoc(doc(db, 'adoption_requests/owner-recipient'), {
-    status: 'accepted',
-    acceptedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  }));
+
+  await assertSucceeds(
+    acceptRequestAtomically(db, 'owner-recipient', 'owner-listing'),
+  );
+
+  const requestSnapshot = await getDoc(
+    doc(db, 'adoption_requests/owner-recipient'),
+  );
+  const listingSnapshot = await getDoc(
+    doc(db, 'adoption_listings/owner-listing'),
+  );
+
+  assert.equal(requestSnapshot.data()?.status, 'accepted');
+  assert.equal(listingSnapshot.data()?.status, 'reserved');
+  assert.equal(
+    listingSnapshot.data()?.acceptedRequestId,
+    'owner-recipient',
+  );
 });
 
-test('provider acceptance remains supported and unrelated providers are denied', async () => {
+test('provider acceptance must be atomic; unrelated providers are denied', async () => {
   await seedRequest();
-  await assertFails(updateDoc(doc(authed('provider-2'), 'adoption_requests/request-1'), {
-    status: 'accepted',
-    acceptedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  }));
-  await assertSucceeds(updateDoc(doc(authed('provider-1'), 'adoption_requests/request-1'), {
-    status: 'accepted',
-    acceptedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  }));
+
+  const requestReference = doc(
+    authed('provider-1'),
+    'adoption_requests/request-1',
+  );
+
+  await assertFails(
+    updateDoc(
+      doc(authed('provider-2'), 'adoption_requests/request-1'),
+      {
+        status: 'accepted',
+        acceptedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+    ),
+  );
+
+  // A request cannot be accepted without reserving its listing.
+  await assertFails(
+    updateDoc(requestReference, {
+      status: 'accepted',
+      acceptedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
+  );
+
+  // The authorized provider can accept when both changes are atomic.
+  await assertSucceeds(
+    acceptRequestAtomically(
+      authed('provider-1'),
+      'request-1',
+      'provider-listing',
+    ),
+  );
 });
 
 test('acceptance requires an available listing; rejection remains allowed for unavailable listings', async () => {
@@ -417,6 +534,38 @@ test('acceptance requires an available listing; rejection remains allowed for un
   }
 });
 
+test('only one request can be accepted for a listing', async () => {
+  await seedRequest('first-request');
+  await seedRequest('second-request');
+
+  const db = authed('provider-1');
+
+  await assertSucceeds(
+    acceptRequestAtomically(db, 'first-request', 'provider-listing'),
+  );
+
+  await assertFails(
+    acceptRequestAtomically(db, 'second-request', 'provider-listing'),
+  );
+
+  const listingSnapshot = await getDoc(
+    doc(db, 'adoption_listings/provider-listing'),
+  );
+  const firstRequestSnapshot = await getDoc(
+    doc(db, 'adoption_requests/first-request'),
+  );
+  const secondRequestSnapshot = await getDoc(
+    doc(db, 'adoption_requests/second-request'),
+  );
+
+  assert.equal(listingSnapshot.data()?.status, 'reserved');
+  assert.equal(
+    listingSnapshot.data()?.acceptedRequestId,
+    'first-request',
+  );
+  assert.equal(firstRequestSnapshot.data()?.status, 'accepted');
+  assert.equal(secondRequestSnapshot.data()?.status, 'pending');
+});
 
 test('backfilled legacy provider requests retain the provider decision path', async () => {
   // Represents the trusted migration output for a valid legacy request.
