@@ -31,20 +31,20 @@ class _AIChatPageState extends State<AIChatPage> {
 
     if (q.contains('summary')) {
       return '''
-        ${contextData.pet.name} Health Summary
+📄 Spiderman Health Summary
 
-        📋 Conditions:  ${contextData.conditions.length}
+📋 Conditions: ${contextData.conditions.length}
 
-        💉 Vaccinations:  ${contextData.vaccinations.length}
+💉 Vaccinations: ${contextData.vaccinations.length}
 
-        💊 Treatments:  ${contextData.treatments.length}
+💊 Treatments: ${contextData.treatments.length}
 
-        📈 Measurements:  ${contextData.measurements.length}
+📈 Measurements: ${contextData.measurements.length}
 
-        Overall Recommendation:
+✅ Recommendation
 
-        Continue routine health monitoring and maintain vaccination schedules.
-        ''';
+Continue routine health monitoring and maintain vaccination schedules.
+''';
     }
 
     if (q.contains('condition')) {
@@ -58,10 +58,14 @@ class _AIChatPageState extends State<AIChatPage> {
           .join('\n');
 
       return '''
-            Medical Conditions
+📋 Medical Conditions
 
-            $conditions
-            ''';
+$conditions
+
+✅ Advice
+
+Review active conditions regularly and continue recommended treatments.
+''';
     }
 
     if (q.contains('vaccination')) {
@@ -75,13 +79,17 @@ class _AIChatPageState extends State<AIChatPage> {
           .join('\n');
 
       return '''
-          Vaccination History
+💉 Vaccination History
 
-          $vaccinations
+$vaccinations
 
-          Total:
-          ${contextData.vaccinations.length}
-          ''';
+📊 Total Vaccinations:
+${contextData.vaccinations.length}
+
+✅ Reminder
+
+Keep vaccination schedules up to date.
+''';
     }
 
     if (q.contains('treatment')) {
@@ -95,10 +103,14 @@ class _AIChatPageState extends State<AIChatPage> {
           .join('\n');
 
       return '''
-            Treatments
+💊 Treatment Records
 
-            $treatments
-            ''';
+$treatments
+
+📊 Active Medical Care
+
+Continue monitoring treatment progress and consult a veterinarian when necessary.
+''';
     }
 
     if (q.contains('measurement')) {
@@ -111,18 +123,20 @@ class _AIChatPageState extends State<AIChatPage> {
 
     if (q.contains('vet')) {
       return '''
-            Suggested Vet Discussion Topics
+🩺 Vet Visit Preparation
 
-            • Review medical conditions
+Topics to discuss:
 
-            • Review vaccination history
+• Medical conditions
 
-            • Review treatments
+• Vaccination history
 
-            • Discuss recent measurements
+• Ongoing treatments
 
-            • Ask about preventive care recommendations
-            ''';
+• Recent health measurements
+
+✅ Bring any recent observations or concerns to the appointment.
+''';
     }
 
     if (q.contains('preventive')) {
@@ -152,20 +166,20 @@ class _AIChatPageState extends State<AIChatPage> {
 
     if (q.contains('vet advice')) {
       return '''
-        Vet Visit Preparation
+🩺 Vet Visit Preparation
 
-        Suggested discussion topics:
+Topics to discuss:
 
-        • Existing medical conditions
+• Medical conditions
 
-        • Vaccination history
+• Vaccination history
 
-        • Ongoing treatments
+• Ongoing treatments
 
-        • Recent health measurements
+• Recent health measurements
 
-        Bring any recent health observations to the appointment.
-        ''';
+✅ Bring any recent observations or concerns to the appointment.
+''';
     }
     return '''
               I can help with:
