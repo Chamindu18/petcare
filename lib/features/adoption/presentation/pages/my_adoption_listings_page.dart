@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../app/router/app_router.dart';
 import '../../data/repositories/firebase_adoption_listing_repository.dart';
 import '../../domain/entities/adoption_listing.dart';
 import '../../domain/repositories/adoption_listing_repository.dart';
@@ -42,6 +43,17 @@ class _MyAdoptionListingsPageState extends State<MyAdoptionListingsPage> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(title: const Text('My Adoption Listings')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          await Navigator.pushNamed(
+            context,
+            AppRouter.createEditAdoptionListing,
+          );
+          if (mounted) _listingsProvider.startListening();
+        },
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Create listing'),
+      ),
       body: ListenableBuilder(
         listenable: _listingsProvider,
         builder: (context, _) => _buildContent(),
@@ -71,16 +83,28 @@ class _MyAdoptionListingsPageState extends State<MyAdoptionListingsPage> {
       itemCount: _listingsProvider.listings.length,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        return _MyListingCard(listing: _listingsProvider.listings[index]);
+        final listing = _listingsProvider.listings[index];
+        return _MyListingCard(
+          listing: listing,
+          onTap: () async {
+            await Navigator.pushNamed(
+              context,
+              AppRouter.createEditAdoptionListing,
+              arguments: listing,
+            );
+            if (mounted) _listingsProvider.startListening();
+          },
+        );
       },
     );
   }
 }
 
 class _MyListingCard extends StatelessWidget {
-  const _MyListingCard({required this.listing});
+  const _MyListingCard({required this.listing, required this.onTap});
 
   final AdoptionListing listing;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -92,57 +116,61 @@ class _MyListingCard extends StatelessWidget {
     ];
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            _ListingImage(imageAsset: listing.imageAsset),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    listing.petName,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppTheme.espresso,
-                      fontWeight: FontWeight.w600,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              _ListingImage(imageAsset: listing.imageAsset),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      listing.petName,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppTheme.espresso,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    details.join(' • '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: AppTheme.deepBrown),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on_outlined,
-                        size: 16,
-                        color: AppTheme.deepBrown,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          listing.location,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AppTheme.deepBrown),
+                    const SizedBox(height: 4),
+                    Text(
+                      details.join(' • '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: AppTheme.deepBrown),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on_outlined,
+                          size: 16,
+                          color: AppTheme.deepBrown,
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            listing.location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: AppTheme.deepBrown),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            _ListingStatus(status: listing.status),
-          ],
+              const SizedBox(width: 8),
+              _ListingStatus(status: listing.status),
+            ],
+          ),
         ),
       ),
     );
