@@ -4,8 +4,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:petcare/app/router/app_router.dart';
+import 'package:petcare/features/appointments/domain/entities/appointment.dart';
+import 'package:petcare/features/appointments/domain/repositories/appointment_repository.dart';
+import 'package:petcare/features/appointments/domain/usecases/appointment_usecases.dart';
+import 'package:petcare/features/appointments/presentation/pages/my_appointments_page.dart';
+import 'package:petcare/features/appointments/presentation/providers/appointment_provider.dart';
 import 'package:petcare/features/auth/domain/repositories/auth_repository.dart';
 import 'package:petcare/features/health/domain/entities/health_measurement.dart';
 import 'package:petcare/features/health/domain/entities/medical_condition.dart';
@@ -95,6 +99,25 @@ class _FakeNotificationRepository implements NotificationRepository {
   Future<void> markAllAsRead() async {}
 }
 
+class _FakeAppointmentRepository implements AppointmentRepository {
+  @override
+  Future<Appointment> createAppointment(Appointment appointment) async {
+    return appointment;
+  }
+
+  @override
+  Future<List<Appointment>> getAppointments() async => [];
+
+  @override
+  Future<Appointment?> getAppointmentById(String appointmentId) async => null;
+
+  @override
+  Future<void> updateAppointment(Appointment appointment) async {}
+
+  @override
+  Future<void> cancelAppointment(String appointmentId) async {}
+}
+
 class _FakeProfileRepository implements ProfileRepository {
   _FakeProfileRepository();
 
@@ -143,7 +166,6 @@ class _FakeAuthRepository implements AuthRepository {
     required String newPassword,
   }) async {}
 }
-
 // -----------------------------------------------------------------------------
 // Fake Health repositories
 // -----------------------------------------------------------------------------
@@ -238,13 +260,11 @@ class _FakeHealthMeasurementRepository implements HealthMeasurementRepository {
 // -----------------------------------------------------------------------------
 // Create a HealthController backed by fake repositories
 // -----------------------------------------------------------------------------
-
 HealthController _createFakeHealthController() {
   final medicalConditionRepository = _FakeMedicalConditionRepository();
   final vaccinationRepository = _FakeVaccinationRepository();
   final treatmentRepository = _FakeTreatmentRepository();
   final healthMeasurementRepository = _FakeHealthMeasurementRepository();
-
   return HealthController(
     createMedicalCondition: CreateMedicalCondition(medicalConditionRepository),
     getMedicalConditions: GetMedicalConditions(medicalConditionRepository),
@@ -270,7 +290,6 @@ HealthController _createFakeHealthController() {
     ),
   );
 }
-
 // -----------------------------------------------------------------------------
 // Fake Pets controller
 // -----------------------------------------------------------------------------
@@ -285,7 +304,6 @@ class _FakePetsController extends PetsController {
         UploadPetImage(_FakePetImageRepository()),
         DeletePetImage(_FakePetImageRepository()),
       );
-
   bool _disposed = false;
 
   bool get disposed => _disposed;
@@ -304,21 +322,25 @@ class _RouteCapture {
 // -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------
-
 void main() {
   group('OwnerShellPage', () {
     late MockFirebaseAuth signedInAuth;
     late _RouteCapture routeCapture;
     late HealthController healthController;
+    late AppointmentProvider appointmentProvider;
 
     setUp(() {
       signedInAuth = MockFirebaseAuth(signedIn: true);
       routeCapture = _RouteCapture();
       healthController = _createFakeHealthController();
+      appointmentProvider = AppointmentProvider(
+        getAppointments: GetAppointments(_FakeAppointmentRepository()),
+      );
     });
 
     tearDown(() {
       healthController.dispose();
+      appointmentProvider.dispose();
     });
 
     Widget buildTestApp({
@@ -338,21 +360,18 @@ void main() {
               settings: settings,
             );
           }
-
           if (settings.name == AppRouter.notifications) {
             return MaterialPageRoute(
               builder: (_) => const Scaffold(body: Text('Notifications')),
               settings: settings,
             );
           }
-
           if (settings.name == AppRouter.editProfile) {
             return MaterialPageRoute(
               builder: (_) => const Scaffold(body: Text('Edit Profile')),
               settings: settings,
             );
           }
-
           if (settings.name == AppRouter.notificationSettings) {
             return MaterialPageRoute(
               builder: (_) =>
@@ -360,33 +379,30 @@ void main() {
               settings: settings,
             );
           }
-
           if (settings.name == AppRouter.privacySecurity) {
             return MaterialPageRoute(
               builder: (_) => const Scaffold(body: Text('Privacy Security')),
               settings: settings,
             );
           }
-
           if (settings.name == AppRouter.helpSupport) {
             return MaterialPageRoute(
               builder: (_) => const Scaffold(body: Text('Help Support')),
               settings: settings,
             );
           }
-
           if (settings.name == AppRouter.aboutPetCare) {
             return MaterialPageRoute(
               builder: (_) => const Scaffold(body: Text('About PetCare')),
               settings: settings,
             );
           }
-
           return AppRouter.routeGenerator(auth: auth ?? signedInAuth)(settings);
         },
         home: OwnerShellPage(
           petsController: petsController,
           healthController: healthController,
+          appointmentProvider: appointmentProvider,
           auth: auth ?? signedInAuth,
           notificationRepository:
               notificationRepository ?? _FakeNotificationRepository(),
@@ -398,7 +414,6 @@ void main() {
 
     testWidgets('renders with injected PetsController', (tester) async {
       final fakeController = _FakePetsController();
-
       await tester.pumpWidget(
         buildTestApp(
           petsController: fakeController,
@@ -406,7 +421,6 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-
       expect(find.byType(OwnerShellPage), findsOneWidget);
       expect(find.byIcon(Icons.home_rounded), findsWidgets);
       expect(find.text('Home'), findsOneWidget);
@@ -418,7 +432,6 @@ void main() {
 
     testWidgets('switches between bottom navigation tabs', (tester) async {
       final fakeController = _FakePetsController();
-
       await tester.pumpWidget(
         buildTestApp(
           petsController: fakeController,
@@ -426,31 +439,26 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-
       expect(find.byType(HomePage), findsOneWidget);
       expect(find.byType(MyPetsPage), findsNothing);
       expect(find.byType(ProfilePage), findsNothing);
       expect(find.text('This section will be available soon.'), findsNothing);
-
       await tester.tap(find.text('My Pets').first);
       await tester.pumpAndSettle();
       expect(find.byType(MyPetsPage), findsOneWidget);
       expect(find.byType(HomePage), findsNothing);
-
       await tester.tap(find.text('Appointments').first);
       await tester.pumpAndSettle();
-      expect(find.text('This section will be available soon.'), findsOneWidget);
+      expect(find.byType(MyAppointmentsPage), findsOneWidget);
+      expect(find.text('This section will be available soon.'), findsNothing);
       expect(find.text('Appointments').first, findsOneWidget);
-
       await tester.tap(find.text('AI Hub').first);
       await tester.pumpAndSettle();
       expect(find.text('PetCare AI Assistant'), findsOneWidget);
       expect(find.text('AI Hub').first, findsOneWidget);
-
       await tester.tap(find.text('Profile').first);
       await tester.pumpAndSettle();
       expect(find.byType(ProfilePage), findsOneWidget);
-
       await tester.tap(find.text('Home').first);
       await tester.pumpAndSettle();
       expect(find.byType(HomePage), findsOneWidget);
@@ -460,7 +468,6 @@ void main() {
       tester,
     ) async {
       final fakeController = _FakePetsController();
-
       await tester.pumpWidget(
         buildTestApp(
           petsController: fakeController,
@@ -468,12 +475,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-
       expect(fakeController.disposed, isFalse);
-
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
-
       expect(fakeController.disposed, isFalse);
     });
 
@@ -481,7 +485,6 @@ void main() {
       tester,
     ) async {
       final fakeController = _FakePetsController();
-
       await tester.pumpWidget(
         buildTestApp(
           petsController: fakeController,
@@ -489,13 +492,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-
       final addPetButton = find.byIcon(Icons.add_rounded);
       expect(addPetButton, findsOneWidget);
-
       await tester.tap(addPetButton);
       await tester.pumpAndSettle();
-
       expect(routeCapture.settings, isNotNull);
       expect(routeCapture.settings!.name, AppRouter.addPet);
       expect(routeCapture.settings!.arguments, same(fakeController));
@@ -505,7 +505,6 @@ void main() {
       tester,
     ) async {
       final fakeController = _FakePetsController();
-
       await tester.pumpWidget(
         buildTestApp(
           petsController: fakeController,
@@ -513,37 +512,29 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-
       final labels = ['Home', 'My Pets', 'Appointments', 'AI Hub', 'Profile'];
-
       for (final label in labels) {
         final textFinder = find.text(label);
-
         expect(
           textFinder,
           findsAtLeast(1),
           reason: 'Bottom nav label "$label" not found',
         );
-
         final inkWellFinder = find.ancestor(
           of: textFinder.first,
           matching: find.byType(InkWell),
         );
-
         expect(
           inkWellFinder,
           findsOneWidget,
           reason: 'InkWell ancestor not found for "$label"',
         );
-
         final renderBox = tester.renderObject<RenderBox>(inkWellFinder);
-
         expect(
           renderBox.size.width,
           greaterThanOrEqualTo(48),
           reason: 'Bottom nav item "$label" width below 48dp',
         );
-
         expect(
           renderBox.size.height,
           greaterThanOrEqualTo(48),
@@ -551,7 +542,6 @@ void main() {
         );
       }
     });
-
     // TEST 5 and TEST 6 intentionally omitted:
     // - 'renders without an injected PetsController' requires OwnerShellPage to
     //   create FirebasePetRepository with FirebaseAuth.instance/FirebaseFirestore.instance
