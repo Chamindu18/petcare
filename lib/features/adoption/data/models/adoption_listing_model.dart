@@ -18,6 +18,8 @@ class AdoptionListingModel extends AdoptionListing {
     super.contactNote,
     required super.createdAt,
     required super.updatedAt,
+    super.listingOwnerType = 'adoption_provider',
+    super.listingOwnerId,
   });
 
   factory AdoptionListingModel.fromFirestore(
@@ -31,18 +33,23 @@ class AdoptionListingModel extends AdoptionListing {
 
     final createdAt = data['createdAt'];
     final updatedAt = data['updatedAt'];
-
     if (createdAt is! Timestamp) {
       throw StateError('Adoption listing createdAt is invalid.');
     }
-
     if (updatedAt is! Timestamp) {
       throw StateError('Adoption listing updatedAt is invalid.');
     }
 
+    // Older provider listings do not have explicit ownership fields.
+    final providerId = data['providerId'] as String? ?? '';
+    final ownerType = data['listingOwnerType'] as String? ?? 'adoption_provider';
+    final ownerId = data['listingOwnerId'] as String? ?? providerId;
+
     return AdoptionListingModel(
       listingId: document.id,
-      providerId: data['providerId'] as String,
+      providerId: providerId,
+      listingOwnerType: ownerType,
+      listingOwnerId: ownerId,
       petName: data['petName'] as String,
       species: data['species'] as String,
       breed: data['breed'] as String?,
@@ -59,9 +66,23 @@ class AdoptionListingModel extends AdoptionListing {
   }
 
   factory AdoptionListingModel.fromEntity(AdoptionListing listing) {
+    // Keep legacy provider records fully serialized when callers construct an
+    // entity using the pre-ownership fields only. New owner listings must not
+    // write providerId.
+    final isProviderListing = listing.listingOwnerType == 'adoption_provider';
+    final canonicalOwnerId = listing.listingOwnerId ??
+        (isProviderListing ? listing.providerId : null);
+    final legacyProviderId = isProviderListing
+        ? (listing.providerId.trim().isNotEmpty
+            ? listing.providerId
+            : canonicalOwnerId ?? '')
+        : '';
+
     return AdoptionListingModel(
       listingId: listing.listingId,
-      providerId: listing.providerId,
+      providerId: legacyProviderId,
+      listingOwnerType: listing.listingOwnerType,
+      listingOwnerId: canonicalOwnerId,
       petName: listing.petName,
       species: listing.species,
       breed: listing.breed,
@@ -79,7 +100,10 @@ class AdoptionListingModel extends AdoptionListing {
 
   Map<String, dynamic> toMap() {
     return {
-      'providerId': providerId,
+      if (providerId.trim().isNotEmpty) 'providerId': providerId,
+      'listingOwnerType': listingOwnerType,
+      if (listingOwnerId != null && listingOwnerId!.trim().isNotEmpty)
+        'listingOwnerId': listingOwnerId,
       'petName': petName,
       'species': species,
       if (breed != null && breed!.trim().isNotEmpty) 'breed': breed,

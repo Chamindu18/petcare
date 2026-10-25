@@ -8,6 +8,8 @@ class AdoptionRequestModel extends AdoptionRequest {
     required super.listingId,
     required super.requesterId,
     required super.providerId,
+    super.recipientId,
+    super.recipientType = 'adoption_provider',
     super.message,
     required super.status,
     required super.submittedAt,
@@ -21,27 +23,28 @@ class AdoptionRequestModel extends AdoptionRequest {
     DocumentSnapshot<Map<String, dynamic>> document,
   ) {
     final data = document.data();
-
     if (data == null) {
       throw StateError('Adoption request document does not exist.');
     }
 
     final submittedAt = data['submittedAt'];
     final updatedAt = data['updatedAt'];
-
     if (submittedAt is! Timestamp) {
       throw StateError('Adoption request submittedAt is invalid.');
     }
-
     if (updatedAt is! Timestamp) {
       throw StateError('Adoption request updatedAt is invalid.');
     }
 
+    final providerId = data['providerId'] as String? ?? '';
     return AdoptionRequestModel(
       requestId: document.id,
       listingId: data['listingId'] as String,
       requesterId: data['requesterId'] as String,
-      providerId: data['providerId'] as String,
+      providerId: providerId,
+      recipientId: data['recipientId'] as String? ?? providerId,
+      recipientType:
+          data['recipientType'] as String? ?? 'adoption_provider',
       message: data['message'] as String?,
       status: data['status'] as String,
       submittedAt: submittedAt.toDate(),
@@ -53,14 +56,8 @@ class AdoptionRequestModel extends AdoptionRequest {
   }
 
   static DateTime? _timestampToDate(Object? value) {
-    if (value == null) {
-      return null;
-    }
-
-    if (value is Timestamp) {
-      return value.toDate();
-    }
-
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
     throw StateError('Adoption request timestamp is invalid.');
   }
 }
