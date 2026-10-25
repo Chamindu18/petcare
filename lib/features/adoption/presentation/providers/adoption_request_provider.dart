@@ -18,6 +18,8 @@ class AdoptionRequestProvider extends ChangeNotifier {
   Future<void> submitRequest({
     required String listingId,
     required String providerId,
+    String? recipientId,
+    String recipientType = 'adoption_provider',
     String? message,
   }) async {
     if (_isSubmitting) {
@@ -33,6 +35,8 @@ class AdoptionRequestProvider extends ChangeNotifier {
       await _repository.createRequest(
         listingId: listingId,
         providerId: providerId,
+        recipientId: recipientId,
+        recipientType: recipientType,
         message: message,
       );
 
