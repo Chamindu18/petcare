@@ -14,10 +14,24 @@ class AdoptionListing {
     this.contactNote,
     required this.createdAt,
     required this.updatedAt,
+    this.listingOwnerType = 'adoption_provider',
+    this.listingOwnerId,
+    this.acceptedRequestId,
   });
 
   final String listingId;
+
+  /// Legacy provider field. Empty for new owner rehoming listings.
   final String providerId;
+  final String listingOwnerType;
+  final String? listingOwnerId;
+
+  /// ID of the request that reserved this listing, if accepted.
+  final String? acceptedRequestId;
+
+  /// Canonical owner with a fallback for existing provider listings.
+  String get effectiveListingOwnerId => listingOwnerId ?? providerId;
+
   final String petName;
   final String species;
   final String? breed;

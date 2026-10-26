@@ -156,7 +156,12 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(height: 24),
                         const _SectionHeader(title: 'More for Your Pets'),
                         const SizedBox(height: 10),
-                        const _HelpfulResources(),
+                        _HelpfulResources(
+                          onAdoptionTap: () => Navigator.pushNamed(
+                            context,
+                            AppRouter.ownerRehomingDashboard,
+                          ),
+                        ),
                       ]),
                     ),
                   ),
@@ -1047,13 +1052,15 @@ class _EmptyAppointmentCard extends StatelessWidget {
 // -----------------------------------------------------------------------------
 
 class _HelpfulResources extends StatelessWidget {
-  const _HelpfulResources();
+  const _HelpfulResources({required this.onAdoptionTap});
+
+  final VoidCallback onAdoptionTap;
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       children: [
-        Expanded(
+        const Expanded(
           child: _ResourceCard(
             icon: Icons.lightbulb_outline_rounded,
             title: 'Pet Care Tips',
@@ -1065,7 +1072,8 @@ class _HelpfulResources extends StatelessWidget {
           child: _ResourceCard(
             icon: Icons.favorite_border_rounded,
             title: 'Adoption',
-            subtitle: 'Coming soon',
+            subtitle: 'Adoption & rehoming',
+            onTap: onAdoptionTap,
           ),
         ),
       ],
@@ -1078,64 +1086,72 @@ class _ResourceCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 92,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppTheme.secondary.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: AppTheme.deepBrown, size: 21),
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        height: 92,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTheme.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppTheme.secondary.withValues(alpha: 0.22),
           ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.espresso,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.deepBrown,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppTheme.secondary.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: AppTheme.deepBrown, size: 21),
             ),
-          ),
-        ],
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.espresso,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.deepBrown,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

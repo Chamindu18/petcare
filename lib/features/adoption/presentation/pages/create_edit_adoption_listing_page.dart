@@ -168,6 +168,8 @@ class _CreateEditAdoptionListingPageState
     return AdoptionListing(
       listingId: existing?.listingId ?? '',
       providerId: existing?.providerId ?? '',
+      listingOwnerType: existing?.listingOwnerType ?? 'adoption_provider',
+      listingOwnerId: existing?.listingOwnerId,
       petName: _petNameController.text.trim(),
       species: _selectedSpecies!.trim(),
       breed: _optionalValue(_breedController.text),

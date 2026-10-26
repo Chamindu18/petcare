@@ -1,5 +1,5 @@
-/// Mutation operations available to the adoption provider when reviewing
-/// a request. Read/query operations remain in [AdoptionRequestRepository].
+/// Mutation operations for the authorized owner of a listing to review a request.
+/// The repository and Firestore rules verify the listing ownership and role.
 abstract interface class AdoptionRequestDecisionRepository {
   Future<void> acceptRequest({required String requestId, String? providerNote});
 
