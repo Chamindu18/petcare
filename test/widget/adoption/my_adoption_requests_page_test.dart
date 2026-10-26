@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:petcare/features/adoption/domain/entities/adoption_request.dart';
 import 'package:petcare/features/adoption/domain/repositories/adoption_request_repository.dart';
+import 'package:petcare/features/adoption/domain/repositories/adoption_request_withdrawal_repository.dart';
 import 'package:petcare/features/adoption/presentation/pages/my_adoption_requests_page.dart';
 
 class _FakeAdoptionRequestRepository implements AdoptionRequestRepository {
@@ -17,6 +18,8 @@ class _FakeAdoptionRequestRepository implements AdoptionRequestRepository {
   Future<void> createRequest({
     required String listingId,
     required String providerId,
+    String? recipientId,
+    String recipientType = 'adoption_provider',
     String? message,
   }) async {}
 
@@ -37,6 +40,38 @@ class _FakeAdoptionRequestRepository implements AdoptionRequestRepository {
   @override
   Stream<AdoptionRequest?> watchRequest({required String requestId}) {
     return const Stream.empty();
+  }
+}
+
+class _WithdrawableAdoptionRequestRepository
+    implements AdoptionRequestRepository, AdoptionRequestWithdrawalRepository {
+  _WithdrawableAdoptionRequestRepository(this.request);
+
+  final AdoptionRequest request;
+  String? withdrawnRequestId;
+
+  @override
+  Future<void> createRequest({
+    required String listingId,
+    required String providerId,
+    String? recipientId,
+    String recipientType = 'adoption_provider',
+    String? message,
+  }) async {}
+
+  @override
+  Stream<List<AdoptionRequest>> watchMyRequests() => Stream.value([request]);
+
+  @override
+  Stream<List<AdoptionRequest>> watchReceivedRequests() => Stream.value([]);
+
+  @override
+  Stream<AdoptionRequest?> watchRequest({required String requestId}) =>
+      Stream.value(requestId == request.requestId ? request : null);
+
+  @override
+  Future<void> withdrawRequest({required String requestId}) async {
+    withdrawnRequestId = requestId;
   }
 }
 
@@ -109,4 +144,33 @@ void main() {
     expect(find.text('Unable to load your adoption requests'), findsOneWidget);
     expect(find.text('Try again'), findsOneWidget);
   });
+
+  testWidgets('allows withdrawing a pending request with confirmation', (
+    tester,
+  ) async {
+    final repository = _WithdrawableAdoptionRequestRepository(
+      _createRequest(status: 'pending'),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MyAdoptionRequestsPage(
+          adoptionRequestRepository: repository,
+          withdrawalRepository: repository,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Withdraw request'), findsOneWidget);
+    await tester.tap(find.text('Withdraw request'));
+    await tester.pumpAndSettle();
+    expect(find.text('Withdraw this adoption request?'), findsOneWidget);
+
+    await tester.tap(find.text('Withdraw'));
+    await tester.pumpAndSettle();
+    expect(repository.withdrawnRequestId, 'request-1');
+    expect(find.text('Adoption request withdrawn.'), findsOneWidget);
+  });
+
 }

@@ -55,6 +55,8 @@ class _AdoptionRequestPageState extends State<AdoptionRequestPage> {
     await _provider.submitRequest(
       listingId: widget.listing.listingId,
       providerId: widget.listing.providerId,
+      recipientId: widget.listing.effectiveListingOwnerId,
+      recipientType: widget.listing.listingOwnerType,
       message: _messageController.text.trim(),
     );
 

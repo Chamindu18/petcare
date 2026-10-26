@@ -6,10 +6,13 @@ import '../../features/adoption/data/repositories/firebase_adoption_listing_repo
 import '../../features/adoption/data/repositories/firebase_adoption_request_repository.dart';
 import '../../features/adoption/domain/entities/adoption_listing.dart';
 import '../../features/adoption/presentation/pages/adoption_pet_details_page.dart';
+import '../../features/adoption/presentation/pages/adoption_listings_page.dart';
 import '../../features/adoption/presentation/pages/adoption_provider_dashboard_page.dart';
 import '../../features/adoption/presentation/pages/adoption_request_page.dart';
 import '../../features/adoption/presentation/pages/adoption_requests_page.dart';
 import '../../features/adoption/presentation/pages/adoption_request_details_page.dart';
+import '../../features/adoption/presentation/pages/my_adoption_requests_page.dart';
+import '../../features/adoption/presentation/pages/owner_rehoming_dashboard_page.dart';
 import '../../features/adoption/presentation/pages/create_edit_adoption_listing_page.dart';
 import '../../features/adoption/presentation/pages/my_adoption_listings_page.dart';
 import '../../features/adoption/presentation/providers/my_adoption_listings_provider.dart';
@@ -75,6 +78,7 @@ import '../../features/ai_assistant/presentation/pages/health_summary_page.dart'
 import '../../features/ai_assistant/presentation/pages/preventive_insights_page.dart';
 import '../../features/ai_assistant/presentation/pages/vet_visit_preparation_page.dart';
 import 'adoption_provider_access_gate.dart';
+import 'adoption_workspace_access_gate.dart';
 import 'owner_access_gate.dart';
 import 'role_based_home_page.dart';
 import '../../features/appointments/presentation/pages/my_appointments_page.dart';
@@ -84,6 +88,9 @@ import '../../features/appointments/presentation/pages/appointment_confirmation_
 import '../../features/appointments/data/repositories/firebase_appointment_repository.dart';
 import '../../features/appointments/domain/usecases/appointment_usecases.dart';
 import '../../features/appointments/presentation/providers/appointment_provider.dart';
+import '../../features/hospitals/data/repositories/firebase_hospital_repository.dart';
+import '../../features/services/data/repositories/firebase_service_repository.dart';
+import '../../features/veterinary/data/repositories/firebase_veterinarian_repository.dart';
 
 
 class AppRouter {
@@ -102,6 +109,7 @@ class AppRouter {
   static const String notifications = '/notifications';
   static const String myPets = '/my-pets';
   static const String addPet = '/add-pet';
+  static const String adoptionListings = '/adoption-listings';
   static const String adoptionPetDetails = '/adoption-pet-details';
   static const String adoptionRequest = '/adoption-request';
   static const String myAdoptionListings = '/my-adoption-listings';
@@ -111,6 +119,8 @@ class AppRouter {
   static const String createEditAdoptionListing =
       '/create-edit-adoption-listing';
   static const String adoptionRequestDetails = '/adoption-request-details';
+  static const String ownerRehomingDashboard = '/owner-rehoming';
+  static const String myAdoptionRequests = '/my-adoption-requests';
   static const String editProfile = '/edit-profile';
   static const String notificationSettings = '/notification-settings';
   static const String privacySecurity = '/privacy-security';
@@ -218,6 +228,7 @@ class AppRouter {
       myPets,
       notifications,
       addPet,
+      adoptionListings,
       adoptionPetDetails,
       adoptionRequest,
       myAdoptionListings,
@@ -225,6 +236,8 @@ class AppRouter {
       adoptionRequests,
       createEditAdoptionListing,
       adoptionRequestDetails,
+      ownerRehomingDashboard,
+      myAdoptionRequests,
       editProfile,
       notificationSettings,
       privacySecurity,
@@ -372,6 +385,12 @@ class AppRouter {
           settings: settings,
         );
 
+      case adoptionListings:
+        return MaterialPageRoute(
+          builder: (_) => const AdoptionListingsPage(),
+          settings: settings,
+        );
+
       case adoptionPetDetails:
         final listingId = settings.arguments as String?;
         return MaterialPageRoute(
@@ -388,10 +407,32 @@ class AppRouter {
 
       case myAdoptionListings:
         return MaterialPageRoute(
-          builder: (_) => AdoptionProviderAccessGate(
+          builder: (_) => AdoptionWorkspaceAccessGate(
             auth: auth,
             profileRepository: profileRepository,
             childBuilder: (_) => const MyAdoptionListingsPage(),
+          ),
+          settings: settings,
+        );
+
+      case ownerRehomingDashboard:
+        return MaterialPageRoute(
+          builder: (_) => AdoptionWorkspaceAccessGate(
+            auth: auth,
+            profileRepository: profileRepository,
+            allowedRoles: const {'owner'},
+            childBuilder: (_) => const OwnerRehomingDashboardPage(),
+          ),
+          settings: settings,
+        );
+
+      case myAdoptionRequests:
+        return MaterialPageRoute(
+          builder: (_) => AdoptionWorkspaceAccessGate(
+            auth: auth,
+            profileRepository: profileRepository,
+            allowedRoles: const {'owner'},
+            childBuilder: (_) => const MyAdoptionRequestsPage(),
           ),
           settings: settings,
         );
@@ -415,7 +456,7 @@ class AppRouter {
 
       case adoptionRequests:
         return MaterialPageRoute(
-          builder: (_) => AdoptionProviderAccessGate(
+          builder: (_) => AdoptionWorkspaceAccessGate(
             auth: auth,
             profileRepository: profileRepository,
             childBuilder: (_) => const AdoptionRequestsPage(),
@@ -435,7 +476,7 @@ class AppRouter {
         }
         final listing = arguments as AdoptionListing?;
         return MaterialPageRoute(
-          builder: (_) => AdoptionProviderAccessGate(
+          builder: (_) => AdoptionWorkspaceAccessGate(
             auth: auth,
             profileRepository: profileRepository,
             childBuilder: (_) =>
@@ -469,7 +510,7 @@ class AppRouter {
           );
         }
         return MaterialPageRoute(
-          builder: (_) => AdoptionProviderAccessGate(
+          builder: (_) => AdoptionWorkspaceAccessGate(
             auth: auth,
             profileRepository: profileRepository,
             childBuilder: (_) =>
@@ -594,10 +635,18 @@ class AppRouter {
 
         case myAppointments:
   final appointmentRepository = FirebaseAppointmentRepository();
+  final petRepository = FirebasePetRepository();
+  final hospitalRepository = FirebaseHospitalRepository();
+  final serviceRepository = FirebaseServiceRepository();
+  final veterinarianRepository = FirebaseVeterinarianRepository();
 
   final appointmentProvider = AppointmentProvider(
-  getAppointments: GetAppointments(appointmentRepository),
-);
+    getAppointments: GetAppointments(appointmentRepository),
+    petRepository: petRepository,
+    hospitalRepository: hospitalRepository,
+    serviceRepository: serviceRepository,
+    veterinarianRepository: veterinarianRepository,
+  );
 
   return MaterialPageRoute(
     builder: (_) => MyAppointmentsPage(

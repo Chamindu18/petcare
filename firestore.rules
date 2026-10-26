@@ -455,104 +455,434 @@ service cloud.firestore {
     // Adoption Listings
     // ============================================================
 
+    function listingOwnerType(data) {
+      // Legacy listings were provider-owned and only have providerId.
+      return data.get('listingOwnerType', 'adoption_provider');
+    }
+
+    function listingOwnerId(data) {
+      return data.get('listingOwnerId', data.get('providerId', ''));
+    }
+
+    function ownsListing(data) {
+      return signedIn()
+        && listingOwnerId(data) == request.auth.uid
+        && (
+          (listingOwnerType(data) == 'owner' && isOwner())
+          ||
+          (
+            listingOwnerType(data) == 'adoption_provider'
+            && isAdoptionProvider()
+            && data.get('providerId', request.auth.uid) == request.auth.uid
+          )
+        );
+    }
+
+    function validListingFields(data) {
+      return data.keys().hasAll([
+          'listingOwnerType', 'listingOwnerId', 'petName', 'species',
+          'gender', 'description', 'location', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'providerId', 'listingOwnerType', 'listingOwnerId', 'petName',
+          'species', 'breed', 'ageDescription', 'gender', 'description',
+          'location', 'imageAsset', 'status', 'contactNote', 'acceptedRequestId',
+          'createdAt', 'updatedAt'
+        ])
+        && data.listingOwnerType in ['owner', 'adoption_provider']
+        && data.listingOwnerId is string
+        && data.petName is string
+        && data.petName.size() > 0
+        && data.species is string
+        && data.gender is string
+        && data.description is string
+        && data.location is string
+        && data.status in ['draft', 'available', 'reserved']
+        && (
+          (
+            data.status == 'reserved'
+            && data.get('acceptedRequestId', null) is string
+            && data.get('acceptedRequestId', '').size() > 0
+          )
+          ||
+          (
+            data.status != 'reserved'
+            && !data.keys().hasAny(['acceptedRequestId'])
+          )
+        )
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (!data.keys().hasAny(['breed']) || data.breed is string)
+        && (!data.keys().hasAny(['ageDescription']) || data.ageDescription is string)
+        && (!data.keys().hasAny(['imageAsset']) || data.imageAsset is string)
+        && (!data.keys().hasAny(['contactNote']) || data.contactNote is string);
+    }
+
+    // Older provider clients do not write canonical ownership fields. Their
+    // compatibility path remains provider-only and still binds providerId to
+    // the authenticated account. New owner listings never use this path.
+    function validLegacyProviderListingFields(data) {
+      return data.keys().hasAll([
+          'providerId', 'petName', 'species', 'gender', 'description',
+          'location', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'providerId', 'petName', 'species', 'breed', 'ageDescription',
+          'gender', 'description', 'location', 'imageAsset', 'status',
+          'contactNote', 'createdAt', 'updatedAt'
+        ])
+        && data.providerId is string
+        && data.petName is string
+        && data.petName.size() > 0
+        && data.species is string
+        && data.gender is string
+        && data.description is string
+        && data.location is string
+        && data.status in ['draft', 'available']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (!data.keys().hasAny(['breed']) || data.breed is string)
+        && (!data.keys().hasAny(['ageDescription']) || data.ageDescription is string)
+        && (!data.keys().hasAny(['imageAsset']) || data.imageAsset is string)
+        && (!data.keys().hasAny(['contactNote']) || data.contactNote is string);
+    }
+
+    function acceptedRequestMatchesReservation(listingId, requestId) {
+      let acceptedRequest = getAfter(
+        /databases/$(database)/documents/adoption_requests/$(requestId)
+      ).data;
+      return acceptedRequest.status == 'accepted'
+        && acceptedRequest.listingId == listingId
+        && acceptedRequest.recipientId == request.auth.uid
+        && acceptedRequest.recipientType == listingOwnerType(resource.data)
+        && acceptedRequest.acceptedAt == request.time
+        && acceptedRequest.updatedAt == request.time;
+    }
+
+    function listingCanBeReserved(listingId) {
+      return request.resource.data.status == 'reserved'
+        && request.resource.data.get('acceptedRequestId', null) is string
+        && request.resource.data.get('acceptedRequestId', '').size() > 0
+        && ownsListing(resource.data)
+        && resource.data.status == 'available'
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'acceptedRequestId', 'updatedAt'
+        ])
+        && acceptedRequestMatchesReservation(
+          listingId,
+          request.resource.data.acceptedRequestId
+        );
+    }
+
+    function normalListingCanBeUpdated() {
+      return (
+          ownsListing(resource.data)
+          && validListingFields(request.resource.data)
+          && request.resource.data.status in ['draft', 'available']
+          && request.resource.data.listingOwnerType == listingOwnerType(resource.data)
+          && request.resource.data.listingOwnerId == listingOwnerId(resource.data)
+          && request.resource.data.get('providerId', '')
+            == resource.data.get('providerId', '')
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'providerId', 'listingOwnerType', 'listingOwnerId', 'petName',
+            'species', 'breed', 'ageDescription', 'gender', 'description',
+            'location', 'imageAsset', 'status', 'contactNote', 'updatedAt'
+          ])
+        )
+        || (
+          // Compatibility for previously released provider clients.
+          isAdoptionProvider()
+          && resource.data.get('providerId', '') == request.auth.uid
+          && request.resource.data.get('providerId', '')
+            == resource.data.get('providerId', '')
+          && request.resource.data.get('listingOwnerType', null)
+            == resource.data.get('listingOwnerType', null)
+          && request.resource.data.get('listingOwnerId', null)
+            == resource.data.get('listingOwnerId', null)
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.updatedAt is timestamp
+          && (
+            validListingFields(request.resource.data)
+            || validLegacyProviderListingFields(request.resource.data)
+          )
+          && request.resource.data.status in ['draft', 'available']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'providerId', 'listingOwnerType', 'listingOwnerId', 'petName',
+            'createdAt', 'species', 'breed', 'ageDescription', 'gender',
+            'description', 'location', 'imageAsset', 'status', 'contactNote',
+            'updatedAt'
+          ])
+        );
+    }
+
     match /adoption_listings/{listingId} {
-      // Authenticated users can discover listings.
-      allow read: if signedIn();
+      // Authenticated users can discover listings; owner-specific management
+      // is separately restricted by ownsListing().
+    allow read: if signedIn()
+        && (
+          resource.data.status != 'draft'
+          || ownsListing(resource.data)
+        );
 
-      allow create: if isAdoptionProvider()
-        && request.resource.data.providerId == request.auth.uid;
+      allow create: if signedIn()
+        && (
+          (
+            validListingFields(request.resource.data)
+            && request.resource.data.status in ['draft', 'available']
+            && request.resource.data.createdAt == request.time
+            && request.resource.data.updatedAt == request.time
+            && (
+              (
+                isOwner()
+                && request.resource.data.listingOwnerType == 'owner'
+                && request.resource.data.listingOwnerId == request.auth.uid
+                && !request.resource.data.keys().hasAny(['providerId'])
+              )
+              ||
+              (
+                isAdoptionProvider()
+                && request.resource.data.listingOwnerType == 'adoption_provider'
+                && request.resource.data.listingOwnerId == request.auth.uid
+                && request.resource.data.providerId == request.auth.uid
+              )
+            )
+          )
+          ||
+          (
+            isAdoptionProvider()
+            && validLegacyProviderListingFields(request.resource.data)
+            && request.resource.data.providerId == request.auth.uid
+          )
+        );
 
-      allow update: if isAdoptionProvider()
-        && resource.data.providerId == request.auth.uid
-        && request.resource.data.providerId == resource.data.providerId;
-
-      allow delete: if isAdoptionProvider()
-        && resource.data.providerId == request.auth.uid;
+      allow update: if request.resource.data.status == 'reserved'
+        ? listingCanBeReserved(listingId)
+        : normalListingCanBeUpdated();
+      allow delete: if false;
     }
 
     // ============================================================
     // Adoption Requests
     // ============================================================
 
-    match /adoption_requests/{requestId} {
-      // Requester can read their request. Provider can read requests addressed
-      // to their own provider UID.
-      allow read: if signedIn()
+    // Canonical fields are populated by current clients or the trusted
+    // backfill. This field-only predicate is suitable for list queries: it
+    // lets Firestore prove query authorization without turning rules into a
+    // post-query filter.
+    function canonicalRequestRecipient(data) {
+      return signedIn()
+        && data.get('recipientId', '') == request.auth.uid
         && (
-          resource.data.requesterId == request.auth.uid
-          || resource.data.providerId == request.auth.uid
+          (data.get('recipientType', '') == 'owner' && isOwner())
+          ||
+          (data.get('recipientType', '') == 'adoption_provider'
+            && isAdoptionProvider())
         );
+    }
 
-      // Requests must refer to an existing, available listing and the
-      // provider recorded on that listing.
-      allow create: if isOwner()
-        && request.resource.data.requesterId == request.auth.uid
+    // Direct reads and decisions also verify that the canonical recipient
+    // still owns the referenced listing. Do not fall back to providerId here:
+    // an unbackfilled legacy record is not evidence of current ownership.
+    function authorizedRequestRecipient(data) {
+      return canonicalRequestRecipient(data)
+        && data.listingId is string
         && exists(
-          /databases/$(database)/documents/adoption_listings/$(request.resource.data.listingId)
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        )
+        && listingOwnerType(get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data) == data.recipientType
+        && listingOwnerId(get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data) == data.recipientId;
+    }
+
+    function validNewAdoptionRequest(data) {
+      return data.keys().hasAll([
+          'listingId', 'requesterId', 'recipientId', 'recipientType',
+          'status', 'submittedAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'listingId', 'requesterId', 'providerId', 'recipientId',
+          'recipientType', 'message', 'status', 'submittedAt', 'updatedAt'
+        ])
+        && data.listingId is string
+        && data.requesterId is string
+        && data.requesterId == request.auth.uid
+        && data.recipientId is string
+        && data.recipientId != request.auth.uid
+        && data.recipientType in ['owner', 'adoption_provider']
+        && data.status == 'pending'
+        && data.submittedAt == request.time
+        && data.updatedAt == request.time
+        && (!data.keys().hasAny(['message']) ||
+          (data.message is string && data.message.size() <= 500))
+        && exists(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
         )
         && get(
-          /databases/$(database)/documents/adoption_listings/$(request.resource.data.listingId)
-        ).data.providerId == request.resource.data.providerId
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data.status == 'available'
+        && listingOwnerId(get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data) == data.recipientId
+        && listingOwnerType(get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data) == data.recipientType
         && get(
-          /databases/$(database)/documents/adoption_listings/$(request.resource.data.listingId)
-        ).data.status == 'available';
-
-      // Keep the existing requester update behavior and immutable relationships.
-      // Provider updates are limited to a single pending -> accepted/rejected
-      // decision and the related timestamps/optional provider note.
-      allow update: if signedIn()
+          /databases/$(database)/documents/users/$(data.recipientId)
+        ).data.role == data.recipientType
         && (
           (
-            isOwner()
-            && resource.data.requesterId == request.auth.uid
-            && request.resource.data.requesterId == resource.data.requesterId
-            && request.resource.data.providerId == resource.data.providerId
-            && request.resource.data.listingId == resource.data.listingId
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'updatedAt'
-            ])
+            data.recipientType == 'owner'
+            && !data.keys().hasAny(['providerId'])
           )
           ||
           (
-            isAdoptionProvider()
-            && resource.data.providerId == request.auth.uid
-            && request.resource.data.providerId
-              == resource.data.providerId
-            && request.resource.data.requesterId
-              == resource.data.requesterId
-            && request.resource.data.listingId
-              == resource.data.listingId
-            && resource.data.status == 'pending'
-            && request.resource.data.status in ['accepted', 'rejected']
-            && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly([
-                'status',
-                'updatedAt',
-                'acceptedAt',
-                'closedAt',
-                'providerNote'
-              ])
-            && request.resource.data.updatedAt == request.time
-            && (
-              (
-                request.resource.data.status == 'accepted'
-                && request.resource.data.acceptedAt == request.time
-                && request.resource.data.get('closedAt', null)
-                  == resource.data.get('closedAt', null)
-              )
-              ||
-              (
-                request.resource.data.status == 'rejected'
-                && request.resource.data.closedAt == request.time
-                && request.resource.data.get('acceptedAt', null)
-                  == resource.data.get('acceptedAt', null)
-              )
-            )
+            data.recipientType == 'adoption_provider'
+            && data.get('providerId', '') == data.recipientId
           )
         );
+    }
 
-      allow delete: if isOwner()
-        && resource.data.requesterId == request.auth.uid;
+    function ownerCanWithdrawRequest() {
+      return isOwner()
+        && resource.data.requesterId == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'withdrawn'
+        && request.resource.data.requesterId == resource.data.requesterId
+        && request.resource.data.listingId == resource.data.listingId
+        && request.resource.data.get('recipientId', null)
+          == resource.data.get('recipientId', null)
+        && request.resource.data.get('recipientType', null)
+          == resource.data.get('recipientType', null)
+        && request.resource.data.get('providerId', null)
+          == resource.data.get('providerId', null)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'updatedAt', 'closedAt'
+        ])
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.closedAt == request.time
+        && request.resource.data.get('acceptedAt', null)
+          == resource.data.get('acceptedAt', null);
+    }
+
+    function recipientCanDecideRequest(requestId) {
+      return authorizedRequestRecipient(resource.data)
+        && resource.data.status == 'pending'
+        && request.resource.data.status in ['accepted', 'rejected']
+        && request.resource.data.requesterId == resource.data.requesterId
+        && request.resource.data.listingId == resource.data.listingId
+        && request.resource.data.get('recipientId', null)
+          == resource.data.get('recipientId', null)
+        && request.resource.data.get('recipientType', null)
+          == resource.data.get('recipientType', null)
+        && request.resource.data.get('providerId', null)
+          == resource.data.get('providerId', null)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'updatedAt', 'acceptedAt', 'closedAt', 'providerNote'
+        ])
+        && request.resource.data.updatedAt == request.time
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['providerNote']) ||
+          (request.resource.data.providerNote is string
+            && request.resource.data.providerNote.size() <= 500))
+        && (
+          request.resource.data.status == 'accepted'
+          ? (
+              get(
+                /databases/$(database)/documents/adoption_listings/$(resource.data.listingId)
+              ).data.status == 'available'
+              && getAfter(
+                /databases/$(database)/documents/adoption_listings/$(resource.data.listingId)
+              ).data.status == 'reserved'
+              && getAfter(
+                /databases/$(database)/documents/adoption_listings/$(resource.data.listingId)
+              ).data.acceptedRequestId == requestId
+              && request.resource.data.acceptedAt == request.time
+              && request.resource.data.get('closedAt', null)
+                == resource.data.get('closedAt', null)
+          )
+          : (
+              request.resource.data.status == 'rejected'
+              && request.resource.data.closedAt == request.time
+              && request.resource.data.get('acceptedAt', null)
+                == resource.data.get('acceptedAt', null)
+          )
+        );
+    }
+
+    // Previously released clients submit provider requests with only
+    // providerId. Keep this path provider-only and validate it against the
+    // current available listing before allowing creation.
+    function validLegacyProviderRequest(data) {
+      return data.keys().hasAll([
+          'listingId', 'requesterId', 'providerId', 'status',
+          'submittedAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'listingId', 'requesterId', 'providerId', 'message', 'status',
+          'submittedAt', 'updatedAt'
+        ])
+        && data.listingId is string
+        && data.requesterId == request.auth.uid
+        && data.providerId is string
+        && data.providerId != request.auth.uid
+        && data.status == 'pending'
+        && data.submittedAt == request.time
+        && data.updatedAt == request.time
+        && (!data.keys().hasAny(['message']) ||
+          (data.message is string && data.message.size() <= 500))
+        && exists(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        )
+        && get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data.status == 'available'
+        && listingOwnerType(get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data) == 'adoption_provider'
+        && listingOwnerId(get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data) == data.providerId
+        && get(
+          /databases/$(database)/documents/users/$(data.providerId)
+        ).data.role == 'adoption_provider';
+    }
+
+    match /adoption_requests/{requestId} {
+      // A direct recipient read also verifies the request's referenced listing.
+      // Legacy requests become directly readable after the trusted backfill
+      // writes canonical recipient fields for verified relationships.
+      allow get: if signedIn()
+        && (
+          resource.data.requesterId == request.auth.uid
+          || authorizedRequestRecipient(resource.data)
+        );
+
+      // List queries rely only on canonical recipient fields so Firestore can
+      // prove the query is scoped to one recipient. The trusted backfill must
+      // clear recipient fields on missing/mismatched legacy relationships
+      // before this rule is rolled out; rules do not filter query results.
+      allow list: if signedIn()
+        && (
+          resource.data.requesterId == request.auth.uid
+          || canonicalRequestRecipient(resource.data)
+        );
+
+      allow create: if isOwner()
+        && (validNewAdoptionRequest(request.resource.data)
+          || validLegacyProviderRequest(request.resource.data));
+
+      allow update: if request.resource.data.status == 'withdrawn'
+        ? ownerCanWithdrawRequest()
+        : recipientCanDecideRequest(requestId);
+
+      // Withdrawal retains history; clients cannot physically delete requests.
+      allow delete: if false;
     }
 
     // ============================================================

@@ -55,6 +55,12 @@ import 'package:petcare/features/pets/presentation/providers/pets_controller.dar
 import 'package:petcare/features/profile/domain/entities/user_profile.dart';
 import 'package:petcare/features/profile/domain/repositories/profile_repository.dart';
 import 'package:petcare/features/profile/presentation/pages/profile_page.dart';
+import 'package:petcare/features/hospitals/domain/repositories/hospital_repository.dart';
+import 'package:petcare/features/services/domain/repositories/service_repository.dart';
+import 'package:petcare/features/veterinary/domain/repositories/veterinarian_repository.dart';
+import 'package:petcare/features/hospitals/domain/entities/hospital.dart';
+import 'package:petcare/features/services/domain/entities/service.dart';
+import 'package:petcare/features/veterinary/domain/entities/veterinarian.dart';
 
 class _FakePetRepository implements PetRepository {
   @override
@@ -71,6 +77,35 @@ class _FakePetRepository implements PetRepository {
 
   @override
   Future<void> deletePet(String petId) async {}
+}
+
+class _FakeHospitalRepository implements HospitalRepository {
+  @override
+  Future<List<Hospital>> getHospitals() async => [];
+
+  @override
+  Future<Hospital?> getHospitalById(String hospitalId) async => null;
+}
+
+class _FakeServiceRepository implements ServiceRepository {
+  @override
+  Future<List<Service>> getServicesByHospital(String hospitalId) async => [];
+
+  @override
+  Future<Service?> getServiceById(String serviceId) async => null;
+}
+
+class _FakeVeterinarianRepository implements VeterinarianRepository {
+  @override
+  Future<List<Veterinarian>> getVeterinarians() async => [];
+
+  @override
+  Future<List<Veterinarian>> getVeterinariansByHospital(
+    String hospitalId,
+  ) async => [];
+
+  @override
+  Future<Veterinarian?> getVeterinarianById(String vetId) async => null;
 }
 
 class _FakePetImageRepository implements PetImageRepository {
@@ -334,7 +369,11 @@ void main() {
       routeCapture = _RouteCapture();
       healthController = _createFakeHealthController();
       appointmentProvider = AppointmentProvider(
-        getAppointments: GetAppointments(_FakeAppointmentRepository()),
+      getAppointments: GetAppointments(_FakeAppointmentRepository()),
+      petRepository: _FakePetRepository(),
+      hospitalRepository: _FakeHospitalRepository(),
+      serviceRepository: _FakeServiceRepository(),
+      veterinarianRepository: _FakeVeterinarianRepository(),
       );
     });
 
