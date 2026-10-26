@@ -58,9 +58,11 @@ class HospitalDetailsProvider extends ChangeNotifier {
       if (_hospital == null) {
         _errorMessage = 'Hospital not found.';
       }
-    } catch (error) {
-      _errorMessage = 'Unable to load hospital details. Please try again.';
-    } finally {
+    } catch (error, stackTrace) {
+  debugPrint('HOSPITAL DETAILS ERROR: $error');
+  debugPrintStack(stackTrace: stackTrace);
+  _errorMessage = 'Unable to load hospital details. Please try again.';
+} finally {
       _isLoading = false;
       notifyListeners();
     }
