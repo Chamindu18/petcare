@@ -6,10 +6,7 @@ import '../providers/appointment_provider.dart';
 
 ///  Shows the signed-in owner's appointments.
 class MyAppointmentsPage extends StatefulWidget {
-  const MyAppointmentsPage({
-    required this.provider,
-    super.key,
-  });
+  const MyAppointmentsPage({required this.provider, super.key});
 
   final AppointmentProvider provider;
 
@@ -30,17 +27,13 @@ class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        title: const Text('My Appointments'),
-      ),
+      appBar: AppBar(title: const Text('My Appointments')),
       body: AnimatedBuilder(
         animation: widget.provider,
         builder: (context, _) {
           // Show loading state.
           if (widget.provider.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
 
           // Show error state with retry.
@@ -68,6 +61,7 @@ class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
 
                 return _AppointmentCard(
                   appointment: appointment,
+                  provider: widget.provider,
                 );
               },
             ),
@@ -80,11 +74,10 @@ class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
 
 /// Displays one appointment summary.
 class _AppointmentCard extends StatelessWidget {
-  const _AppointmentCard({
-    required this.appointment,
-  });
+  const _AppointmentCard({required this.appointment, required this.provider});
 
   final Appointment appointment;
+  final AppointmentProvider provider;
 
   @override
   Widget build(BuildContext context) {
@@ -125,13 +118,33 @@ class _AppointmentCard extends StatelessWidget {
             _InfoRow(
               icon: Icons.pets_outlined,
               label: 'Pet',
-              value: appointment.petId,
+              value:
+                  provider.getPet(appointment.petId)?.name ?? appointment.petId,
             ),
             const SizedBox(height: 10),
             _InfoRow(
               icon: Icons.local_hospital_outlined,
               label: 'Hospital',
-              value: appointment.hospitalId,
+              value:
+                  provider.getHospital(appointment.hospitalId)?.name ??
+                  appointment.hospitalId,
+            ),
+
+            const SizedBox(height: 10),
+            _InfoRow(
+              icon: Icons.medical_services_outlined,
+              label: 'Service',
+              value:
+                  provider.getService(appointment.serviceId)?.name ??
+                  appointment.serviceId,
+            ),
+            const SizedBox(height: 10),
+            _InfoRow(
+              icon: Icons.person_outline,
+              label: 'Veterinarian',
+              value:
+                  provider.getVeterinarian(appointment.vetId)?.name ??
+                  appointment.vetId,
             ),
             if (appointment.reason.trim().isNotEmpty) ...[
               const SizedBox(height: 10),
@@ -164,29 +177,22 @@ class _AppointmentCard extends StatelessWidget {
 
 /// Displays appointment status.
 class _StatusChip extends StatelessWidget {
-  const _StatusChip({
-    required this.status,
-  });
+  const _StatusChip({required this.status});
 
   final String status;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: AppTheme.secondary.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         status,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: AppTheme.deepBrown,
-          fontWeight: FontWeight.w700,
-        ),
+        style: Theme.of(context).textTheme.labelMedium
+            ?.copyWith(color: AppTheme.deepBrown, fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -222,9 +228,8 @@ class _EmptyState extends StatelessWidget {
             Text(
               'Your booked appointments will appear here.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.deepBrown,
-              ),
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: AppTheme.deepBrown),
             ),
           ],
         ),
@@ -235,10 +240,7 @@ class _EmptyState extends StatelessWidget {
 
 /// Error state with retry action.
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ErrorState({required this.message, required this.onRetry});
 
   final String message;
   final Future<void> Function() onRetry;
@@ -251,20 +253,11 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.error_outline,
-              size: 56,
-            ),
+            const Icon(Icons.error_outline, size: 56),
             const SizedBox(height: 16),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-            ),
+            Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: onRetry,
-              child: const Text('Try Again'),
-            ),
+            ElevatedButton(onPressed: onRetry, child: const Text('Try Again')),
           ],
         ),
       ),
@@ -289,24 +282,17 @@ class _InfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 20,
-          color: AppTheme.deepBrown,
-        ),
+        Icon(icon, size: 20, color: AppTheme.deepBrown),
         const SizedBox(width: 10),
         Expanded(
           child: RichText(
             text: TextSpan(
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.deepBrown,
-              ),
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: AppTheme.deepBrown),
               children: [
                 TextSpan(
                   text: '$label: ',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 TextSpan(text: value),
               ],

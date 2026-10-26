@@ -45,6 +45,10 @@ import '../../../appointments/data/repositories/firebase_appointment_repository.
 import '../../../appointments/domain/usecases/appointment_usecases.dart';
 import '../../../appointments/presentation/pages/my_appointments_page.dart';
 import '../../../appointments/presentation/providers/appointment_provider.dart';
+import '../../../hospitals/data/repositories/firebase_hospital_repository.dart';
+import '../../../services/data/repositories/firebase_service_repository.dart';
+import '../../../veterinary/data/repositories/firebase_veterinarian_repository.dart';
+
 import 'home_page.dart';
 
 class OwnerShellPage extends StatefulWidget {
@@ -171,13 +175,19 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
       _appointmentProvider = widget.appointmentProvider!;
       _ownsAppointmentProvider = false;
     } else {
-      final appointmentRepository = FirebaseAppointmentRepository(
-        auth: widget.auth ?? FirebaseAuth.instance,
-      );
+      final appointmentRepository = FirebaseAppointmentRepository();
+final petRepository = FirebasePetRepository();
+final hospitalRepository = FirebaseHospitalRepository();
+final serviceRepository = FirebaseServiceRepository();
+final veterinarianRepository = FirebaseVeterinarianRepository();
 
-      _appointmentProvider = AppointmentProvider(
-        getAppointments: GetAppointments(appointmentRepository),
-      );
+_appointmentProvider = AppointmentProvider(
+  getAppointments: GetAppointments(appointmentRepository),
+  petRepository: petRepository,
+  hospitalRepository: hospitalRepository,
+  serviceRepository: serviceRepository,
+  veterinarianRepository: veterinarianRepository,
+);
 
       _ownsAppointmentProvider = true;
     }
