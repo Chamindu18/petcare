@@ -84,6 +84,9 @@ import '../../features/appointments/presentation/pages/appointment_confirmation_
 import '../../features/appointments/data/repositories/firebase_appointment_repository.dart';
 import '../../features/appointments/domain/usecases/appointment_usecases.dart';
 import '../../features/appointments/presentation/providers/appointment_provider.dart';
+import '../../features/hospitals/data/repositories/firebase_hospital_repository.dart';
+import '../../features/services/data/repositories/firebase_service_repository.dart';
+import '../../features/veterinary/data/repositories/firebase_veterinarian_repository.dart';
 
 
 class AppRouter {
@@ -594,10 +597,18 @@ class AppRouter {
 
         case myAppointments:
   final appointmentRepository = FirebaseAppointmentRepository();
+  final petRepository = FirebasePetRepository();
+  final hospitalRepository = FirebaseHospitalRepository();
+  final serviceRepository = FirebaseServiceRepository();
+  final veterinarianRepository = FirebaseVeterinarianRepository();
 
   final appointmentProvider = AppointmentProvider(
-  getAppointments: GetAppointments(appointmentRepository),
-);
+    getAppointments: GetAppointments(appointmentRepository),
+    petRepository: petRepository,
+    hospitalRepository: hospitalRepository,
+    serviceRepository: serviceRepository,
+    veterinarianRepository: veterinarianRepository,
+  );
 
   return MaterialPageRoute(
     builder: (_) => MyAppointmentsPage(
