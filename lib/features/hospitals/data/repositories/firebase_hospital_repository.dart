@@ -4,20 +4,20 @@ import '../../domain/entities/hospital.dart';
 import '../../domain/repositories/hospital_repository.dart';
 import '../models/hospital_model.dart';
 
-/// Reads hospital data from Firestore.
+/// Firebase implementation of the hospital repository.
 class FirebaseHospitalRepository implements HospitalRepository {
-  FirebaseHospitalRepository({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+  FirebaseHospitalRepository({
+    FirebaseFirestore? firestore,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
-  // Reference to the hospitals collection.
   CollectionReference<Map<String, dynamic>> get _hospitalsCollection =>
       _firestore.collection('hospitals');
 
   @override
   Future<List<Hospital>> getHospitals() async {
-    // Only show hospitals marked as active.
+    // Only active hospitals are shown to pet owners.
     final snapshot = await _hospitalsCollection
         .where('active', isEqualTo: true)
         .get();
@@ -29,7 +29,6 @@ class FirebaseHospitalRepository implements HospitalRepository {
 
   @override
   Future<Hospital?> getHospitalById(String hospitalId) async {
-    // Get one hospital using its Firestore document ID.
     final document = await _hospitalsCollection.doc(hospitalId).get();
 
     if (!document.exists) {

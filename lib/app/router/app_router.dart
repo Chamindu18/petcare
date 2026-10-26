@@ -68,7 +68,7 @@ import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/help_support_page.dart';
 import '../../features/profile/presentation/pages/notification_settings_page.dart';
 import '../../features/profile/presentation/pages/privacy_security_page.dart';
-import '../../../../core/config/cloudinary_config.dart';
+import '../../core/config/cloudinary_config.dart';
 import '../../features/hospitals/presentation/pages/hospital_discovery_page.dart';
 import '../../features/hospitals/presentation/pages/hospital_details_page.dart';
 import '../../features/appointments/presentation/pages/book_appointment_page.dart';
@@ -79,11 +79,22 @@ import '../../features/ai_assistant/presentation/pages/preventive_insights_page.
 import '../../features/ai_assistant/presentation/pages/vet_visit_preparation_page.dart';
 import 'adoption_provider_access_gate.dart';
 import 'adoption_workspace_access_gate.dart';
+import 'owner_access_gate.dart';
 import 'role_based_home_page.dart';
+import '../../features/appointments/presentation/pages/my_appointments_page.dart';
+
+import '../../features/appointments/domain/entities/appointment.dart';
+import '../../features/appointments/presentation/pages/appointment_confirmation_page.dart';
+import '../../features/appointments/data/repositories/firebase_appointment_repository.dart';
+import '../../features/appointments/domain/usecases/appointment_usecases.dart';
+import '../../features/appointments/presentation/providers/appointment_provider.dart';
+import '../../features/hospitals/data/repositories/firebase_hospital_repository.dart';
+import '../../features/services/data/repositories/firebase_service_repository.dart';
+import '../../features/veterinary/data/repositories/firebase_veterinarian_repository.dart';
+
 
 class AppRouter {
   AppRouter._();
-
   static const String splash = '/';
   static const String onboarding = '/onboarding';
   static const String onboardingSlides = '/onboarding-slides';
@@ -116,17 +127,34 @@ class AppRouter {
   static const String helpSupport = '/help-support';
   static const String aboutPetCare = '/about-petcare';
   static const String petProfile = '/pet-profile';
-
   static const String hospitalDiscovery = '/hospitals';
   static const String hospitalDetails = '/hospital-details';
   static const String bookAppointment = '/book-appointment';
-
   static const String aiHub = '/ai-hub';
   static const String aiChat = '/ai-chat';
   static const String healthSummary = '/health-summary';
   static const String preventiveInsights = '/preventive-insights';
   static const String vetVisitPreparation = '/vet-visit-preparation';
+  static const String appointmentConfirmation = '/appointment-confirmation';
+  static const String myAppointments = '/my-appointments';
 
+  // Routes whose data and workflows are specific to pet owners.
+  // Adoption routes intentionally remain under their existing provider gate
+  // or pending adoption-specific ownership contract.
+  static const Set<String> _ownerOnlyRoutes = <String>{
+    myPets,
+    addPet,
+    petProfile,
+    hospitalDiscovery,
+    hospitalDetails,
+    bookAppointment,
+    appointmentConfirmation,
+    aiHub,
+    aiChat,
+    healthSummary,
+    preventiveInsights,
+    vetVisitPreparation,
+  };
   // Public routes are handled here.
   // Protected routes are handled in onGenerateRoute()
   // so that authentication checks cannot be bypassed.
@@ -137,21 +165,15 @@ class AppRouter {
     login: (_) => const LoginPage(),
     register: (_) => const RegisterPage(),
     forgotPassword: (_) => const ForgotPasswordPage(),
-
     checkEmail: (context) {
       final email = ModalRoute.of(context)?.settings.arguments as String? ?? '';
-
       return CheckEmailPage(email: email);
     },
-
     resetPassword: (context) {
       final code = ModalRoute.of(context)?.settings.arguments as String?;
-
       return ResetPasswordPage(code: code);
     },
-
     passwordResetSuccess: (_) => const PasswordResetSuccessPage(),
-
     registrationSuccess: (_) => const RegistrationSuccessPage(),
   };
 
@@ -175,8 +197,32 @@ class AppRouter {
     FirebaseAuth auth,
     ProfileRepository? profileRepository,
   ) {
-    final isAuthenticated = auth.currentUser != null;
+    final route = _buildRoute(settings, auth, profileRepository);
 
+    if (route == null ||
+        auth.currentUser == null ||
+        !_ownerOnlyRoutes.contains(settings.name) ||
+        route is! MaterialPageRoute<dynamic>) {
+      return route;
+    }
+
+    // Reuse the route's builder and settings so route arguments remain intact.
+    return MaterialPageRoute<dynamic>(
+      builder: (_) => OwnerAccessGate(
+        auth: auth,
+        profileRepository: profileRepository,
+        childBuilder: route.builder,
+      ),
+      settings: settings,
+    );
+  }
+
+  static Route<dynamic>? _buildRoute(
+    RouteSettings settings,
+    FirebaseAuth auth,
+    ProfileRepository? profileRepository,
+  ) {
+    final isAuthenticated = auth.currentUser != null;
     final protectedRoutes = {
       home,
       myPets,
@@ -201,13 +247,14 @@ class AppRouter {
       hospitalDiscovery,
       hospitalDetails,
       bookAppointment,
+      appointmentConfirmation,
       aiHub,
       aiChat,
       healthSummary,
       preventiveInsights,
       vetVisitPreparation,
+      myAppointments,
     };
-
     // Protect routes that require authentication.
     if (protectedRoutes.contains(settings.name) && !isAuthenticated) {
       return MaterialPageRoute(
@@ -215,7 +262,6 @@ class AppRouter {
         settings: settings,
       );
     }
-
     switch (settings.name) {
       case home:
         return MaterialPageRoute(
@@ -236,15 +282,13 @@ class AppRouter {
         return MaterialPageRoute(
           builder: (_) {
             final repository = FirebasePetRepository(
-              auth: FirebaseAuth.instance,
+              auth: auth,
               firestore: FirebaseFirestore.instance,
             );
-
             final imageRepository = CloudinaryPetImageRepository(
               cloudName: CloudinaryConfig.cloudName,
               uploadPreset: CloudinaryConfig.uploadPreset,
             );
-
             final controller = PetsController(
               CreatePet(repository),
               GetPets(repository),
@@ -253,17 +297,12 @@ class AppRouter {
               UploadPetImage(imageRepository),
               DeletePetImage(imageRepository),
             );
-
             final medicalConditionRepository =
                 FirebaseMedicalConditionRepository();
-
             final vaccinationRepository = FirebaseVaccinationRepository();
-
             final treatmentRepository = FirebaseTreatmentRepository();
-
             final healthMeasurementRepository =
                 FirebaseHealthMeasurementRepository();
-
             final healthController = HealthController(
               createMedicalCondition: CreateMedicalCondition(
                 medicalConditionRepository,
@@ -298,7 +337,6 @@ class AppRouter {
                 healthMeasurementRepository,
               ),
             );
-
             return MyPetsPage(
               controller: controller,
               healthController: healthController,
@@ -311,7 +349,6 @@ class AppRouter {
 
       case petProfile:
         final args = settings.arguments;
-
         return MaterialPageRoute(
           builder: (_) {
             if (args is! PetProfileRouteArgs) {
@@ -319,7 +356,6 @@ class AppRouter {
                 body: Center(child: Text('Unable to open pet profile.')),
               );
             }
-
             return PetProfilePage(
               pet: args.pet,
               controller: args.controller,
@@ -333,18 +369,15 @@ class AppRouter {
         return MaterialPageRoute(
           builder: (context) {
             final arguments = ModalRoute.of(context)?.settings.arguments;
-
             if (arguments is AddEditPetRouteArgs) {
               return AddEditPetPage(
                 controller: arguments.controller,
                 pet: arguments.pet,
               );
             }
-
             if (arguments is PetsController) {
               return AddEditPetPage(controller: arguments);
             }
-
             return const Scaffold(
               body: Center(child: Text('Unable to open Add Pet.')),
             );
@@ -360,7 +393,6 @@ class AppRouter {
 
       case adoptionPetDetails:
         final listingId = settings.arguments as String?;
-
         return MaterialPageRoute(
           builder: (_) {
             if (listingId == null || listingId.isEmpty) {
@@ -368,7 +400,6 @@ class AppRouter {
                 body: Center(child: Text('Adoption listing ID is required.')),
               );
             }
-
             return AdoptionPetDetailsPage(listingId: listingId);
           },
           settings: settings,
@@ -435,7 +466,6 @@ class AppRouter {
 
       case createEditAdoptionListing:
         final arguments = settings.arguments;
-
         if (arguments != null && arguments is! AdoptionListing) {
           return MaterialPageRoute(
             builder: (_) => const Scaffold(
@@ -444,9 +474,7 @@ class AppRouter {
             settings: settings,
           );
         }
-
         final listing = arguments as AdoptionListing?;
-
         return MaterialPageRoute(
           builder: (_) => AdoptionWorkspaceAccessGate(
             auth: auth,
@@ -459,7 +487,6 @@ class AppRouter {
 
       case adoptionRequest:
         final listing = settings.arguments as AdoptionListing?;
-
         return MaterialPageRoute(
           builder: (_) {
             if (listing == null) {
@@ -467,7 +494,6 @@ class AppRouter {
                 body: Center(child: Text('Adoption listing is required.')),
               );
             }
-
             return AdoptionRequestPage(listing: listing);
           },
           settings: settings,
@@ -475,7 +501,6 @@ class AppRouter {
 
       case adoptionRequestDetails:
         final requestId = settings.arguments;
-
         if (requestId is! String || requestId.isEmpty) {
           return MaterialPageRoute(
             builder: (_) => const Scaffold(
@@ -484,7 +509,6 @@ class AppRouter {
             settings: settings,
           );
         }
-
         return MaterialPageRoute(
           builder: (_) => AdoptionWorkspaceAccessGate(
             auth: auth,
@@ -497,7 +521,6 @@ class AppRouter {
 
       case editProfile:
         final profile = settings.arguments as UserProfile?;
-
         return MaterialPageRoute(
           builder: (_) {
             if (profile == null) {
@@ -505,7 +528,6 @@ class AppRouter {
                 body: Center(child: Text('Unable to open Edit Profile.')),
               );
             }
-
             return EditProfilePage(profile: profile);
           },
           settings: settings,
@@ -513,7 +535,6 @@ class AppRouter {
 
       case notificationSettings:
         final profile = settings.arguments as UserProfile?;
-
         return MaterialPageRoute(
           builder: (_) {
             if (profile == null) {
@@ -523,7 +544,6 @@ class AppRouter {
                 ),
               );
             }
-
             return NotificationSettingsPage(profile: profile);
           },
           settings: settings,
@@ -546,26 +566,31 @@ class AppRouter {
           builder: (_) => const AboutPetCarePage(),
           settings: settings,
         );
+
       case aiHub:
         return MaterialPageRoute(
           builder: (_) => const AIHubPage(),
           settings: settings,
         );
+
       case aiChat:
         return MaterialPageRoute(
           builder: (_) => const AIChatPage(),
           settings: settings,
         );
+
       case healthSummary:
         return MaterialPageRoute(
           builder: (_) => const HealthSummaryPage(),
           settings: settings,
         );
+
       case preventiveInsights:
         return MaterialPageRoute(
           builder: (_) => const PreventiveInsightsPage(),
           settings: settings,
         );
+
       case vetVisitPreparation:
         return MaterialPageRoute(
           builder: (_) => const VetVisitPreparationPage(),
@@ -580,7 +605,6 @@ class AppRouter {
 
       case hospitalDetails:
         final hospitalId = settings.arguments;
-
         if (hospitalId is! String || hospitalId.isEmpty) {
           return MaterialPageRoute(
             builder: (_) => const Scaffold(
@@ -589,15 +613,50 @@ class AppRouter {
             settings: settings,
           );
         }
-
         return MaterialPageRoute(
           builder: (_) => HospitalDetailsPage(hospitalId: hospitalId),
           settings: settings,
         );
 
+      case appointmentConfirmation:
+        final appointment = settings.arguments;
+        if (appointment is! Appointment) {
+          return MaterialPageRoute(
+            builder: (_) => const Scaffold(
+              body: Center(child: Text('Invalid appointment data.')),
+            ),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => AppointmentConfirmationPage(appointment: appointment),
+          settings: settings,
+        );
+
+        case myAppointments:
+  final appointmentRepository = FirebaseAppointmentRepository();
+  final petRepository = FirebasePetRepository();
+  final hospitalRepository = FirebaseHospitalRepository();
+  final serviceRepository = FirebaseServiceRepository();
+  final veterinarianRepository = FirebaseVeterinarianRepository();
+
+  final appointmentProvider = AppointmentProvider(
+    getAppointments: GetAppointments(appointmentRepository),
+    petRepository: petRepository,
+    hospitalRepository: hospitalRepository,
+    serviceRepository: serviceRepository,
+    veterinarianRepository: veterinarianRepository,
+  );
+
+  return MaterialPageRoute(
+    builder: (_) => MyAppointmentsPage(
+      provider: appointmentProvider,
+    ),
+    settings: settings,
+  );
+
       case bookAppointment:
         final hospitalId = settings.arguments;
-
         if (hospitalId is! String || hospitalId.isEmpty) {
           return MaterialPageRoute(
             builder: (_) => const Scaffold(
@@ -606,18 +665,15 @@ class AppRouter {
             settings: settings,
           );
         }
-
         // Create the existing Pet controller for the booking screen.
         final repository = FirebasePetRepository(
-          auth: FirebaseAuth.instance,
+          auth: auth,
           firestore: FirebaseFirestore.instance,
         );
-
         final imageRepository = CloudinaryPetImageRepository(
           cloudName: CloudinaryConfig.cloudName,
           uploadPreset: CloudinaryConfig.uploadPreset,
         );
-
         final petsController = PetsController(
           CreatePet(repository),
           GetPets(repository),
@@ -626,7 +682,6 @@ class AppRouter {
           UploadPetImage(imageRepository),
           DeletePetImage(imageRepository),
         );
-
         return MaterialPageRoute(
           builder: (_) => BookAppointmentPage(
             hospitalId: hospitalId,
@@ -634,7 +689,6 @@ class AppRouter {
           ),
           settings: settings,
         );
-
       default:
         return null;
     }

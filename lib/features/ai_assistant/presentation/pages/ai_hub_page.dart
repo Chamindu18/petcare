@@ -1,11 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:petcare/features/ai_assistant/presentation/pages/ai_chat_page.dart';
+import 'package:petcare/features/pets/domain/entities/pet.dart';
 
-import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/petcare_background.dart';
+import '../../../health/presentation/providers/health_controller.dart';
+import '../../domain/usecases/create_pet_context.dart';
+import '../../domain/entities/ai_pet_context.dart';
+import 'health_summary_page.dart';
+import 'preventive_insights_page.dart';
+import 'vet_visit_preparation_page.dart';
 
-class AIHubPage extends StatelessWidget {
-  const AIHubPage({super.key});
+class AIHubPage extends StatefulWidget {
+  const AIHubPage({super.key, this.pets, this.healthController});
+
+  final List<Pet>? pets;
+  final HealthController? healthController;
+
+  @override
+  State<AIHubPage> createState() => _AIHubPageState();
+}
+
+class _AIHubPageState extends State<AIHubPage> {
+  Pet? selectedPet;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.pets != null && widget.pets!.isNotEmpty) {
+      selectedPet = widget.pets!.first;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _buildContext();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +79,14 @@ class AIHubPage extends StatelessWidget {
 
                   const SizedBox(height: 24),
 
+                  Text(
+                    'Selected Pet',
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+
+                  const SizedBox(height: 10),
+
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -62,36 +99,92 @@ class AIHubPage extends StatelessWidget {
                     child: Row(
                       children: [
                         Container(
-                          width: 60,
-                          height: 60,
+                          width: 70,
+                          height: 70,
+                          clipBehavior: Clip.antiAlias,
                           decoration: const BoxDecoration(
-                            color: AppTheme.primary,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
-                            Icons.pets,
-                            color: AppTheme.white,
-                            size: 30,
-                          ),
+                          child: selectedPet?.imageUrl.isNotEmpty == true
+                              ? Image.network(
+                                  selectedPet!.imageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) {
+                                    return Container(
+                                      color: AppTheme.primary,
+                                      child: const Icon(
+                                        Icons.pets,
+                                        color: AppTheme.white,
+                                        size: 32,
+                                      ),
+                                    );
+                                  },
+                                )
+                              : Container(
+                                  color: AppTheme.primary,
+                                  child: const Icon(
+                                    Icons.pets,
+                                    color: AppTheme.white,
+                                    size: 32,
+                                  ),
+                                ),
                         ),
 
                         const SizedBox(width: 16),
 
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Select Pet',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 16,
+                        Expanded(
+                          child: widget.pets == null || widget.pets!.isEmpty
+                              ? const Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'No pets available',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    DropdownButtonHideUnderline(
+                                      child: DropdownButton<Pet>(
+                                        value: selectedPet,
+                                        isExpanded: true,
+                                        items: widget.pets!
+                                            .map(
+                                              (pet) => DropdownMenuItem<Pet>(
+                                                value: pet,
+                                                child: Text(pet.name),
+                                              ),
+                                            )
+                                            .toList(),
+                                        onChanged: (pet) async {
+                                          if (pet == null) return;
+
+                                          setState(() {
+                                            selectedPet = pet;
+                                          });
+                                          await _buildContext();
+                                        },
+                                      ),
+                                    ),
+
+                                    const SizedBox(height: 4),
+
+                                    Text(
+                                      selectedPet?.species ?? '',
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+
+                                    Text(
+                                      '${selectedPet?.ageInYears ?? 0} years • ${selectedPet?.weight ?? 0} kg',
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              SizedBox(height: 4),
-                              Text('Pet information will appear here'),
-                            ],
-                          ),
                         ),
                       ],
                     ),
@@ -101,7 +194,13 @@ class AIHubPage extends StatelessWidget {
 
                   GestureDetector(
                     onTap: () {
-                      Navigator.pushNamed(context, AppRouter.aiChat);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              AIChatPage(contextData: _currentContext),
+                        ),
+                      );
                     },
                     child: Container(
                       padding: const EdgeInsets.all(18),
@@ -158,7 +257,17 @@ class AIHubPage extends StatelessWidget {
                     subtitle: 'Understand pet health records',
                     icon: Icons.description_rounded,
                     onTap: () {
-                      Navigator.pushNamed(context, AppRouter.healthSummary);
+                      if (_currentContext == null) {
+                        return;
+                      }
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              HealthSummaryPage(contextData: _currentContext),
+                        ),
+                      );
                     },
                   ),
 
@@ -167,9 +276,17 @@ class AIHubPage extends StatelessWidget {
                     subtitle: 'Upcoming care insights',
                     icon: Icons.health_and_safety_rounded,
                     onTap: () {
-                      Navigator.pushNamed(
+                      if (_currentContext == null) {
+                        return;
+                      }
+
+                      Navigator.push(
                         context,
-                        AppRouter.preventiveInsights,
+                        MaterialPageRoute(
+                          builder: (_) => PreventiveInsightsPage(
+                            contextData: _currentContext,
+                          ),
+                        ),
                       );
                     },
                   ),
@@ -179,9 +296,17 @@ class AIHubPage extends StatelessWidget {
                     subtitle: 'Prepare for appointments',
                     icon: Icons.medical_services_rounded,
                     onTap: () {
-                      Navigator.pushNamed(
+                      if (_currentContext == null) {
+                        return;
+                      }
+
+                      Navigator.push(
                         context,
-                        AppRouter.vetVisitPreparation,
+                        MaterialPageRoute(
+                          builder: (_) => VetVisitPreparationPage(
+                            contextData: _currentContext,
+                          ),
+                        ),
                       );
                     },
                   ),
@@ -203,6 +328,25 @@ class AIHubPage extends StatelessWidget {
         border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.35)),
       ),
       child: Text(title),
+    );
+  }
+
+  final CreatePetContext _createPetContext = const CreatePetContext();
+
+  AIPetContext? _currentContext;
+  Future<void> _buildContext() async {
+    if (selectedPet == null || widget.healthController == null) {
+      return;
+    }
+
+    await widget.healthController!.loadHealthRecords(selectedPet!.petId);
+
+    _currentContext = _createPetContext(
+      pet: selectedPet!,
+      conditions: widget.healthController!.medicalConditions,
+      vaccinations: widget.healthController!.vaccinations,
+      treatments: widget.healthController!.treatments,
+      measurements: widget.healthController!.healthMeasurements,
     );
   }
 }

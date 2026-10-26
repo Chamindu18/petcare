@@ -16,6 +16,18 @@ class FirebaseVeterinarianRepository implements VeterinarianRepository {
       _firestore.collection('veterinarians');
 
   @override
+  Future<List<Veterinarian>> getVeterinarians() async {
+    // Doctor discovery only shows active veterinarians.
+    final snapshot = await _veterinariansCollection
+        .where('active', isEqualTo: true)
+        .get();
+
+    return snapshot.docs
+        .map((document) => VeterinarianModel.fromMap(document.data()))
+        .toList();
+  }
+
+  @override
   Future<List<Veterinarian>> getVeterinariansByHospital(
     String hospitalId,
   ) async {

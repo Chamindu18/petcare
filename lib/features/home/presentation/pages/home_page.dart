@@ -13,6 +13,7 @@ class HomePage extends StatefulWidget {
     required this.petsController,
     required this.onMyPetsTap,
     required this.onAddPetTap,
+    required this.onAppointmentsTap,
     required this.userName,
     required this.photoUrl,
     this.notificationRepository,
@@ -22,6 +23,7 @@ class HomePage extends StatefulWidget {
   final PetsController petsController;
   final VoidCallback onMyPetsTap;
   final VoidCallback onAddPetTap;
+  final VoidCallback onAppointmentsTap;
   final String userName;
   final String? photoUrl;
   final NotificationRepository? notificationRepository;
@@ -141,7 +143,9 @@ class _HomePageState extends State<HomePage> {
                         _QuickActions(
                           onNotificationsTap: _openNotifications,
                           onHospitalsTap: _openHospitals,
+                          onAppointmentsTap: widget.onAppointmentsTap,
                         ),
+
                         const SizedBox(height: 24),
                         const _SectionHeader(
                           title: 'Upcoming Appointment',
@@ -824,10 +828,12 @@ class _QuickActions extends StatelessWidget {
   const _QuickActions({
     required this.onNotificationsTap,
     required this.onHospitalsTap,
+    required this.onAppointmentsTap,
   });
 
   final VoidCallback onNotificationsTap;
   final VoidCallback onHospitalsTap;
+  final VoidCallback onAppointmentsTap;
   @override
   Widget build(BuildContext context) {
     return GridView.count(
@@ -845,10 +851,12 @@ class _QuickActions extends StatelessWidget {
           enabled: true,
           onTap: onNotificationsTap,
         ),
-        const _QuickActionCard(
+        _QuickActionCard(
           icon: Icons.calendar_month_rounded,
           title: 'Appointments',
-          subtitle: 'Coming soon',
+          subtitle: 'View appointments',
+          enabled: true,
+          onTap: onAppointmentsTap,
         ),
         _QuickActionCard(
           icon: Icons.psychology_rounded,
