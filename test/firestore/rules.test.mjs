@@ -158,23 +158,25 @@ async function acceptRequestAtomically(db, requestId, listingId) {
   });
 }
 
-test('owner can create and manage only an explicitly owned rehoming listing', async () => {
+test('owners cannot create or manage adoption listings', async () => {
   const db = authed('owner-2');
-  await assertSucceeds(setDoc(doc(db, 'adoption_listings/owner-new'), {
+
+  // Regular owners cannot create advertisements.
+  await assertFails(setDoc(doc(db, 'adoption_listings/owner-new'), {
     ...listing({ ownerId: 'owner-2', ownerType: 'owner' }),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }));
-  await assertSucceeds(updateDoc(doc(db, 'adoption_listings/owner-new'), {
-    description: 'Updated description',
+
+  // Regular owners cannot edit even a listing assigned to their own UID.
+  await assertFails(updateDoc(doc(authed('owner-1'), 'adoption_listings/owner-listing'), {
+    description: 'Owner must not manage adoption advertisements',
     updatedAt: serverTimestamp(),
   }));
+
+  // Regular owners cannot edit another user's listing either.
   await assertFails(updateDoc(doc(db, 'adoption_listings/owner-listing'), {
     description: 'Trying to edit another owner listing',
-    updatedAt: serverTimestamp(),
-  }));
-  await assertFails(updateDoc(doc(db, 'adoption_listings/owner-new'), {
-    listingOwnerId: 'owner-1',
     updatedAt: serverTimestamp(),
   }));
 });
@@ -278,9 +280,10 @@ test('older clients can still submit a validated legacy provider request', async
   }));
 });
 
-test('owner can submit a request to an available owner rehoming listing', async () => {
+test('owner cannot submit a request to an owner-owned listing', async () => {
   const db = authed('owner-2');
-  await assertSucceeds(setDoc(doc(db, 'adoption_requests/owner-to-owner'), {
+
+  await assertFails(setDoc(doc(db, 'adoption_requests/owner-to-owner'), {
     listingId: 'owner-listing',
     requesterId: 'owner-2',
     recipientId: 'owner-1',
@@ -371,26 +374,32 @@ test('only the requester may withdraw a pending request; record is retained', as
   );
 });
 
-test('draft listings are readable only by their owner', async () => {
+test('provider drafts are readable only by their provider', async () => {
   await env.withSecurityRulesDisabled(async (context) => {
     await setDoc(
-      doc(context.firestore(), 'adoption_listings/owner-draft'),
+      doc(context.firestore(), 'adoption_listings/provider-draft'),
       listing({
-        ownerId: 'owner-1',
-        ownerType: 'owner',
+        ownerId: 'provider-1',
+        ownerType: 'adoption_provider',
+        providerId: 'provider-1',
         status: 'draft',
       }),
     );
   });
 
   await assertSucceeds(
-    getDoc(doc(authed('owner-1'), 'adoption_listings/owner-draft')),
+    getDoc(doc(authed('provider-1'), 'adoption_listings/provider-draft')),
   );
 
   await assertFails(
-    getDoc(doc(authed('owner-2'), 'adoption_listings/owner-draft')),
+    getDoc(doc(authed('provider-2'), 'adoption_listings/provider-draft')),
   );
 
+  await assertFails(
+    getDoc(doc(authed('owner-2'), 'adoption_listings/provider-draft')),
+  );
+
+  // Regular users can still read published listings.
   await assertSucceeds(
     getDoc(doc(authed('owner-2'), 'adoption_listings/provider-listing')),
   );
@@ -425,7 +434,7 @@ test('withdrawal cannot alter unrelated fields or withdraw another user request'
   }));
 });
 
-test('owner can atomically accept a request and reserve an owner listing', async () => {
+test('owners cannot decide requests for adoption listings', async () => {
   await seedRequest('owner-recipient', requestData({
     listingId: 'owner-listing',
     recipientId: 'owner-1',
@@ -435,23 +444,21 @@ test('owner can atomically accept a request and reserve an owner listing', async
 
   const db = authed('owner-1');
 
-  await assertSucceeds(
+  await assertFails(
     acceptRequestAtomically(db, 'owner-recipient', 'owner-listing'),
   );
 
+  // The requester can still read their own request.
   const requestSnapshot = await getDoc(
-    doc(db, 'adoption_requests/owner-recipient'),
-  );
-  const listingSnapshot = await getDoc(
-    doc(db, 'adoption_listings/owner-listing'),
+    doc(authed('owner-2'), 'adoption_requests/owner-recipient'),
   );
 
-  assert.equal(requestSnapshot.data()?.status, 'accepted');
-  assert.equal(listingSnapshot.data()?.status, 'reserved');
-  assert.equal(
-    listingSnapshot.data()?.acceptedRequestId,
-    'owner-recipient',
+  const listingSnapshot = await getDoc(
+    doc(authed('owner-2'), 'adoption_listings/owner-listing'),
   );
+
+  assert.equal(requestSnapshot.data()?.status, 'pending');
+  assert.equal(listingSnapshot.data()?.status, 'available');
 });
 
 test('provider acceptance must be atomic; unrelated providers are denied', async () => {
@@ -668,21 +675,17 @@ test('recipient cannot modify request relationships or decide a non-pending requ
 });
 
 
-test('owner and provider inbox queries return only requests addressed to them', async () => {
+test('requesters and providers can query their own adoption requests', async () => {
   await seedRequest('provider-request', requestData());
-  await seedRequest('owner-request', requestData({
-    listingId: 'owner-listing',
-    recipientId: 'owner-1',
-    recipientType: 'owner',
-    providerId: undefined,
-  }));
 
+  // Regular owners track requests they submitted.
   const ownerQuery = query(
-    collection(authed('owner-1'), 'adoption_requests'),
-    where('recipientId', '==', 'owner-1'),
-    where('recipientType', '==', 'owner'),
+    collection(authed('owner-2'), 'adoption_requests'),
+    where('requesterId', '==', 'owner-2'),
     orderBy('submittedAt', 'desc'),
   );
+
+  // Providers view requests addressed to their advertisements.
   const providerQuery = query(
     collection(authed('provider-1'), 'adoption_requests'),
     where('recipientId', '==', 'provider-1'),
@@ -692,8 +695,16 @@ test('owner and provider inbox queries return only requests addressed to them', 
 
   const ownerSnapshot = await assertSucceeds(getDocs(ownerQuery));
   const providerSnapshot = await assertSucceeds(getDocs(providerQuery));
-  assert.deepEqual(ownerSnapshot.docs.map((item) => item.id), ['owner-request']);
-  assert.deepEqual(providerSnapshot.docs.map((item) => item.id), ['provider-request']);
+
+  assert.deepEqual(
+    ownerSnapshot.docs.map((item) => item.id),
+    ['provider-request'],
+  );
+
+  assert.deepEqual(
+    providerSnapshot.docs.map((item) => item.id),
+    ['provider-request'],
+  );
 });
 
 test('only requester or authorized listing recipient can read a request', async () => {
