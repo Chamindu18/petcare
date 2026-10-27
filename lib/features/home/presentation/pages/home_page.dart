@@ -15,6 +15,7 @@ class HomePage extends StatefulWidget {
     required this.onAddPetTap,
     required this.onAppointmentsTap,
     required this.onAskAITap,
+    required this.onVeterinariansTap,
     required this.userName,
     required this.photoUrl,
     this.notificationRepository,
@@ -26,6 +27,7 @@ class HomePage extends StatefulWidget {
   final VoidCallback onAddPetTap;
   final VoidCallback onAppointmentsTap;
   final VoidCallback onAskAITap;
+  final VoidCallback onVeterinariansTap;
   final String userName;
   final String? photoUrl;
   final NotificationRepository? notificationRepository;
@@ -147,6 +149,7 @@ class _HomePageState extends State<HomePage> {
                           onHospitalsTap: _openHospitals,
                           onAppointmentsTap: widget.onAppointmentsTap,
                           onAskAITap: widget.onAskAITap,
+                          onVeterinariansTap: widget.onVeterinariansTap,
                         ),
 
                         const SizedBox(height: 24),
@@ -833,12 +836,14 @@ class _QuickActions extends StatelessWidget {
     required this.onHospitalsTap,
     required this.onAppointmentsTap,
     required this.onAskAITap,
+    required this.onVeterinariansTap,
   });
 
   final VoidCallback onNotificationsTap;
   final VoidCallback onHospitalsTap;
   final VoidCallback onAppointmentsTap;
   final VoidCallback onAskAITap;
+  final VoidCallback onVeterinariansTap;
   @override
   Widget build(BuildContext context) {
     return GridView.count(
@@ -857,11 +862,11 @@ class _QuickActions extends StatelessWidget {
           onTap: onNotificationsTap,
         ),
         _QuickActionCard(
-          icon: Icons.calendar_month_rounded,
-          title: 'Appointments',
-          subtitle: 'View appointments',
+          icon: Icons.medical_services_outlined,
+          title: 'Find Veterinarians',
+          subtitle: 'Find a veterinarian',
           enabled: true,
-          onTap: onAppointmentsTap,
+          onTap: onVeterinariansTap,
         ),
         _QuickActionCard(
           icon: Icons.psychology_rounded,
