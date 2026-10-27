@@ -726,6 +726,58 @@ class AppRouter {
 
       case bookAppointment:
         final routeArguments = settings.arguments;
+
+        // Build Firebase dependencies only when the page is actually opened.
+        // OwnerAccessGate can deny unauthorized users before this runs.
+        Widget buildBookingPage({
+          required String hospitalId,
+          String? veterinarianId,
+        }) {
+          final repository = FirebasePetRepository(
+            auth: auth,
+            firestore: FirebaseFirestore.instance,
+          );
+
+          final imageRepository = CloudinaryPetImageRepository(
+            cloudName: CloudinaryConfig.cloudName,
+            uploadPreset: CloudinaryConfig.uploadPreset,
+          );
+
+          final petsController = PetsController(
+            CreatePet(repository),
+            GetPets(repository),
+            UpdatePet(repository),
+            DeletePet(repository),
+            UploadPetImage(imageRepository),
+            DeletePetImage(imageRepository),
+          );
+
+          return BookAppointmentPage(
+            hospitalId: hospitalId,
+            veterinarianId: veterinarianId,
+            petsController: petsController,
+          );
+        }
+
+        if (routeArguments is BookAppointmentRouteArgs) {
+          return MaterialPageRoute(
+            builder: (_) => buildBookingPage(
+              hospitalId: routeArguments.hospitalId,
+              veterinarianId: routeArguments.veterinarianId,
+            ),
+            settings: settings,
+          );
+        }
+
+        if (routeArguments is String) {
+          return MaterialPageRoute(
+            builder: (_) => buildBookingPage(
+              hospitalId: routeArguments,
+            ),
+            settings: settings,
+          );
+        }
+
         return MaterialPageRoute(
           builder: (_) {
             // Validate the arguments before constructing Firebase-backed
