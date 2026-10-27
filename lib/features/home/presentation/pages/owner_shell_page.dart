@@ -255,6 +255,7 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             photoUrl: photoUrl,
             notificationRepository: widget.notificationRepository,
             onAppointmentsTap: () => _onTabSelected(2),
+            onAskAITap: () => _onTabSelected(3),
             onVeterinariansTap: () {
               Navigator.pushNamed(context, AppRouter.veterinarianDiscovery);
             },

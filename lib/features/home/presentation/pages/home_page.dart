@@ -14,6 +14,7 @@ class HomePage extends StatefulWidget {
     required this.onMyPetsTap,
     required this.onAddPetTap,
     required this.onAppointmentsTap,
+    required this.onAskAITap,
     required this.onVeterinariansTap,
     required this.userName,
     required this.photoUrl,
@@ -25,6 +26,7 @@ class HomePage extends StatefulWidget {
   final VoidCallback onMyPetsTap;
   final VoidCallback onAddPetTap;
   final VoidCallback onAppointmentsTap;
+  final VoidCallback onAskAITap;
   final VoidCallback onVeterinariansTap;
   final String userName;
   final String? photoUrl;
@@ -145,6 +147,8 @@ class _HomePageState extends State<HomePage> {
                         _QuickActions(
                           onNotificationsTap: _openNotifications,
                           onHospitalsTap: _openHospitals,
+                          onAppointmentsTap: widget.onAppointmentsTap,
+                          onAskAITap: widget.onAskAITap,
                           onVeterinariansTap: widget.onVeterinariansTap,
                         ),
 
@@ -830,11 +834,15 @@ class _QuickActions extends StatelessWidget {
   const _QuickActions({
     required this.onNotificationsTap,
     required this.onHospitalsTap,
+    required this.onAppointmentsTap,
+    required this.onAskAITap,
     required this.onVeterinariansTap,
   });
 
   final VoidCallback onNotificationsTap;
   final VoidCallback onHospitalsTap;
+  final VoidCallback onAppointmentsTap;
+  final VoidCallback onAskAITap;
   final VoidCallback onVeterinariansTap;
   @override
   Widget build(BuildContext context) {
@@ -865,9 +873,7 @@ class _QuickActions extends StatelessWidget {
           title: 'Ask AI',
           subtitle: 'Get pet care advice',
           enabled: true,
-          onTap: () {
-            Navigator.pushNamed(context, AppRouter.aiChat);
-          },
+          onTap: onAskAITap,
         ),
         _QuickActionCard(
           icon: Icons.local_hospital_rounded,
