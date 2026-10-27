@@ -11,7 +11,9 @@ class ChatBubble extends StatelessWidget {
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 320),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.85,
+        ),
         margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -65,7 +67,7 @@ class _AIMessageContent extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            title,
+            title.toUpperCase(),
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,

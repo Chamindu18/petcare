@@ -44,7 +44,6 @@ class _VetVisitPreparationPageState extends State<VetVisitPreparationPage> {
               if (provider.isLoading) {
                 return const Center(child: CircularProgressIndicator());
               }
-
               if (widget.contextData == null) {
                 return SingleChildScrollView(
                   child: AICard(

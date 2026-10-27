@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:petcare/features/ai_assistant/presentation/pages/ai_chat_page.dart';
+import 'package:petcare/features/ai_assistant/presentation/pages/ai_hub_page.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
@@ -14,6 +16,7 @@ class HomePage extends StatefulWidget {
     required this.onMyPetsTap,
     required this.onAddPetTap,
     required this.onAppointmentsTap,
+    required this.onAskAITap,
     required this.userName,
     required this.photoUrl,
     this.notificationRepository,
@@ -24,6 +27,7 @@ class HomePage extends StatefulWidget {
   final VoidCallback onMyPetsTap;
   final VoidCallback onAddPetTap;
   final VoidCallback onAppointmentsTap;
+  final VoidCallback onAskAITap;
   final String userName;
   final String? photoUrl;
   final NotificationRepository? notificationRepository;
@@ -144,6 +148,7 @@ class _HomePageState extends State<HomePage> {
                           onNotificationsTap: _openNotifications,
                           onHospitalsTap: _openHospitals,
                           onAppointmentsTap: widget.onAppointmentsTap,
+                          onAskAITap: widget.onAskAITap,
                         ),
 
                         const SizedBox(height: 24),
@@ -829,11 +834,13 @@ class _QuickActions extends StatelessWidget {
     required this.onNotificationsTap,
     required this.onHospitalsTap,
     required this.onAppointmentsTap,
+    required this.onAskAITap,
   });
 
   final VoidCallback onNotificationsTap;
   final VoidCallback onHospitalsTap;
   final VoidCallback onAppointmentsTap;
+  final VoidCallback onAskAITap;
   @override
   Widget build(BuildContext context) {
     return GridView.count(
@@ -863,9 +870,7 @@ class _QuickActions extends StatelessWidget {
           title: 'Ask AI',
           subtitle: 'Get pet care advice',
           enabled: true,
-          onTap: () {
-            Navigator.pushNamed(context, AppRouter.aiChat);
-          },
+          onTap: onAskAITap,
         ),
         _QuickActionCard(
           icon: Icons.local_hospital_rounded,
@@ -1105,9 +1110,7 @@ class _ResourceCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppTheme.secondary.withValues(alpha: 0.22),
-          ),
+          border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.22)),
         ),
         child: Row(
           children: [

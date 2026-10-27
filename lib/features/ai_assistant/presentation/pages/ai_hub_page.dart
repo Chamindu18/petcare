@@ -197,8 +197,11 @@ class _AIHubPageState extends State<AIHubPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) =>
-                              AIChatPage(contextData: _currentContext),
+                          builder: (_) => AIChatPage(
+                            contextData: _currentContext,
+                            pets: widget.pets,
+                            healthController: widget.healthController,
+                          ),
                         ),
                       );
                     },

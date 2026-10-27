@@ -31,34 +31,22 @@ class AIProvider extends ChangeNotifier {
   final List<AIMessage> messages = [
     AIMessage(
       message: '''
-Hello! I'm PetCare AI 🐾
+        👋 Welcome to PetCare AI
 
-I can help you understand:
+        Ask me about your selected pet.
 
-• Health summaries
+        Quick examples:
 
-• Medical conditions
+        • summary
 
-• Vaccinations
+        • vaccinations
 
-• Treatments
+        • conditions
 
-• Preventive care
+        • treatments
 
-• Vet visit preparation
-
-Try asking:
-
-summary
-
-vaccinations
-
-conditions
-
-treatments
-
-vet advice
-''',
+        • vet advice
+        ''',
       isUser: false,
     ),
   ];

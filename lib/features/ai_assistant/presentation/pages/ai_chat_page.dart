@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:petcare/features/health/presentation/providers/health_controller.dart';
 
 import '../providers/ai_provider.dart';
 import '../widgets/chat_bubble.dart';
@@ -6,11 +7,20 @@ import '../../../../core/widgets/petcare_background.dart';
 import '../../../../app/theme/app_theme.dart';
 
 import '../../domain/entities/ai_pet_context.dart';
+import '../../../pets/domain/entities/pet.dart';
+import '../../domain/usecases/create_pet_context.dart';
 
 class AIChatPage extends StatefulWidget {
-  const AIChatPage({super.key, this.contextData});
+  const AIChatPage({
+    super.key,
+    this.contextData,
+    this.pets,
+    this.healthController,
+  });
 
   final AIPetContext? contextData;
+  final List<Pet>? pets;
+  final HealthController? healthController;
 
   @override
   State<AIChatPage> createState() => _AIChatPageState();
@@ -20,31 +30,52 @@ class _AIChatPageState extends State<AIChatPage> {
   final TextEditingController controller = TextEditingController();
 
   final AIProvider provider = AIProvider();
+  final ScrollController _scrollController = ScrollController();
+  AIPetContext? _activeContext;
+
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (!_scrollController.hasClients) {
+        return;
+      }
+
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
   String _generateResponse(String question) {
-    final contextData = widget.contextData;
+    final contextData = _activeContext;
 
     if (contextData == null) {
-      return 'Please select a pet first.';
+      return '''
+⚠️ No Pet Selected
+
+Please select a pet first.
+''';
     }
 
     final q = question.toLowerCase();
 
     if (q.contains('summary')) {
       return '''
-📄 Spiderman Health Summary
+        📄 Spiderman Health Summary
 
-📋 Conditions: ${contextData.conditions.length}
+        📋 Conditions: ${contextData.conditions.length}
 
-💉 Vaccinations: ${contextData.vaccinations.length}
+        💉 Vaccinations: ${contextData.vaccinations.length}
 
-💊 Treatments: ${contextData.treatments.length}
+        💊 Treatments: ${contextData.treatments.length}
 
-📈 Measurements: ${contextData.measurements.length}
+        📈 Measurements: ${contextData.measurements.length}
 
-✅ Recommendation
+        ✅ Recommendation
 
-Continue routine health monitoring and maintain vaccination schedules.
-''';
+        Continue routine health monitoring and maintain vaccination schedules.
+        ''';
     }
 
     if (q.contains('condition')) {
@@ -58,14 +89,14 @@ Continue routine health monitoring and maintain vaccination schedules.
           .join('\n');
 
       return '''
-📋 Medical Conditions
+        📋 Medical Conditions
 
-$conditions
+        $conditions
 
-✅ Advice
+        ✅ Advice
 
-Review active conditions regularly and continue recommended treatments.
-''';
+        Review active conditions regularly and continue recommended treatments.
+        ''';
     }
 
     if (q.contains('vaccination')) {
@@ -79,17 +110,17 @@ Review active conditions regularly and continue recommended treatments.
           .join('\n');
 
       return '''
-💉 Vaccination History
+        💉 Vaccination History
 
-$vaccinations
+        $vaccinations
 
-📊 Total Vaccinations:
-${contextData.vaccinations.length}
+        📊 Total Vaccinations:
+        ${contextData.vaccinations.length}
 
-✅ Reminder
+        ✅ Reminder
 
-Keep vaccination schedules up to date.
-''';
+        Keep vaccination schedules up to date.
+        ''';
     }
 
     if (q.contains('treatment')) {
@@ -103,14 +134,14 @@ Keep vaccination schedules up to date.
           .join('\n');
 
       return '''
-💊 Treatment Records
+        💊 Treatment Records
 
-$treatments
+        $treatments
 
-📊 Active Medical Care
+        📊 Active Medical Care
 
-Continue monitoring treatment progress and consult a veterinarian when necessary.
-''';
+        Continue monitoring treatment progress and consult a veterinarian when necessary.
+        ''';
     }
 
     if (q.contains('measurement')) {
@@ -123,20 +154,20 @@ Continue monitoring treatment progress and consult a veterinarian when necessary
 
     if (q.contains('vet')) {
       return '''
-🩺 Vet Visit Preparation
+        🩺 Vet Visit Preparation
 
-Topics to discuss:
+        Topics to discuss:
 
-• Medical conditions
+        • Medical conditions
 
-• Vaccination history
+        • Vaccination history
 
-• Ongoing treatments
+        • Ongoing treatments
 
-• Recent health measurements
+        • Recent health measurements
 
-✅ Bring any recent observations or concerns to the appointment.
-''';
+        ✅ Bring any recent observations or concerns to the appointment.
+        ''';
     }
 
     if (q.contains('preventive')) {
@@ -166,20 +197,20 @@ Topics to discuss:
 
     if (q.contains('vet advice')) {
       return '''
-🩺 Vet Visit Preparation
+        🩺 Vet Visit Preparation
 
-Topics to discuss:
+        Topics to discuss:
 
-• Medical conditions
+        • Medical conditions
 
-• Vaccination history
+        • Vaccination history
 
-• Ongoing treatments
+        • Ongoing treatments
 
-• Recent health measurements
+        • Recent health measurements
 
-✅ Bring any recent observations or concerns to the appointment.
-''';
+        ✅ Bring any recent observations or concerns to the appointment.
+        ''';
     }
     return '''
               I can help with:
@@ -203,6 +234,40 @@ Topics to discuss:
   }
 
   @override
+  void initState() {
+    super.initState();
+
+    _activeContext = widget.contextData;
+  }
+
+  final CreatePetContext _createPetContext = const CreatePetContext();
+  Future<void> _selectPet(Pet pet) async {
+    if (widget.healthController == null) {
+      return;
+    }
+
+    await widget.healthController!.loadHealthRecords(pet.petId);
+
+    final context = _createPetContext(
+      pet: pet,
+      conditions: widget.healthController!.medicalConditions,
+      vaccinations: widget.healthController!.vaccinations,
+      treatments: widget.healthController!.treatments,
+      measurements: widget.healthController!.healthMeasurements,
+    );
+
+    setState(() {
+      _activeContext = context;
+    });
+
+    provider.addAssistantMessage(
+      ' ${pet.name} selected. You can now ask me about health records, vaccinations, treatments, and vet preparation.',
+    );
+    _scrollToBottom();
+    provider.addAssistantMessage('${pet.name} selected...');
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('PetCare AI')),
@@ -212,7 +277,7 @@ Topics to discuss:
 
           Column(
             children: [
-              if (widget.contextData != null)
+              if (_activeContext != null)
                 Container(
                   width: double.infinity,
                   margin: const EdgeInsets.all(16),
@@ -225,16 +290,65 @@ Topics to discuss:
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.contextData!.pet.name,
+                        '🐾 ${_activeContext!.pet.name}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
+
                       Text(
-                        '${widget.contextData!.pet.species} • '
-                        '${widget.contextData!.pet.breed}',
+                        '📋 ${_activeContext!.conditions.length} Conditions   '
+                        '💉 ${_activeContext!.vaccinations.length} Vaccinations   '
+                        '💊 ${_activeContext!.treatments.length} Treatments',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (_activeContext == null &&
+                  widget.pets != null &&
+                  widget.pets!.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Select a Pet',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: widget.pets!
+                            .map(
+                              (pet) => ActionChip(
+                                avatar: const Icon(Icons.pets),
+                                label: Text(pet.name),
+                                onPressed: () async {
+                                  await _selectPet(pet);
+                                },
+                              ),
+                            )
+                            .toList(),
                       ),
                     ],
                   ),
@@ -244,6 +358,7 @@ Topics to discuss:
                   animation: provider,
                   builder: (_, _) {
                     return ListView.builder(
+                      controller: _scrollController,
                       padding: const EdgeInsets.all(16),
                       itemCount: provider.messages.length,
                       itemBuilder: (context, index) {
@@ -334,6 +449,8 @@ Topics to discuss:
                         );
 
                         controller.clear();
+
+                        _scrollToBottom();
                       },
                     ),
                   ],
