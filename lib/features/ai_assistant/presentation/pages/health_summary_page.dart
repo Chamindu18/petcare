@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/petcare_background.dart';
@@ -57,6 +58,7 @@ class _HealthSummaryPageState extends State<HealthSummaryPage> {
                       species: pet.species,
                       breed: pet.breed,
                       weight: pet.weight,
+                      imageUrl: pet.imageUrl,
                     ),
 
                     const SizedBox(height: 16),
@@ -137,12 +139,14 @@ class _PetOverviewCard extends StatelessWidget {
     required this.species,
     required this.breed,
     required this.weight,
+    required this.imageUrl,
   });
 
   final String name;
   final String species;
   final String breed;
   final double weight;
+  final String imageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -157,15 +161,28 @@ class _PetOverviewCard extends StatelessWidget {
           Container(
             width: 64,
             height: 64,
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              color: AppTheme.secondary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(16),
+              color: AppTheme.secondary.withValues(alpha: 0.15),
             ),
-            child: const Icon(
-              Icons.pets_rounded,
-              color: AppTheme.primary,
-              size: 32,
-            ),
+            child: imageUrl.isNotEmpty
+                ? Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) {
+                      return const Icon(
+                        Icons.pets_rounded,
+                        color: AppTheme.primary,
+                        size: 32,
+                      );
+                    },
+                  )
+                : const Icon(
+                    Icons.pets_rounded,
+                    color: AppTheme.primary,
+                    size: 32,
+                  ),
           ),
 
           const SizedBox(width: 16),
