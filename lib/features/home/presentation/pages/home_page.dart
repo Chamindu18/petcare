@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:petcare/features/ai_assistant/presentation/pages/ai_chat_page.dart';
-import 'package:petcare/features/ai_assistant/presentation/pages/ai_hub_page.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';

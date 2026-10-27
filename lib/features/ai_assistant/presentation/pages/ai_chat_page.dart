@@ -73,8 +73,8 @@ Please select a pet first.
         📈 Measurements: ${contextData.measurements.length}
 
         ✅ Recommendation
-
-        Continue routine health monitoring and maintain vaccination schedules.
+        • Continue routine health monitoring and 
+          maintain vaccination schedules.
         ''';
     }
 
@@ -91,11 +91,11 @@ Please select a pet first.
       return '''
         📋 Medical Conditions
 
-        $conditions
+        $conditions 
 
         ✅ Advice
-
-        Review active conditions regularly and continue recommended treatments.
+        • Review active conditions regularly and 
+          continue recommended treatments.
         ''';
     }
 
@@ -114,12 +114,10 @@ Please select a pet first.
 
         $vaccinations
 
-        📊 Total Vaccinations:
-        ${contextData.vaccinations.length}
+        📊 Total Vaccinations: ${contextData.vaccinations.length}
 
         ✅ Reminder
-
-        Keep vaccination schedules up to date.
+        • Keep vaccination schedules up to date.
         ''';
     }
 
@@ -139,8 +137,8 @@ Please select a pet first.
         $treatments
 
         📊 Active Medical Care
-
-        Continue monitoring treatment progress and consult a veterinarian when necessary.
+        • Continue monitoring treatment progress and 
+          consult a veterinarian when necessary.
         ''';
     }
 
@@ -166,7 +164,8 @@ Please select a pet first.
 
         • Recent health measurements
 
-        ✅ Bring any recent observations or concerns to the appointment.
+        ✅ Bring any recent observations or concerns 
+           to the appointment.
         ''';
     }
 
@@ -209,7 +208,8 @@ Please select a pet first.
 
         • Recent health measurements
 
-        ✅ Bring any recent observations or concerns to the appointment.
+        ✅ Bring any recent observations or concerns 
+            to the appointment.
         ''';
     }
     return '''
@@ -260,11 +260,7 @@ Please select a pet first.
       _activeContext = context;
     });
 
-    provider.addAssistantMessage(
-      ' ${pet.name} selected. You can now ask me about health records, vaccinations, treatments, and vet preparation.',
-    );
     _scrollToBottom();
-    provider.addAssistantMessage('${pet.name} selected...');
   }
 
   @override

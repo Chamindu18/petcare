@@ -149,39 +149,59 @@ class _AIHubPageState extends State<AIHubPage> {
                               : Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    DropdownButtonHideUnderline(
-                                      child: DropdownButton<Pet>(
-                                        value: selectedPet,
-                                        isExpanded: true,
-                                        items: widget.pets!
-                                            .map(
-                                              (pet) => DropdownMenuItem<Pet>(
-                                                value: pet,
-                                                child: Text(pet.name),
-                                              ),
-                                            )
-                                            .toList(),
-                                        onChanged: (pet) async {
-                                          if (pet == null) return;
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            selectedPet?.name ?? 'Select a pet',
+                                            style: const TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                        DropdownButtonHideUnderline(
+                                          child: DropdownButton<Pet>(
+                                            value: selectedPet,
+                                            icon: const Icon(
+                                              Icons.keyboard_arrow_down_rounded,
+                                            ),
+                                            items: widget.pets!
+                                                .map(
+                                                  (pet) =>
+                                                      DropdownMenuItem<Pet>(
+                                                        value: pet,
+                                                        child: Text(pet.name),
+                                                      ),
+                                                )
+                                                .toList(),
+                                            onChanged: (pet) async {
+                                              if (pet == null) return;
 
-                                          setState(() {
-                                            selectedPet = pet;
-                                          });
-                                          await _buildContext();
-                                        },
+                                              setState(() {
+                                                selectedPet = pet;
+                                              });
+
+                                              await _buildContext();
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    Text(
+                                      selectedPet?.species ?? '',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.black54,
                                       ),
                                     ),
 
                                     const SizedBox(height: 4),
 
                                     Text(
-                                      selectedPet?.species ?? '',
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-
-                                    Text(
-                                      '${selectedPet?.ageInYears ?? 0} years • ${selectedPet?.weight ?? 0} kg',
-                                      style: const TextStyle(fontSize: 14),
+                                      '${selectedPet?.ageInYears ?? 0} years • '
+                                      '${selectedPet?.weight ?? 0} kg',
                                     ),
                                   ],
                                 ),
@@ -232,19 +252,6 @@ class _AIHubPageState extends State<AIHubPage> {
 
                   const SizedBox(height: 20),
 
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      _topicChip('Health'),
-                      _topicChip('Behavior'),
-                      _topicChip('Nutrition'),
-                      _topicChip('General'),
-                    ],
-                  ),
-
-                  const SizedBox(height: 30),
-
                   Text(
                     'Quick Tools',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -261,6 +268,15 @@ class _AIHubPageState extends State<AIHubPage> {
                     icon: Icons.description_rounded,
                     onTap: () {
                       if (_currentContext == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please select a pet first.'),
+                            behavior: SnackBarBehavior.floating,
+                            duration: const Duration(milliseconds: 200),
+                            backgroundColor: Colors.brown,
+                          ),
+                        );
+
                         return;
                       }
 
@@ -280,6 +296,15 @@ class _AIHubPageState extends State<AIHubPage> {
                     icon: Icons.health_and_safety_rounded,
                     onTap: () {
                       if (_currentContext == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please select a pet first.'),
+                            behavior: SnackBarBehavior.floating,
+                            duration: const Duration(milliseconds: 200),
+                            backgroundColor: Colors.brown,
+                          ),
+                        );
+
                         return;
                       }
 
@@ -300,6 +325,15 @@ class _AIHubPageState extends State<AIHubPage> {
                     icon: Icons.medical_services_rounded,
                     onTap: () {
                       if (_currentContext == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please select a pet first.'),
+                            behavior: SnackBarBehavior.floating,
+                            duration: const Duration(milliseconds: 200),
+                            backgroundColor: Colors.brown,
+                          ),
+                        );
+
                         return;
                       }
 
