@@ -21,12 +21,13 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
   Future<String> _roleFor(String uid) async {
     final profile = await _firestore.collection('users').doc(uid).get();
     final role = profile.data()?['role'];
-    if (role is! String ||
-        (role != 'owner' && role != 'adoption_provider')) {
+
+    if (role is! String || role != 'adoption_provider') {
       throw const AdoptionListingRepositoryException(
-        'Only owners and adoption providers can manage adoption listings.',
+        'Only adoption providers can manage adoption listings.',
       );
     }
+
     return role;
   }
 
@@ -45,12 +46,12 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
       );
     }
 
-    final role = await _roleFor(user.uid);
+    await _roleFor(user.uid);
     final document = _listingsCollection.doc();
     final persistedListing = AdoptionListing(
       listingId: document.id,
-      providerId: role == 'adoption_provider' ? user.uid : '',
-      listingOwnerType: role,
+      providerId: user.uid,
+      listingOwnerType: 'adoption_provider',
       listingOwnerId: user.uid,
       petName: listing.petName,
       species: listing.species,
@@ -97,14 +98,15 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
       );
     }
 
-    final role = await _roleFor(user.uid);
+    await _roleFor(user.uid);
     final legacyProviderId = existing['providerId'] as String? ?? '';
-    final ownerType = existing['listingOwnerType'] as String? ?? 'adoption_provider';
+    final ownerType =
+        existing['listingOwnerType'] as String? ?? 'adoption_provider';
     final ownerId = existing['listingOwnerId'] as String? ?? legacyProviderId;
-    final canManage = ownerId == user.uid &&
-        ((ownerType == 'owner' && role == 'owner') ||
-            (ownerType == 'adoption_provider' &&
-                role == 'adoption_provider'));
+    final canManage =
+        ownerType == 'adoption_provider' &&
+        ownerId == user.uid &&
+        (legacyProviderId.isEmpty || legacyProviderId == user.uid);
 
     if (!canManage) {
       throw const AdoptionListingRepositoryException(
@@ -166,11 +168,9 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
       );
     }
 
-    return Stream.fromFuture(_roleFor(user.uid)).asyncExpand((role) {
-      final query = role == 'owner'
-          ? _listingsCollection.where('listingOwnerId', isEqualTo: user.uid)
-          : _listingsCollection.where('providerId', isEqualTo: user.uid);
-      return query
+    return Stream.fromFuture(_roleFor(user.uid)).asyncExpand((_) {
+      return _listingsCollection
+          .where('providerId', isEqualTo: user.uid)
           .orderBy('createdAt', descending: true)
           .snapshots()
           .map(_mapListings);
