@@ -422,6 +422,7 @@ class AppRouter {
           builder: (_) => AdoptionWorkspaceAccessGate(
             auth: auth,
             profileRepository: profileRepository,
+            allowedRoles: const {'adoption_provider'},
             childBuilder: (_) => const MyAdoptionListingsPage(),
           ),
           settings: settings,
@@ -471,6 +472,7 @@ class AppRouter {
           builder: (_) => AdoptionWorkspaceAccessGate(
             auth: auth,
             profileRepository: profileRepository,
+            allowedRoles: const {'adoption_provider'},
             childBuilder: (_) => const AdoptionRequestsPage(),
           ),
           settings: settings,
@@ -491,6 +493,7 @@ class AppRouter {
           builder: (_) => AdoptionWorkspaceAccessGate(
             auth: auth,
             profileRepository: profileRepository,
+            allowedRoles: const {'adoption_provider'},
             childBuilder: (_) =>
                 CreateEditAdoptionListingPage(listing: listing),
           ),
