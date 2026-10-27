@@ -14,14 +14,26 @@ import '../../../veterinary/data/repositories/firebase_veterinarian_repository.d
 import '../../../veterinary/domain/entities/veterinarian.dart';
 import '../../../veterinary/domain/usecases/veterinarian_usecases.dart';
 
+class BookAppointmentRouteArgs {
+  const BookAppointmentRouteArgs({
+    required this.hospitalId,
+    this.veterinarianId,
+  });
+
+  final String hospitalId;
+  final String? veterinarianId;
+}
+
 class BookAppointmentPage extends StatefulWidget {
   const BookAppointmentPage({
     required this.hospitalId,
+    this.veterinarianId,
     required this.petsController,
     super.key,
   });
 
   final String hospitalId;
+  final String? veterinarianId;
   final PetsController petsController;
 
   @override
@@ -54,17 +66,13 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
     super.initState();
 
     // Reuse the existing service, veterinarian, and appointment contracts.
-    _getServicesByHospital = GetServicesByHospital(
-      FirebaseServiceRepository(),
-    );
+    _getServicesByHospital = GetServicesByHospital(FirebaseServiceRepository());
 
     _getVeterinariansByHospital = GetVeterinariansByHospital(
       FirebaseVeterinarianRepository(),
     );
 
-    _createAppointment = CreateAppointment(
-      FirebaseAppointmentRepository(),
-    );
+    _createAppointment = CreateAppointment(FirebaseAppointmentRepository());
 
     _loadBookingData();
   }
@@ -93,9 +101,21 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         return;
       }
 
+      Veterinarian? selectedVeterinarian;
+
+      if (widget.veterinarianId != null) {
+        for (final veterinarian in veterinarians) {
+          if (veterinarian.vetId == widget.veterinarianId) {
+            selectedVeterinarian = veterinarian;
+            break;
+          }
+        }
+      }
+
       setState(() {
         _services = services;
         _veterinarians = veterinarians;
+        _selectedVeterinarian = selectedVeterinarian;
         _isLoading = false;
       });
     } catch (error) {
@@ -152,13 +172,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       return null;
     }
 
-    return DateTime(
-      date.year,
-      date.month,
-      date.day,
-      time.hour,
-      time.minute,
-    );
+    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
   }
 
   bool get _canSubmit {
@@ -236,18 +250,13 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         _isSubmitting = false;
       });
 
-      _showMessage(
-        'Unable to create the appointment. Please try again.',
-      );
+      _showMessage('Unable to create the appointment. Please try again.');
     }
   }
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppTheme.error,
-      ),
+      SnackBar(content: Text(message), backgroundColor: AppTheme.error),
     );
   }
 
@@ -255,9 +264,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        title: const Text('Book Appointment'),
-      ),
+      appBar: AppBar(title: const Text('Book Appointment')),
       body: _buildBody(),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
@@ -269,9 +276,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
                   width: 22,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppTheme.white,
-                    ),
+                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.white),
                   ),
                 )
               : const Text('Book Appointment'),
@@ -283,17 +288,12 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: AppTheme.primary,
-        ),
+        child: CircularProgressIndicator(color: AppTheme.primary),
       );
     }
 
     if (_errorMessage != null) {
-      return _ErrorState(
-        message: _errorMessage!,
-        onRetry: _loadBookingData,
-      );
+      return _ErrorState(message: _errorMessage!, onRetry: _loadBookingData);
     }
 
     if (widget.petsController.pets.isEmpty) {
@@ -310,10 +310,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
               const _PageIntro(),
               const SizedBox(height: 24),
 
-              _SectionTitle(
-                icon: Icons.pets_rounded,
-                title: 'Select Pet',
-              ),
+              _SectionTitle(icon: Icons.pets_rounded, title: 'Select Pet'),
               const SizedBox(height: 10),
               _buildPetDropdown(),
 
@@ -381,14 +378,9 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
 
     return DropdownButtonFormField<Pet>(
       initialValue: _selectedPet,
-      decoration: const InputDecoration(
-        hintText: 'Choose a pet',
-      ),
+      decoration: const InputDecoration(hintText: 'Choose a pet'),
       items: pets.map((pet) {
-        return DropdownMenuItem<Pet>(
-          value: pet,
-          child: Text(pet.name),
-        );
+        return DropdownMenuItem<Pet>(value: pet, child: Text(pet.name));
       }).toList(),
       onChanged: (pet) {
         setState(() {
@@ -401,9 +393,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   Widget _buildServiceDropdown() {
     return DropdownButtonFormField<Service>(
       initialValue: _selectedService,
-      decoration: const InputDecoration(
-        hintText: 'Choose a service',
-      ),
+      decoration: const InputDecoration(hintText: 'Choose a service'),
       items: _services.map((service) {
         return DropdownMenuItem<Service>(
           value: service,
@@ -423,9 +413,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   Widget _buildVeterinarianDropdown() {
     return DropdownButtonFormField<Veterinarian>(
       initialValue: _selectedVeterinarian,
-      decoration: const InputDecoration(
-        hintText: 'Choose a veterinarian',
-      ),
+      decoration: const InputDecoration(hintText: 'Choose a veterinarian'),
       items: _veterinarians.map((veterinarian) {
         return DropdownMenuItem<Veterinarian>(
           value: veterinarian,
@@ -488,18 +476,14 @@ class _PageIntro extends StatelessWidget {
       children: [
         Text(
           'Schedule a visit',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            color: AppTheme.espresso,
-            fontWeight: FontWeight.w800,
-          ),
+          style: Theme.of(context).textTheme.headlineSmall
+              ?.copyWith(color: AppTheme.espresso, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 6),
         Text(
           'Choose your pet, service, veterinarian and preferred time.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppTheme.deepBrown,
-            height: 1.45,
-          ),
+          style: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(color: AppTheme.deepBrown, height: 1.45),
         ),
       ],
     );
@@ -507,10 +491,7 @@ class _PageIntro extends StatelessWidget {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
-    required this.icon,
-    required this.title,
-  });
+  const _SectionTitle({required this.icon, required this.title});
 
   final IconData icon;
   final String title;
@@ -519,18 +500,12 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 20,
-          color: AppTheme.primary,
-        ),
+        Icon(icon, size: 20, color: AppTheme.primary),
         const SizedBox(width: 8),
         Text(
           title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: AppTheme.espresso,
-            fontWeight: FontWeight.w800,
-          ),
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(color: AppTheme.espresso, fontWeight: FontWeight.w800),
         ),
       ],
     );
@@ -562,11 +537,7 @@ class _DateTimeButton extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: 20,
-              color: AppTheme.primary,
-            ),
+            Icon(icon, size: 20, color: AppTheme.primary),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -615,14 +586,8 @@ class _BookingSummary extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            _SummaryRow(
-              label: 'Pet',
-              value: petName ?? 'Not selected',
-            ),
-            _SummaryRow(
-              label: 'Service',
-              value: serviceName ?? 'Not selected',
-            ),
+            _SummaryRow(label: 'Pet', value: petName ?? 'Not selected'),
+            _SummaryRow(label: 'Service', value: serviceName ?? 'Not selected'),
             _SummaryRow(
               label: 'Veterinarian',
               value: veterinarianName ?? 'Not selected',
@@ -632,7 +597,7 @@ class _BookingSummary extends StatelessWidget {
               value: dateTime == null
                   ? 'Not selected'
                   : '${dateTime!.day}/${dateTime!.month}/${dateTime!.year} '
-                      '${TimeOfDay.fromDateTime(dateTime!).format(context)}',
+                        '${TimeOfDay.fromDateTime(dateTime!).format(context)}',
             ),
           ],
         ),
@@ -642,10 +607,7 @@ class _BookingSummary extends StatelessWidget {
 }
 
 class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-  });
+  const _SummaryRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -683,10 +645,7 @@ class _SummaryRow extends StatelessWidget {
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ErrorState({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -714,10 +673,7 @@ class _ErrorState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            OutlinedButton(
-              onPressed: onRetry,
-              child: const Text('Retry'),
-            ),
+            OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
           ],
         ),
       ),
