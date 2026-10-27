@@ -13,21 +13,17 @@ import 'vet_visit_preparation_page.dart';
 
 class AIHubPage extends StatefulWidget {
   const AIHubPage({super.key, this.pets, this.healthController});
-
   final List<Pet>? pets;
   final HealthController? healthController;
-
   @override
   State<AIHubPage> createState() => _AIHubPageState();
 }
 
 class _AIHubPageState extends State<AIHubPage> {
   Pet? selectedPet;
-
   @override
   void initState() {
     super.initState();
-
     if (widget.pets != null && widget.pets!.isNotEmpty) {
       selectedPet = widget.pets!.first;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -43,7 +39,6 @@ class _AIHubPageState extends State<AIHubPage> {
       body: Stack(
         children: [
           const Positioned.fill(child: PetCareBackground()),
-
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
@@ -58,9 +53,7 @@ class _AIHubPageState extends State<AIHubPage> {
                       fit: BoxFit.contain,
                     ),
                   ),
-
                   const SizedBox(height: 24),
-
                   Text(
                     'PetCare AI Assistant',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -68,25 +61,19 @@ class _AIHubPageState extends State<AIHubPage> {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-
                   const SizedBox(height: 6),
-
                   Text(
                     'Smart advice. Healthier days. Happier pets.',
                     style: Theme.of(context).textTheme.bodyLarge
                         ?.copyWith(color: AppTheme.deepBrown),
                   ),
-
                   const SizedBox(height: 24),
-
                   Text(
                     'Selected Pet',
                     style: Theme.of(context).textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.w800),
                   ),
-
                   const SizedBox(height: 10),
-
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -129,12 +116,10 @@ class _AIHubPageState extends State<AIHubPage> {
                                   ),
                                 ),
                         ),
-
                         const SizedBox(width: 16),
-
                         Expanded(
                           child: widget.pets == null || widget.pets!.isEmpty
-                              ? const Column(
+                              ? Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
@@ -154,7 +139,7 @@ class _AIHubPageState extends State<AIHubPage> {
                                         Expanded(
                                           child: Text(
                                             selectedPet?.name ?? 'Select a pet',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 18,
                                               fontWeight: FontWeight.w700,
                                             ),
@@ -163,7 +148,7 @@ class _AIHubPageState extends State<AIHubPage> {
                                         DropdownButtonHideUnderline(
                                           child: DropdownButton<Pet>(
                                             value: selectedPet,
-                                            icon: const Icon(
+                                            icon: Icon(
                                               Icons.keyboard_arrow_down_rounded,
                                             ),
                                             items: widget.pets!
@@ -177,18 +162,15 @@ class _AIHubPageState extends State<AIHubPage> {
                                                 .toList(),
                                             onChanged: (pet) async {
                                               if (pet == null) return;
-
                                               setState(() {
                                                 selectedPet = pet;
                                               });
-
                                               await _buildContext();
                                             },
                                           ),
                                         ),
                                       ],
                                     ),
-
                                     Text(
                                       selectedPet?.species ?? '',
                                       style: const TextStyle(
@@ -196,9 +178,7 @@ class _AIHubPageState extends State<AIHubPage> {
                                         color: Colors.black54,
                                       ),
                                     ),
-
                                     const SizedBox(height: 4),
-
                                     Text(
                                       '${selectedPet?.ageInYears ?? 0} years • '
                                       '${selectedPet?.weight ?? 0} kg',
@@ -209,9 +189,7 @@ class _AIHubPageState extends State<AIHubPage> {
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 18),
-
                   GestureDetector(
                     onTap: () {
                       Navigator.push(
@@ -249,9 +227,7 @@ class _AIHubPageState extends State<AIHubPage> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
                   Text(
                     'Quick Tools',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -259,9 +235,7 @@ class _AIHubPageState extends State<AIHubPage> {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-
                   const SizedBox(height: 12),
-
                   _ToolTile(
                     title: 'Health Summary',
                     subtitle: 'Understand pet health records',
@@ -272,14 +246,12 @@ class _AIHubPageState extends State<AIHubPage> {
                           const SnackBar(
                             content: Text('Please select a pet first.'),
                             behavior: SnackBarBehavior.floating,
-                            duration: const Duration(milliseconds: 200),
+                            duration: Duration(milliseconds: 200),
                             backgroundColor: Colors.brown,
                           ),
                         );
-
                         return;
                       }
-
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -289,7 +261,6 @@ class _AIHubPageState extends State<AIHubPage> {
                       );
                     },
                   ),
-
                   _ToolTile(
                     title: 'Preventive Care',
                     subtitle: 'Upcoming care insights',
@@ -300,14 +271,12 @@ class _AIHubPageState extends State<AIHubPage> {
                           const SnackBar(
                             content: Text('Please select a pet first.'),
                             behavior: SnackBarBehavior.floating,
-                            duration: const Duration(milliseconds: 200),
+                            duration: Duration(milliseconds: 200),
                             backgroundColor: Colors.brown,
                           ),
                         );
-
                         return;
                       }
-
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -318,7 +287,6 @@ class _AIHubPageState extends State<AIHubPage> {
                       );
                     },
                   ),
-
                   _ToolTile(
                     title: 'Vet Visit Prep',
                     subtitle: 'Prepare for appointments',
@@ -329,14 +297,12 @@ class _AIHubPageState extends State<AIHubPage> {
                           const SnackBar(
                             content: Text('Please select a pet first.'),
                             behavior: SnackBarBehavior.floating,
-                            duration: const Duration(milliseconds: 200),
+                            duration: Duration(milliseconds: 200),
                             backgroundColor: Colors.brown,
                           ),
                         );
-
                         return;
                       }
-
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -356,28 +322,13 @@ class _AIHubPageState extends State<AIHubPage> {
     );
   }
 
-  Widget _topicChip(String title) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.35)),
-      ),
-      child: Text(title),
-    );
-  }
-
   final CreatePetContext _createPetContext = const CreatePetContext();
-
   AIPetContext? _currentContext;
   Future<void> _buildContext() async {
     if (selectedPet == null || widget.healthController == null) {
       return;
     }
-
     await widget.healthController!.loadHealthRecords(selectedPet!.petId);
-
     _currentContext = _createPetContext(
       pet: selectedPet!,
       conditions: widget.healthController!.medicalConditions,
@@ -395,12 +346,10 @@ class _ToolTile extends StatelessWidget {
     required this.icon,
     required this.onTap,
   });
-
   final String title;
   final String subtitle;
   final IconData icon;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     return Container(
