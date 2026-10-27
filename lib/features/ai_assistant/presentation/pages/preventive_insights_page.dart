@@ -37,7 +37,7 @@ class _PreventiveInsightsPageState extends State<PreventiveInsightsPage> {
           const Positioned.fill(child: PetCareBackground()),
           AnimatedBuilder(
             animation: provider,
-            builder: (_, __) {
+            builder: (_, _) {
               if (provider.isLoading) {
                 return const Center(child: CircularProgressIndicator());
               }
@@ -201,7 +201,7 @@ class _PetOverviewCard extends StatelessWidget {
                 ? Image.network(
                     imageUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) {
+                    errorBuilder: (_, _, _) {
                       return const Icon(
                         Icons.pets_rounded,
                         color: AppTheme.primary,

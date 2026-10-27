@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/petcare_background.dart';
@@ -38,7 +37,7 @@ class _HealthSummaryPageState extends State<HealthSummaryPage> {
           const Positioned.fill(child: PetCareBackground()),
           AnimatedBuilder(
             animation: provider,
-            builder: (_, __) {
+            builder: (_, _) {
               if (provider.isLoading) {
                 return const Center(child: CircularProgressIndicator());
               }
@@ -60,9 +59,7 @@ class _HealthSummaryPageState extends State<HealthSummaryPage> {
                       weight: pet.weight,
                       imageUrl: pet.imageUrl,
                     ),
-
                     const SizedBox(height: 16),
-
                     GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -93,9 +90,7 @@ class _HealthSummaryPageState extends State<HealthSummaryPage> {
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 16),
-
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(18),
@@ -113,11 +108,11 @@ class _HealthSummaryPageState extends State<HealthSummaryPage> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-
                           SizedBox(height: 12),
-
                           Text(
-                            'Continue monitoring your pet\'s health, maintain vaccination schedules, and keep treatment records updated.',
+                            "Continue monitoring your pet's health, "
+                            'maintain vaccination schedules, and keep '
+                            'treatment records updated.',
                           ),
                         ],
                       ),
@@ -170,7 +165,7 @@ class _PetOverviewCard extends StatelessWidget {
                 ? Image.network(
                     imageUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) {
+                    errorBuilder: (_, _, _) {
                       return const Icon(
                         Icons.pets_rounded,
                         color: AppTheme.primary,
@@ -184,9 +179,7 @@ class _PetOverviewCard extends StatelessWidget {
                     size: 32,
                   ),
           ),
-
           const SizedBox(width: 16),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -198,13 +191,9 @@ class _PetOverviewCard extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-
                 const SizedBox(height: 4),
-
                 Text('$species • $breed'),
-
                 const SizedBox(height: 4),
-
                 Text(
                   '$weight kg',
                   style: const TextStyle(color: Colors.black54),
@@ -249,16 +238,12 @@ class _StatTile extends StatelessWidget {
             ),
             child: Icon(icon, color: AppTheme.primary),
           ),
-
           const SizedBox(height: 10),
-
           Text(
             value,
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
-
           const SizedBox(height: 4),
-
           Text(title),
         ],
       ),
