@@ -720,35 +720,46 @@ class AppRouter {
           settings: settings,
         );
 
-           case bookAppointment:
+      case bookAppointment:
         final routeArguments = settings.arguments;
 
-        // Create the existing Pet controller for the booking screen.
-        final repository = FirebasePetRepository(
-          auth: auth,
-          firestore: FirebaseFirestore.instance,
-        );
+        // Build Firebase dependencies only when the page is actually opened.
+        // OwnerAccessGate can deny unauthorized users before this runs.
+        Widget buildBookingPage({
+          required String hospitalId,
+          String? veterinarianId,
+        }) {
+          final repository = FirebasePetRepository(
+            auth: auth,
+            firestore: FirebaseFirestore.instance,
+          );
 
-        final imageRepository = CloudinaryPetImageRepository(
-          cloudName: CloudinaryConfig.cloudName,
-          uploadPreset: CloudinaryConfig.uploadPreset,
-        );
+          final imageRepository = CloudinaryPetImageRepository(
+            cloudName: CloudinaryConfig.cloudName,
+            uploadPreset: CloudinaryConfig.uploadPreset,
+          );
 
-        final petsController = PetsController(
-          CreatePet(repository),
-          GetPets(repository),
-          UpdatePet(repository),
-          DeletePet(repository),
-          UploadPetImage(imageRepository),
-          DeletePetImage(imageRepository),
-        );
+          final petsController = PetsController(
+            CreatePet(repository),
+            GetPets(repository),
+            UpdatePet(repository),
+            DeletePet(repository),
+            UploadPetImage(imageRepository),
+            DeletePetImage(imageRepository),
+          );
+
+          return BookAppointmentPage(
+            hospitalId: hospitalId,
+            veterinarianId: veterinarianId,
+            petsController: petsController,
+          );
+        }
 
         if (routeArguments is BookAppointmentRouteArgs) {
           return MaterialPageRoute(
-            builder: (_) => BookAppointmentPage(
+            builder: (_) => buildBookingPage(
               hospitalId: routeArguments.hospitalId,
               veterinarianId: routeArguments.veterinarianId,
-              petsController: petsController,
             ),
             settings: settings,
           );
@@ -756,9 +767,8 @@ class AppRouter {
 
         if (routeArguments is String) {
           return MaterialPageRoute(
-            builder: (_) => BookAppointmentPage(
+            builder: (_) => buildBookingPage(
               hospitalId: routeArguments,
-              petsController: petsController,
             ),
             settings: settings,
           );
