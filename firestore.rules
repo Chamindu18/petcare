@@ -620,51 +620,47 @@ service cloud.firestore {
     }
 
     match /adoption_listings/{listingId} {
-      // Authenticated users can discover listings; owner-specific management
-      // is separately restricted by ownsListing().
-    allow read: if signedIn()
-        && (
-          resource.data.status != 'draft'
-          || ownsListing(resource.data)
-        );
+  // Signed-in users can browse published listings.
+  // Only providers can read their own drafts.
+  allow read: if signedIn()
+    && (
+      resource.data.status != 'draft'
+      || (
+        isAdoptionProvider()
+        && ownsListing(resource.data)
+      )
+    );
 
-      allow create: if signedIn()
-        && (
-          (
-            validListingFields(request.resource.data)
-            && request.resource.data.status in ['draft', 'available']
-            && request.resource.data.createdAt == request.time
-            && request.resource.data.updatedAt == request.time
-            && (
-              (
-                isOwner()
-                && request.resource.data.listingOwnerType == 'owner'
-                && request.resource.data.listingOwnerId == request.auth.uid
-                && !request.resource.data.keys().hasAny(['providerId'])
-              )
-              ||
-              (
-                isAdoptionProvider()
-                && request.resource.data.listingOwnerType == 'adoption_provider'
-                && request.resource.data.listingOwnerId == request.auth.uid
-                && request.resource.data.providerId == request.auth.uid
-              )
-            )
-          )
-          ||
-          (
-            isAdoptionProvider()
-            && validLegacyProviderListingFields(request.resource.data)
-            && request.resource.data.providerId == request.auth.uid
-          )
-        );
+  // Only adoption providers can create advertisements.
+  allow create: if isAdoptionProvider()
+    && (
+      (
+        validListingFields(request.resource.data)
+        && request.resource.data.listingOwnerType == 'adoption_provider'
+        && request.resource.data.listingOwnerId == request.auth.uid
+        && request.resource.data.providerId == request.auth.uid
+        && request.resource.data.status in ['draft', 'available']
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+      )
+      ||
+      (
+        validLegacyProviderListingFields(request.resource.data)
+        && request.resource.data.providerId == request.auth.uid
+      )
+    );
 
-      allow update: if request.resource.data.status == 'reserved'
+  // Only adoption providers can update or reserve their listings.
+  allow update: if isAdoptionProvider()
+    && (
+      request.resource.data.status == 'reserved'
         ? listingCanBeReserved(listingId)
-        : normalListingCanBeUpdated();
-      allow delete: if false;
-    }
+        : normalListingCanBeUpdated()
+    );
 
+  // Listings are retained rather than hard-deleted.
+  allow delete: if false;
+}
     // ============================================================
     // Adoption Requests
     // ============================================================
@@ -702,52 +698,42 @@ service cloud.firestore {
     }
 
     function validNewAdoptionRequest(data) {
-      return data.keys().hasAll([
-          'listingId', 'requesterId', 'recipientId', 'recipientType',
-          'status', 'submittedAt', 'updatedAt'
-        ])
-        && data.keys().hasOnly([
-          'listingId', 'requesterId', 'providerId', 'recipientId',
-          'recipientType', 'message', 'status', 'submittedAt', 'updatedAt'
-        ])
-        && data.listingId is string
-        && data.requesterId is string
-        && data.requesterId == request.auth.uid
-        && data.recipientId is string
-        && data.recipientId != request.auth.uid
-        && data.recipientType in ['owner', 'adoption_provider']
-        && data.status == 'pending'
-        && data.submittedAt == request.time
-        && data.updatedAt == request.time
-        && (!data.keys().hasAny(['message']) ||
-          (data.message is string && data.message.size() <= 500))
-        && exists(
-          /databases/$(database)/documents/adoption_listings/$(data.listingId)
-        )
-        && get(
-          /databases/$(database)/documents/adoption_listings/$(data.listingId)
-        ).data.status == 'available'
-        && listingOwnerId(get(
-          /databases/$(database)/documents/adoption_listings/$(data.listingId)
-        ).data) == data.recipientId
-        && listingOwnerType(get(
-          /databases/$(database)/documents/adoption_listings/$(data.listingId)
-        ).data) == data.recipientType
-        && get(
-          /databases/$(database)/documents/users/$(data.recipientId)
-        ).data.role == data.recipientType
-        && (
-          (
-            data.recipientType == 'owner'
-            && !data.keys().hasAny(['providerId'])
-          )
-          ||
-          (
-            data.recipientType == 'adoption_provider'
-            && data.get('providerId', '') == data.recipientId
-          )
-        );
-    }
+  return data.keys().hasAll([
+      'listingId', 'requesterId', 'recipientId', 'recipientType',
+      'status', 'submittedAt', 'updatedAt'
+    ])
+    && data.keys().hasOnly([
+      'listingId', 'requesterId', 'providerId', 'recipientId',
+      'recipientType', 'message', 'status', 'submittedAt', 'updatedAt'
+    ])
+    && data.listingId is string
+    && data.requesterId is string
+    && data.requesterId == request.auth.uid
+    && data.recipientId is string
+    && data.recipientId != request.auth.uid
+    && data.recipientType == 'adoption_provider'
+    && data.status == 'pending'
+    && data.submittedAt == request.time
+    && data.updatedAt == request.time
+    && (!data.keys().hasAny(['message']) ||
+      (data.message is string && data.message.size() <= 500))
+    && exists(
+      /databases/$(database)/documents/adoption_listings/$(data.listingId)
+    )
+    && get(
+      /databases/$(database)/documents/adoption_listings/$(data.listingId)
+    ).data.status == 'available'
+    && listingOwnerType(get(
+      /databases/$(database)/documents/adoption_listings/$(data.listingId)
+    ).data) == 'adoption_provider'
+    && listingOwnerId(get(
+      /databases/$(database)/documents/adoption_listings/$(data.listingId)
+    ).data) == data.recipientId
+    && get(
+      /databases/$(database)/documents/users/$(data.recipientId)
+    ).data.role == 'adoption_provider'
+    && data.get('providerId', '') == data.recipientId;
+}
 
     function ownerCanWithdrawRequest() {
       return isOwner()
