@@ -16,9 +16,11 @@ class AdoptionRequestDetailsPage extends StatefulWidget {
     this.adoptionRequestRepository,
     this.decisionRepository,
     this.adoptionListingRepository,
+    this.currentUserId,
   });
 
   final String requestId;
+  final String? currentUserId;
   final AdoptionRequestRepository? adoptionRequestRepository;
   final AdoptionRequestDecisionRepository? decisionRepository;
   final AdoptionListingRepository? adoptionListingRepository;
@@ -102,6 +104,11 @@ class _AdoptionRequestDetailsPageState
             request.listingId,
             () => _listingRepository.watchListing(listingId: request.listingId),
           );
+
+          final canDecideRequest =
+              request.recipientType == 'adoption_provider' &&
+              request.recipientId != null &&
+              request.recipientId == widget.currentUserId;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
@@ -231,7 +238,7 @@ class _AdoptionRequestDetailsPageState
                   ),
                 ),
                 const SizedBox(height: 24),
-                if (_isPending(request.status)) ...[
+                if (_isPending(request.status) && canDecideRequest) ...[
                   Text(
                     'Decision',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -281,6 +288,15 @@ class _AdoptionRequestDetailsPageState
                     const SizedBox(height: 16),
                     const Center(child: CircularProgressIndicator()),
                   ],
+                ] else if (_isPending(request.status)) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Only the adoption provider managing this listing can '
+                    'accept or reject this request.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: AppTheme.deepBrown),
+                  ),
                 ] else ...[
                   const SizedBox(height: 4),
                   Text(

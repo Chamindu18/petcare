@@ -528,8 +528,10 @@ class AppRouter {
           builder: (_) => AdoptionWorkspaceAccessGate(
             auth: auth,
             profileRepository: profileRepository,
-            childBuilder: (_) =>
-                AdoptionRequestDetailsPage(requestId: requestId),
+            childBuilder: (_) => AdoptionRequestDetailsPage(
+              requestId: requestId,
+              currentUserId: auth.currentUser?.uid,
+            ),
           ),
           settings: settings,
         );
