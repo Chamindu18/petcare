@@ -403,6 +403,24 @@ test('provider drafts are readable only by their provider', async () => {
   await assertSucceeds(
     getDoc(doc(authed('owner-2'), 'adoption_listings/provider-listing')),
   );
+
+  // Verify the same query used by watchMyListings().
+  const providerListingsQuery = query(
+    collection(authed('provider-1'), 'adoption_listings'),
+    where('providerId', '==', 'provider-1'),
+    orderBy('createdAt', 'desc'),
+  );
+
+  const providerListingsSnapshot = await assertSucceeds(
+    getDocs(providerListingsQuery),
+  );
+
+  assert.ok(
+    providerListingsSnapshot.docs.some(
+      (document) => document.id === 'provider-draft',
+    ),
+    'The provider query should include the provider draft.',
+  );
 });
 
 test('listing owners cannot hard-delete listing documents', async () => {
