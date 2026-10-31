@@ -110,15 +110,47 @@ void main() {
       expect(find.text('Profile & Settings'), findsOneWidget);
       expect(find.text('Test User'), findsOneWidget);
       expect(find.text('test@example.com'), findsOneWidget);
+      expect(find.text('Pet Owner'), findsOneWidget);
+
+      // Account section.
+      expect(find.text('Account'), findsOneWidget);
       expect(find.text('Personal Information'), findsOneWidget);
+
+      // Scroll to Preferences before checking its lazy-built section.
+      await tester.scrollUntilVisible(
+        find.text('Preferences'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(find.text('Preferences'), findsOneWidget);
       expect(find.text('Notifications'), findsOneWidget);
+
+      // Scroll to Security.
+      await tester.scrollUntilVisible(
+        find.text('Security'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(find.text('Security'), findsOneWidget);
       expect(find.text('Privacy & Security'), findsOneWidget);
+
+      // Scroll to Support.
+      await tester.scrollUntilVisible(
+        find.text('Support'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(find.text('Support'), findsOneWidget);
       expect(find.text('Help & Support'), findsOneWidget);
       expect(find.text('About PetCare+'), findsOneWidget);
 
+      // Log Out is at the bottom of the list.
       await tester.scrollUntilVisible(
         find.text('Log Out'),
-        300,
+        250,
         scrollable: find.byType(Scrollable).first,
       );
 
@@ -148,7 +180,7 @@ void main() {
 
       await tester.scrollUntilVisible(
         find.text('Log Out'),
-        300,
+        250,
         scrollable: find.byType(Scrollable).first,
       );
 
@@ -206,8 +238,6 @@ void main() {
         photoUrl: 'https://example.invalid/profile-photo.png',
       );
 
-      // The Flutter widget-test HTTP client returns a failed response.
-      // The Image.network errorBuilder should display the fallback icon.
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.person_rounded), findsOneWidget);
