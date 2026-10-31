@@ -73,7 +73,7 @@ These tests use a demo project. They do not deploy or verify production rules.
 The local Windows checkout has validated the provider-only repository changes:
 
 - `flutter analyze`: no issues found.
-- `flutter test`: all 204 tests passed.
+- `flutter test`: all 213 tests passed.
 - Repository tests: all 3 provider-only access tests passed.
 - `npm run test:rules`: all 33 Firestore rules and backfill-planner tests passed.
 - `git diff --check`: no whitespace errors.
