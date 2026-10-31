@@ -279,6 +279,7 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
           ProfilePage(
             profileRepository: widget.profileRepository,
             authRepository: widget.authRepository,
+            photoUrl: photoUrl,
           ),
         ],
       ),

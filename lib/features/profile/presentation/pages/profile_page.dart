@@ -10,10 +10,16 @@ import '../providers/profile_provider.dart';
 import '../../../../app/router/app_router.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key, this.profileRepository, this.authRepository});
+  const ProfilePage({
+    super.key,
+    this.profileRepository,
+    this.authRepository,
+    this.photoUrl,
+  });
 
   final ProfileRepository? profileRepository;
   final AuthRepository? authRepository;
+  final String? photoUrl;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -110,7 +116,11 @@ class _ProfilePageState extends State<ProfilePage> {
             return _ErrorState(onRetry: _profileProvider.startListening);
           }
 
-          return _ProfileContent(profile: profile, onLogout: _confirmLogout);
+          return _ProfileContent(
+            profile: profile,
+            photoUrl: widget.photoUrl,
+            onLogout: _confirmLogout,
+          );
         },
       ),
     );
@@ -118,17 +128,22 @@ class _ProfilePageState extends State<ProfilePage> {
 }
 
 class _ProfileContent extends StatelessWidget {
-  const _ProfileContent({required this.profile, required this.onLogout});
+  const _ProfileContent({
+    required this.profile,
+    required this.onLogout,
+    this.photoUrl,
+  });
 
   final UserProfile profile;
   final VoidCallback onLogout;
+  final String? photoUrl;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
       children: [
-        _ProfileHeader(profile: profile),
+        _ProfileHeader(profile: profile, photoUrl: photoUrl),
         const SizedBox(height: 20),
         _SettingsCard(
           children: [
@@ -203,15 +218,17 @@ class _ProfileContent extends StatelessWidget {
 }
 
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.profile});
+  const _ProfileHeader({required this.profile, this.photoUrl});
 
   final UserProfile profile;
+  final String? photoUrl;
 
   @override
   Widget build(BuildContext context) {
     final displayName = profile.displayName.trim().isNotEmpty
         ? profile.displayName
         : profile.fullName;
+    final normalizedPhotoUrl = photoUrl?.trim();
 
     return Card(
       child: Padding(
@@ -225,11 +242,21 @@ class _ProfileHeader extends StatelessWidget {
                 color: AppTheme.secondary,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(
-                Icons.person_rounded,
-                size: 34,
-                color: AppTheme.deepBrown,
-              ),
+              child: normalizedPhotoUrl == null || normalizedPhotoUrl.isEmpty
+                  ? _buildProfileAvatarFallback()
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Image.network(
+                        normalizedPhotoUrl,
+                        width: 64,
+                        height: 64,
+                        fit: BoxFit.cover,
+                        semanticLabel: 'Profile photo',
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildProfileAvatarFallback();
+                        },
+                      ),
+                    ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -261,6 +288,10 @@ class _ProfileHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _buildProfileAvatarFallback() {
+  return const Icon(Icons.person_rounded, size: 34, color: AppTheme.deepBrown);
 }
 
 class _SettingsCard extends StatelessWidget {
