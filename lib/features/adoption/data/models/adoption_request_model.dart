@@ -42,9 +42,8 @@ class AdoptionRequestModel extends AdoptionRequest {
       listingId: data['listingId'] as String,
       requesterId: data['requesterId'] as String,
       providerId: providerId,
-      recipientId: data['recipientId'] as String? ?? providerId,
-      recipientType:
-          data['recipientType'] as String? ?? 'adoption_provider',
+      recipientId: data['recipientId'] as String?,
+      recipientType: data['recipientType'] as String? ?? 'adoption_provider',
       message: data['message'] as String?,
       status: data['status'] as String,
       submittedAt: submittedAt.toDate(),
