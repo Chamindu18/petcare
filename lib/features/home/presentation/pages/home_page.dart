@@ -16,6 +16,7 @@ class HomePage extends StatefulWidget {
     required this.onAppointmentsTap,
     required this.onAskAITap,
     required this.onVeterinariansTap,
+    required this.onProfileTap,
     required this.userName,
     required this.photoUrl,
     this.notificationRepository,
@@ -28,6 +29,7 @@ class HomePage extends StatefulWidget {
   final VoidCallback onAppointmentsTap;
   final VoidCallback onAskAITap;
   final VoidCallback onVeterinariansTap;
+  final VoidCallback onProfileTap;
   final String userName;
   final String? photoUrl;
   final NotificationRepository? notificationRepository;
@@ -117,6 +119,7 @@ class _HomePageState extends State<HomePage> {
                           photoUrl: widget.photoUrl,
                           unreadCount: _notificationProvider.unreadCount,
                           onNotificationsTap: _openNotifications,
+                          onProfileTap: widget.onProfileTap,
                         ),
                         const SizedBox(height: 22),
                         _GreetingSection(
@@ -249,12 +252,14 @@ class _HomeHeader extends StatelessWidget {
     required this.photoUrl,
     required this.unreadCount,
     required this.onNotificationsTap,
+    required this.onProfileTap,
   });
 
   final String userName;
   final String? photoUrl;
   final int unreadCount;
   final VoidCallback onNotificationsTap;
+  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
@@ -322,34 +327,46 @@ class _HomeHeader extends StatelessWidget {
         ),
 
         const SizedBox(width: 10),
-        Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            color: AppTheme.secondary.withValues(alpha: 0.22),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppTheme.secondary.withValues(alpha: 0.35),
+        Tooltip(
+          message: 'Open profile',
+          child: Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: onProfileTap,
+              customBorder: const CircleBorder(),
+              child: Ink(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary.withValues(alpha: 0.22),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppTheme.secondary.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: ClipOval(
+                  child: photoUrl == null || photoUrl!.isEmpty
+                      ? const Icon(
+                          Icons.person_rounded,
+                          color: AppTheme.deepBrown,
+                          size: 24,
+                        )
+                      : Image.network(
+                          photoUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(
+                              Icons.person_rounded,
+                              color: AppTheme.deepBrown,
+                              size: 24,
+                            );
+                          },
+                        ),
+                ),
+              ),
             ),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: photoUrl == null
-              ? const Icon(
-                  Icons.person_rounded,
-                  color: AppTheme.deepBrown,
-                  size: 24,
-                )
-              : Image.network(
-                  photoUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Icon(
-                      Icons.person_rounded,
-                      color: AppTheme.deepBrown,
-                      size: 24,
-                    );
-                  },
-                ),
         ),
       ],
     );

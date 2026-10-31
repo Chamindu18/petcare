@@ -231,6 +231,10 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
     Navigator.pushNamed(context, AppRouter.addPet, arguments: _petsController);
   }
 
+  void _openProfile() {
+    _onTabSelected(4);
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = widget.auth ?? FirebaseAuth.instance;
@@ -256,6 +260,7 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             notificationRepository: widget.notificationRepository,
             onAppointmentsTap: () => _onTabSelected(2),
             onAskAITap: () => _onTabSelected(3),
+            onProfileTap: _openProfile,
             onVeterinariansTap: () {
               Navigator.pushNamed(context, AppRouter.veterinarianDiscovery);
             },
