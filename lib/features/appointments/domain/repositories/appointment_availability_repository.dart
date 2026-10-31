@@ -1,4 +1,4 @@
-import '../entities/appointment.dart';
+import '../entities/veterinarian_availability.dart';
 
 /// Provides appointment data required to calculate veterinarian availability.
 ///
@@ -9,7 +9,7 @@ abstract interface class AppointmentAvailabilityRepository {
   ///
   /// The implementation is responsible for retrieving only appointments
   /// relevant to the requested veterinarian and calendar day.
-  Future<List<Appointment>> getAppointmentsForVeterinarian({
+  Future<VeterinarianAvailability> getAvailabilityForVeterinarian({
     required String veterinarianId,
     required DateTime date,
   });
