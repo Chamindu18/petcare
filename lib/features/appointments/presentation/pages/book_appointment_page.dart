@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
-import '../../data/repositories/firebase_appointment_repository.dart';
-import '../../domain/entities/appointment.dart';
-import '../../domain/entities/appointment_slot.dart';
-import '../../domain/usecases/appointment_usecases.dart';
+import '../../../hospitals/data/repositories/firebase_hospital_repository.dart';
+import '../../../hospitals/domain/usecases/hospital_usecases.dart';
 import '../../../pets/domain/entities/pet.dart';
 import '../../../pets/presentation/providers/pets_controller.dart';
 import '../../../services/data/repositories/firebase_service_repository.dart';
@@ -14,6 +12,14 @@ import '../../../services/domain/usecases/service_usecases.dart';
 import '../../../veterinary/data/repositories/firebase_veterinarian_repository.dart';
 import '../../../veterinary/domain/entities/veterinarian.dart';
 import '../../../veterinary/domain/usecases/veterinarian_usecases.dart';
+import '../../data/repositories/firebase_appointment_availability_repository.dart';
+import '../../data/repositories/firebase_appointment_repository.dart';
+import '../../domain/entities/appointment.dart';
+import '../../domain/entities/appointment_slot.dart';
+import '../../domain/entities/hospital_operating_hours.dart';
+import '../../domain/usecases/appointment_usecases.dart';
+import '../../domain/usecases/get_available_appointment_slots.dart';
+import '../../domain/utils/hospital_hours_parser.dart';
 
 class BookAppointmentRouteArgs {
   const BookAppointmentRouteArgs({
@@ -44,6 +50,8 @@ class BookAppointmentPage extends StatefulWidget {
 class _BookAppointmentPageState extends State<BookAppointmentPage> {
   late final GetServicesByHospital _getServicesByHospital;
   late final GetVeterinariansByHospital _getVeterinariansByHospital;
+  late final GetHospitalById _getHospitalById;
+  late final GetAvailableAppointmentSlots _getAvailableAppointmentSlots;
   late final CreateAppointment _createAppointment;
 
   List<Service> _services = [];
@@ -58,11 +66,17 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
 
   List<AppointmentSlot> _availableSlots = [];
 
-  bool _isLoading = true;
+  HospitalOperatingHours? _operatingHours;
 
+  bool _isLoading = true;
+  bool _isLoadingSlots = false;
   bool _isSubmitting = false;
 
   String? _errorMessage;
+
+  /// Prevents an older availability request from overwriting newer
+  /// selections when the user changes date/service/veterinarian quickly.
+  int _availabilityRequestId = 0;
 
   final _reasonController = TextEditingController();
 
@@ -74,6 +88,12 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
 
     _getVeterinariansByHospital = GetVeterinariansByHospital(
       FirebaseVeterinarianRepository(),
+    );
+
+    _getHospitalById = GetHospitalById(FirebaseHospitalRepository());
+
+    _getAvailableAppointmentSlots = GetAvailableAppointmentSlots(
+      FirebaseAppointmentAvailabilityRepository(),
     );
 
     _createAppointment = CreateAppointment(FirebaseAppointmentRepository());
@@ -95,6 +115,14 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
 
     try {
       await widget.petsController.loadPets();
+
+      final hospital = await _getHospitalById(widget.hospitalId);
+
+      if (hospital == null) {
+        throw StateError('Hospital was not found.');
+      }
+
+      final operatingHours = HospitalHoursParser.parse(hospital.hours);
 
       final services = await _getServicesByHospital(widget.hospitalId);
 
@@ -121,6 +149,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         _services = services;
         _veterinarians = veterinarians;
         _selectedVeterinarian = selectedVeterinarian;
+        _operatingHours = operatingHours;
         _isLoading = false;
       });
     } catch (error) {
@@ -153,20 +182,80 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       _selectedDate = selectedDate;
       _selectedSlot = null;
       _availableSlots = [];
+      _errorMessage = null;
     });
 
-    /*
-     * Available slots will be loaded here once the Firebase
-     * availability repository is connected.
-     *
-     * Example future flow:
-     *
-     * final slots = await _getAvailableAppointmentSlots(...);
-     *
-     * setState(() {
-     *   _availableSlots = slots;
-     * });
-     */
+    await _loadAvailableSlots();
+  }
+
+  Future<void> _loadAvailableSlots() async {
+    final selectedDate = _selectedDate;
+    final selectedService = _selectedService;
+    final selectedVeterinarian = _selectedVeterinarian;
+    final operatingHours = _operatingHours;
+
+    if (selectedDate == null ||
+        selectedService == null ||
+        selectedVeterinarian == null ||
+        operatingHours == null) {
+      return;
+    }
+
+    final serviceDuration = selectedService.duration;
+
+    if (serviceDuration == null || serviceDuration <= 0) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _availableSlots = [];
+        _isLoadingSlots = false;
+      });
+
+      _showMessage('The selected service does not have a valid duration.');
+
+      return;
+    }
+
+    final requestId = ++_availabilityRequestId;
+
+    setState(() {
+      _availableSlots = [];
+      _selectedSlot = null;
+      _isLoadingSlots = true;
+    });
+
+    try {
+      final slots = await _getAvailableAppointmentSlots(
+        date: selectedDate,
+        veterinarianId: selectedVeterinarian.vetId,
+        operatingHours: operatingHours,
+        serviceDurationMinutes: serviceDuration,
+      );
+
+      if (!mounted || requestId != _availabilityRequestId) {
+        return;
+      }
+
+      setState(() {
+        _availableSlots = slots;
+        _isLoadingSlots = false;
+      });
+    } catch (error) {
+      if (!mounted || requestId != _availabilityRequestId) {
+        return;
+      }
+
+      setState(() {
+        _availableSlots = [];
+        _isLoadingSlots = false;
+      });
+
+      _showMessage(
+        'Unable to load available appointment slots. Please try again.',
+      );
+    }
   }
 
   DateTime? get _selectedDateTime {
@@ -412,7 +501,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       }).toList(),
       onChanged: _services.isEmpty
           ? null
-          : (service) {
+          : (service) async {
               setState(() {
                 _selectedService = service;
 
@@ -421,6 +510,8 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
                 _selectedSlot = null;
                 _availableSlots = [];
               });
+
+              await _loadAvailableSlots();
             },
     );
   }
@@ -443,7 +534,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       }).toList(),
       onChanged: _veterinarians.isEmpty
           ? null
-          : (veterinarian) {
+          : (veterinarian) async {
               setState(() {
                 _selectedVeterinarian = veterinarian;
 
@@ -452,6 +543,8 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
                 _selectedSlot = null;
                 _availableSlots = [];
               });
+
+              await _loadAvailableSlots();
             },
     );
   }
@@ -494,6 +587,12 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       );
     }
 
+    if (_isLoadingSlots) {
+      return const _SlotMessage(
+        icon: Icons.schedule_rounded,
+        message: 'Loading available appointment slots...',
+      );
+    }
 
     if (_availableSlots.isEmpty) {
       return const _SlotMessage(
