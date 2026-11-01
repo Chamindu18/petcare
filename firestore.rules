@@ -67,8 +67,7 @@ service cloud.firestore {
         && get(
           /databases/$(database)/documents/pets/$(petId)
         ).data.ownerId == request.auth.uid;
-    }
-
+    }  
     // A veterinary role alone does not grant access to a hospital.
     // The user must have a provisioned veterinarian profile assigned to
     // that hospital. The sentinel value 'unassigned' grants no hospital access.
@@ -77,11 +76,8 @@ service cloud.firestore {
         && hospitalId is string
         && hospitalId != 'unassigned'
         && isVeterinaryUser()
-        && exists(
-          /databases/$(database)/documents/veterinarians/$(request.auth.uid)
-        )
         && get(
-          /databases/$(database)/documents/veterinarians/$(request.auth.uid)
+          /databases/$(database)/documents/users/$(request.auth.uid)
         ).data.hospitalId == hospitalId;
     }
 
