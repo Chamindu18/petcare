@@ -42,4 +42,4 @@ The command runs both the Firestore Rules Emulator tests and the pure backfill-p
 
 ## Current verification scope
 
-Prior to this follow-up, the local Windows checkout reported 19 Firestore Emulator tests, 44 focused adoption tests, 185 full Flutter tests, and `flutter analyze` with no issues. These are **results for the earlier patch**, not this follow-up. In the current authoring environment, the pure Node backfill-planner tests can run, but the npm registry is unreachable and Flutter/Dart are unavailable; therefore the updated Emulator and Flutter suites must be rerun on the Windows development machine before approval.
+Prior to this follow-up, the local Windows checkout reported 19 Firestore Emulator tests, 44 focused adoption tests, 198 full Flutter tests, and `flutter analyze` with no issues. These are **results for the earlier patch**, not this follow-up. In the current authoring environment, the pure Node backfill-planner tests can run, but the npm registry is unreachable and Flutter/Dart are unavailable; therefore the updated Emulator and Flutter suites must be rerun on the Windows development machine before approval.
