@@ -72,6 +72,32 @@ class FirebaseAppointmentRepository implements AppointmentRepository {
   }
 
   @override
+  Future<List<Appointment>> getAppointmentsByHospital(String hospitalId) async {
+    final snapshot = await _appointmentsCollection
+        .where('hospitalId', isEqualTo: hospitalId)
+        .get();
+
+    return snapshot.docs
+        .map((document) => AppointmentModel.fromMap(document.data()))
+        .toList();
+  }
+
+  @override
+  Future<List<Appointment>> getAppointmentsByVeterinarian({
+    required String vetId,
+    required String hospitalId,
+  }) async {
+    final snapshot = await _appointmentsCollection
+        .where('vetId', isEqualTo: vetId)
+        .where('hospitalId', isEqualTo: hospitalId)
+        .get();
+
+    return snapshot.docs
+        .map((document) => AppointmentModel.fromMap(document.data()))
+        .toList();
+  }
+
+  @override
   Future<Appointment?> getAppointmentById(String appointmentId) async {
     final ownerId = _currentUserId;
 

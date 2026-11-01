@@ -157,6 +157,19 @@ class _FakeAppointmentRepository implements AppointmentRepository {
 
   @override
   Future<void> rejectAppointment(String appointmentId) async {}
+
+  @override
+  Future<List<Appointment>> getAppointmentsByHospital(String hospitalId) async {
+    return [];
+  }
+
+  @override
+  Future<List<Appointment>> getAppointmentsByVeterinarian({
+    required String vetId,
+    required String hospitalId,
+  }) async {
+    return [];
+  }
 }
 
 class _FakeProfileRepository implements ProfileRepository {
