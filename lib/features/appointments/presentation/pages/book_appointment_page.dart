@@ -4,6 +4,7 @@ import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../data/repositories/firebase_appointment_repository.dart';
 import '../../domain/entities/appointment.dart';
+import '../../domain/entities/appointment_slot.dart';
 import '../../domain/usecases/appointment_usecases.dart';
 import '../../../pets/domain/entities/pet.dart';
 import '../../../pets/presentation/providers/pets_controller.dart';
@@ -53,10 +54,14 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   Veterinarian? _selectedVeterinarian;
 
   DateTime? _selectedDate;
-  TimeOfDay? _selectedTime;
+  AppointmentSlot? _selectedSlot;
+
+  List<AppointmentSlot> _availableSlots = [];
 
   bool _isLoading = true;
+
   bool _isSubmitting = false;
+
   String? _errorMessage;
 
   final _reasonController = TextEditingController();
@@ -65,7 +70,6 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   void initState() {
     super.initState();
 
-    // Reuse the existing service, veterinarian, and appointment contracts.
     _getServicesByHospital = GetServicesByHospital(FirebaseServiceRepository());
 
     _getVeterinariansByHospital = GetVeterinariansByHospital(
@@ -93,6 +97,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       await widget.petsController.loadPets();
 
       final services = await _getServicesByHospital(widget.hospitalId);
+
       final veterinarians = await _getVeterinariansByHospital(
         widget.hospitalId,
       );
@@ -135,7 +140,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
 
     final selectedDate = await showDatePicker(
       context: context,
-      initialDate: now,
+      initialDate: _selectedDate ?? now,
       firstDate: now,
       lastDate: now.add(const Duration(days: 90)),
     );
@@ -146,33 +151,26 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
 
     setState(() {
       _selectedDate = selectedDate;
+      _selectedSlot = null;
+      _availableSlots = [];
     });
-  }
 
-  Future<void> _selectTime() async {
-    final selectedTime = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-    );
-
-    if (selectedTime == null || !mounted) {
-      return;
-    }
-
-    setState(() {
-      _selectedTime = selectedTime;
-    });
+    /*
+     * Available slots will be loaded here once the Firebase
+     * availability repository is connected.
+     *
+     * Example future flow:
+     *
+     * final slots = await _getAvailableAppointmentSlots(...);
+     *
+     * setState(() {
+     *   _availableSlots = slots;
+     * });
+     */
   }
 
   DateTime? get _selectedDateTime {
-    final date = _selectedDate;
-    final time = _selectedTime;
-
-    if (date == null || time == null) {
-      return null;
-    }
-
-    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    return _selectedSlot?.startTime;
   }
 
   bool get _canSubmit {
@@ -194,7 +192,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
     final dateTime = _selectedDateTime!;
 
     if (dateTime.isBefore(DateTime.now())) {
-      _showMessage('Please select a future appointment time.');
+      _showMessage('Please select a future appointment slot.');
       return;
     }
 
@@ -224,7 +222,6 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         createdAt: DateTime.now(),
       );
 
-      // Create the appointment and receive the persisted appointment.
       final createdAppointment = await _createAppointment(appointment);
 
       if (!mounted) {
@@ -235,7 +232,6 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         _isSubmitting = false;
       });
 
-      // Send the created appointment to the confirmation page.
       Navigator.pushReplacementNamed(
         context,
         AppRouter.appointmentConfirmation,
@@ -308,46 +304,60 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
             children: [
               const _PageIntro(),
+
               const SizedBox(height: 24),
 
-              _SectionTitle(icon: Icons.pets_rounded, title: 'Select Pet'),
+              const _SectionTitle(
+                icon: Icons.pets_rounded,
+                title: 'Select Pet',
+              ),
+
               const SizedBox(height: 10),
+
               _buildPetDropdown(),
 
               const SizedBox(height: 22),
 
-              _SectionTitle(
+              const _SectionTitle(
                 icon: Icons.medical_services_rounded,
                 title: 'Select Service',
               ),
+
               const SizedBox(height: 10),
+
               _buildServiceDropdown(),
 
               const SizedBox(height: 22),
 
-              _SectionTitle(
+              const _SectionTitle(
                 icon: Icons.person_rounded,
                 title: 'Select Veterinarian',
               ),
+
               const SizedBox(height: 10),
+
               _buildVeterinarianDropdown(),
 
               const SizedBox(height: 22),
 
-              _SectionTitle(
+              const _SectionTitle(
                 icon: Icons.calendar_month_rounded,
                 title: 'Date & Time',
               ),
+
               const SizedBox(height: 10),
+
               _buildDateTimeSelector(),
 
               const SizedBox(height: 22),
 
-              _SectionTitle(
+              const _SectionTitle(
                 icon: Icons.notes_rounded,
                 title: 'Reason for Visit',
               ),
+
               const SizedBox(height: 10),
+
               TextField(
                 controller: _reasonController,
                 maxLines: 4,
@@ -405,6 +415,11 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
           : (service) {
               setState(() {
                 _selectedService = service;
+
+                // Changing service changes the required duration,
+                // so the previously selected slot is no longer valid.
+                _selectedSlot = null;
+                _availableSlots = [];
               });
             },
     );
@@ -421,7 +436,8 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
             veterinarian.specialty == null ||
                     veterinarian.specialty!.trim().isEmpty
                 ? veterinarian.name
-                : '${veterinarian.name} • ${veterinarian.specialty}',
+                : '${veterinarian.name} • '
+                      '${veterinarian.specialty}',
           ),
         );
       }).toList(),
@@ -430,6 +446,11 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
           : (veterinarian) {
               setState(() {
                 _selectedVeterinarian = veterinarian;
+
+                // Changing veterinarian invalidates the previously
+                // selected slot.
+                _selectedSlot = null;
+                _availableSlots = [];
               });
             },
     );
@@ -438,28 +459,85 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   Widget _buildDateTimeSelector() {
     final dateText = _selectedDate == null
         ? 'Select date'
-        : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}';
+        : '${_selectedDate!.day}/'
+              '${_selectedDate!.month}/'
+              '${_selectedDate!.year}';
 
-    final timeText = _selectedTime == null
-        ? 'Select time'
-        : _selectedTime!.format(context);
-
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: _DateTimeButton(
-            icon: Icons.calendar_today_rounded,
-            label: dateText,
-            onTap: _selectDate,
-          ),
+        _DateTimeButton(
+          icon: Icons.calendar_today_rounded,
+          label: dateText,
+          onTap: _selectDate,
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _DateTimeButton(
-            icon: Icons.access_time_rounded,
-            label: timeText,
-            onTap: _selectTime,
+
+        const SizedBox(height: 14),
+
+        _buildAvailableSlots(),
+      ],
+    );
+  }
+
+  Widget _buildAvailableSlots() {
+    if (_selectedDate == null) {
+      return const _SlotMessage(
+        icon: Icons.calendar_month_rounded,
+        message: 'Select a date to view available appointment slots.',
+      );
+    }
+
+    if (_selectedService == null || _selectedVeterinarian == null) {
+      return const _SlotMessage(
+        icon: Icons.info_outline_rounded,
+        message: 'Select a service and veterinarian to view available slots.',
+      );
+    }
+
+
+    if (_availableSlots.isEmpty) {
+      return const _SlotMessage(
+        icon: Icons.event_busy_rounded,
+        message: 'No appointment slots are currently available for this date.',
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Available Slots',
+          style: Theme.of(context).textTheme.titleSmall
+              ?.copyWith(color: AppTheme.espresso, fontWeight: FontWeight.w800),
+        ),
+
+        const SizedBox(height: 10),
+
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 2.2,
           ),
+          itemCount: _availableSlots.length,
+          itemBuilder: (context, index) {
+            final slot = _availableSlots[index];
+
+            final isSelected = _selectedSlot == slot;
+
+            return _SlotButton(
+              slot: slot,
+              selected: isSelected,
+              onTap: () {
+                setState(() {
+                  _selectedSlot = slot;
+                });
+              },
+            );
+          },
         ),
       ],
     );
@@ -481,7 +559,8 @@ class _PageIntro extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Choose your pet, service, veterinarian and preferred time.',
+          'Choose your pet, service, veterinarian, date '
+          'and available time slot.',
           style: Theme.of(context).textTheme.bodyMedium
               ?.copyWith(color: AppTheme.deepBrown, height: 1.45),
         ),
@@ -557,6 +636,83 @@ class _DateTimeButton extends StatelessWidget {
   }
 }
 
+class _SlotButton extends StatelessWidget {
+  const _SlotButton({
+    required this.slot,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AppointmentSlot slot;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final time = TimeOfDay.fromDateTime(slot.startTime);
+
+    return Material(
+      color: selected ? AppTheme.primary : AppTheme.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? AppTheme.primary : AppTheme.deepBrown,
+            ),
+          ),
+          child: Text(
+            time.format(context),
+            style: TextStyle(
+              color: selected ? AppTheme.white : AppTheme.espresso,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SlotMessage extends StatelessWidget {
+  const _SlotMessage({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppTheme.primary, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: AppTheme.deepBrown,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _BookingSummary extends StatelessWidget {
   const _BookingSummary({
     required this.petName,
@@ -585,18 +741,25 @@ class _BookingSummary extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
+
             const SizedBox(height: 12),
+
             _SummaryRow(label: 'Pet', value: petName ?? 'Not selected'),
+
             _SummaryRow(label: 'Service', value: serviceName ?? 'Not selected'),
+
             _SummaryRow(
               label: 'Veterinarian',
               value: veterinarianName ?? 'Not selected',
             ),
+
             _SummaryRow(
               label: 'Date & time',
               value: dateTime == null
                   ? 'Not selected'
-                  : '${dateTime!.day}/${dateTime!.month}/${dateTime!.year} '
+                  : '${dateTime!.day}/'
+                        '${dateTime!.month}/'
+                        '${dateTime!.year} '
                         '${TimeOfDay.fromDateTime(dateTime!).format(context)}',
             ),
           ],
@@ -629,6 +792,7 @@ class _SummaryRow extends StatelessWidget {
               ),
             ),
           ),
+
           Expanded(
             child: Text(
               value,
@@ -663,7 +827,9 @@ class _ErrorState extends StatelessWidget {
               color: AppTheme.error,
               size: 42,
             ),
+
             const SizedBox(height: 12),
+
             Text(
               message,
               textAlign: TextAlign.center,
@@ -672,7 +838,9 @@ class _ErrorState extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
+
             const SizedBox(height: 16),
+
             OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
           ],
         ),
