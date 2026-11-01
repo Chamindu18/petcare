@@ -213,12 +213,14 @@ class _ProfileHeader extends StatelessWidget {
         ? profile.displayName
         : profile.fullName;
 
+    final photoUrl = profile.photoUrl;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Row(
           children: [
-            _ProfileAvatar(photoUrl: profile.photoUrl),
+            _ProfileAvatar(photoUrl: photoUrl),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -272,7 +274,7 @@ class _ProfileAvatar extends StatelessWidget {
           ? Image.network(
               photoUrl!,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const Icon(
+              errorBuilder: (_, _, _) => const Icon(
                 Icons.person_rounded,
                 size: 34,
                 color: AppTheme.deepBrown,
