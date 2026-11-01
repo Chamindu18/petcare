@@ -55,7 +55,10 @@ class _AdoptionRequestsPageState extends State<AdoptionRequestsPage> {
           }
 
           if (_provider.errorMessage != null) {
-            return _ErrorState(onRetry: _provider.startListening);
+            return _ErrorState(
+              message: _provider.errorMessage!,
+              onRetry: _provider.startListening,
+            );
           }
 
           if (_provider.hasNoRequests) {
@@ -248,8 +251,9 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.onRetry});
+  const _ErrorState({required this.message, required this.onRetry});
 
+  final String message;
   final VoidCallback onRetry;
 
   @override
@@ -276,7 +280,7 @@ class _ErrorState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Please check your connection and try again.',
+              message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium
                   ?.copyWith(color: AppTheme.deepBrown),
