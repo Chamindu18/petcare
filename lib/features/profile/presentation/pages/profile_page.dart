@@ -218,19 +218,7 @@ class _ProfileHeader extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Row(
           children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: AppTheme.secondary,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(
-                Icons.person_rounded,
-                size: 34,
-                color: AppTheme.deepBrown,
-              ),
-            ),
+            _ProfileAvatar(photoUrl: profile.photoUrl),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -259,6 +247,42 @@ class _ProfileHeader extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ProfileAvatar extends StatelessWidget {
+  const _ProfileAvatar({this.photoUrl});
+
+  final String? photoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhoto = photoUrl != null && photoUrl!.trim().isNotEmpty;
+
+    return Container(
+      width: 64,
+      height: 64,
+      decoration: BoxDecoration(
+        color: AppTheme.secondary,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: hasPhoto
+          ? Image.network(
+              photoUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.person_rounded,
+                size: 34,
+                color: AppTheme.deepBrown,
+              ),
+            )
+          : const Icon(
+              Icons.person_rounded,
+              size: 34,
+              color: AppTheme.deepBrown,
+            ),
     );
   }
 }

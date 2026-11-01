@@ -7,6 +7,7 @@ class UserProfile {
     required this.phone,
     required this.role,
     required this.notificationEnabled,
+    this.photoUrl,
   });
 
   final String uid;
@@ -16,4 +17,5 @@ class UserProfile {
   final String phone;
   final String role;
   final bool notificationEnabled;
+  final String? photoUrl;
 }
