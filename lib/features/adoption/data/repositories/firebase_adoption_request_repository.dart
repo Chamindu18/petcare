@@ -80,24 +80,36 @@ class FirebaseAdoptionRequestRepository
       final legacyProviderId = listing['providerId'] as String? ?? '';
       final listingOwnerId =
           listing['listingOwnerId'] as String? ?? legacyProviderId;
-      if (listingOwnerType != 'owner' &&
-          listingOwnerType != 'adoption_provider') {
+
+      if (listingOwnerType != 'adoption_provider') {
         throw const AdoptionRequestRepositoryException(
-          'The listing owner is invalid.',
+          'Only adoption provider listings can receive adoption requests.',
         );
       }
+
       if (listingOwnerId.isEmpty || listingOwnerId == user.uid) {
         throw const AdoptionRequestRepositoryException(
           'You cannot submit an adoption request to your own listing.',
         );
       }
+
       if (suppliedRecipient != listingOwnerId ||
-          recipientType != listingOwnerType) {
+          recipientType != 'adoption_provider') {
         throw const AdoptionRequestRepositoryException(
           'The listing recipient does not match the selected listing.',
         );
       }
 
+      final providerProfileReference = _firestore
+          .collection('users')
+          .doc(listingOwnerId);
+      final providerProfile = await transaction.get(providerProfileReference);
+
+      if (providerProfile.data()?['role'] != 'adoption_provider') {
+        throw const AdoptionRequestRepositoryException(
+          'The listing provider could not be verified.',
+        );
+      }
       final normalizedMessage = message?.trim();
       transaction.set(requestReference, {
         'listingId': listingId,
@@ -137,6 +149,7 @@ class FirebaseAdoptionRequestRepository
   @override
   Stream<List<AdoptionRequest>> watchReceivedRequests() {
     final user = _auth.currentUser;
+
     if (user == null) {
       return Stream.error(
         const AdoptionRequestRepositoryException(
@@ -146,22 +159,17 @@ class FirebaseAdoptionRequestRepository
     }
 
     return Stream.fromFuture(_roleFor(user.uid)).asyncExpand((role) {
-      // Both inboxes use canonical recipient fields. Valid legacy provider
-      // requests are normalized by the trusted backfill before deployment;
-      // malformed/unbackfilled requests are intentionally not exposed.
-      final query = role == 'owner' || role == 'adoption_provider'
-          ? _requestsCollection
-                .where('recipientId', isEqualTo: user.uid)
-                .where('recipientType', isEqualTo: role)
-          : null;
-      if (query == null) {
+      if (role != 'adoption_provider') {
         return Stream<List<AdoptionRequest>>.error(
           const AdoptionRequestRepositoryException(
-            'This account cannot receive adoption requests.',
+            'Only adoption providers can view received adoption requests.',
           ),
         );
       }
-      return query
+
+      return _requestsCollection
+          .where('recipientId', isEqualTo: user.uid)
+          .where('recipientType', isEqualTo: 'adoption_provider')
           .orderBy('submittedAt', descending: true)
           .snapshots()
           .map(_mapRequests);
@@ -262,9 +270,10 @@ class FirebaseAdoptionRequestRepository
       );
     }
     final role = await _roleFor(user.uid);
-    if (role != 'owner' && role != 'adoption_provider') {
+
+    if (role != 'adoption_provider') {
       throw const AdoptionRequestRepositoryException(
-        'This account cannot decide adoption requests.',
+        'Only adoption providers can decide adoption requests.',
       );
     }
 
@@ -309,7 +318,7 @@ class FirebaseAdoptionRequestRepository
           listing['listingOwnerId'] as String? ??
           listing['providerId'] as String? ??
           '';
-      if (listingOwnerId != user.uid || listingType != role) {
+      if (listingOwnerId != user.uid || listingType != 'adoption_provider') {
         throw const AdoptionRequestRepositoryException(
           'You no longer own this adoption listing.',
         );

@@ -82,7 +82,6 @@ import 'adoption_workspace_access_gate.dart';
 import 'owner_access_gate.dart';
 import 'role_based_home_page.dart';
 import '../../features/appointments/presentation/pages/my_appointments_page.dart';
-
 import '../../features/appointments/domain/entities/appointment.dart';
 import '../../features/appointments/presentation/pages/appointment_confirmation_page.dart';
 import '../../features/appointments/data/repositories/firebase_appointment_repository.dart';
@@ -91,7 +90,10 @@ import '../../features/appointments/presentation/providers/appointment_provider.
 import '../../features/hospitals/data/repositories/firebase_hospital_repository.dart';
 import '../../features/services/data/repositories/firebase_service_repository.dart';
 import '../../features/veterinary/data/repositories/firebase_veterinarian_repository.dart';
-
+import '../../features/veterinary/presentation/pages/veterinarian_discovery_page.dart';
+import '../../features/veterinary/presentation/pages/veterinarian_profile_page.dart';
+import '../../features/veterinary/presentation/providers/veterinarian_provider.dart';
+import '../../features/veterinary/domain/usecases/veterinarian_usecases.dart';
 
 class AppRouter {
   AppRouter._();
@@ -129,6 +131,8 @@ class AppRouter {
   static const String petProfile = '/pet-profile';
   static const String hospitalDiscovery = '/hospitals';
   static const String hospitalDetails = '/hospital-details';
+  static const String veterinarianDiscovery = '/veterinarians';
+  static const String veterinarianProfile = '/veterinarian-profile';
   static const String bookAppointment = '/book-appointment';
   static const String aiHub = '/ai-hub';
   static const String aiChat = '/ai-chat';
@@ -147,6 +151,8 @@ class AppRouter {
     petProfile,
     hospitalDiscovery,
     hospitalDetails,
+    veterinarianDiscovery,
+    veterinarianProfile,
     bookAppointment,
     appointmentConfirmation,
     aiHub,
@@ -155,6 +161,7 @@ class AppRouter {
     preventiveInsights,
     vetVisitPreparation,
   };
+
   // Public routes are handled here.
   // Protected routes are handled in onGenerateRoute()
   // so that authentication checks cannot be bypassed.
@@ -184,28 +191,29 @@ class AppRouter {
   static RouteFactory routeGenerator({
     FirebaseAuth? auth,
     ProfileRepository? profileRepository,
+    FirebaseFirestore? firestore,
   }) {
     return (settings) => _onGenerateRoute(
       settings,
       auth ?? FirebaseAuth.instance,
       profileRepository,
+      firestore,
     );
   }
 
   static Route<dynamic>? _onGenerateRoute(
     RouteSettings settings,
     FirebaseAuth auth,
-    ProfileRepository? profileRepository,
-  ) {
-    final route = _buildRoute(settings, auth, profileRepository);
-
+    ProfileRepository? profileRepository, [
+    FirebaseFirestore? firestore,
+  ]) {
+    final route = _buildRoute(settings, auth, profileRepository, firestore);
     if (route == null ||
         auth.currentUser == null ||
         !_ownerOnlyRoutes.contains(settings.name) ||
         route is! MaterialPageRoute<dynamic>) {
       return route;
     }
-
     // Reuse the route's builder and settings so route arguments remain intact.
     return MaterialPageRoute<dynamic>(
       builder: (_) => OwnerAccessGate(
@@ -220,8 +228,9 @@ class AppRouter {
   static Route<dynamic>? _buildRoute(
     RouteSettings settings,
     FirebaseAuth auth,
-    ProfileRepository? profileRepository,
-  ) {
+    ProfileRepository? profileRepository, [
+    FirebaseFirestore? firestore,
+  ]) {
     final isAuthenticated = auth.currentUser != null;
     final protectedRoutes = {
       home,
@@ -246,6 +255,8 @@ class AppRouter {
       petProfile,
       hospitalDiscovery,
       hospitalDetails,
+      veterinarianDiscovery,
+      veterinarianProfile,
       bookAppointment,
       appointmentConfirmation,
       aiHub,
@@ -255,6 +266,7 @@ class AppRouter {
       vetVisitPreparation,
       myAppointments,
     };
+
     // Protect routes that require authentication.
     if (protectedRoutes.contains(settings.name) && !isAuthenticated) {
       return MaterialPageRoute(
@@ -283,7 +295,7 @@ class AppRouter {
           builder: (_) {
             final repository = FirebasePetRepository(
               auth: auth,
-              firestore: FirebaseFirestore.instance,
+              firestore: firestore ?? FirebaseFirestore.instance,
             );
             final imageRepository = CloudinaryPetImageRepository(
               cloudName: CloudinaryConfig.cloudName,
@@ -410,6 +422,7 @@ class AppRouter {
           builder: (_) => AdoptionWorkspaceAccessGate(
             auth: auth,
             profileRepository: profileRepository,
+            allowedRoles: const {'adoption_provider'},
             childBuilder: (_) => const MyAdoptionListingsPage(),
           ),
           settings: settings,
@@ -459,6 +472,7 @@ class AppRouter {
           builder: (_) => AdoptionWorkspaceAccessGate(
             auth: auth,
             profileRepository: profileRepository,
+            allowedRoles: const {'adoption_provider'},
             childBuilder: (_) => const AdoptionRequestsPage(),
           ),
           settings: settings,
@@ -479,6 +493,7 @@ class AppRouter {
           builder: (_) => AdoptionWorkspaceAccessGate(
             auth: auth,
             profileRepository: profileRepository,
+            allowedRoles: const {'adoption_provider'},
             childBuilder: (_) =>
                 CreateEditAdoptionListingPage(listing: listing),
           ),
@@ -513,8 +528,10 @@ class AppRouter {
           builder: (_) => AdoptionWorkspaceAccessGate(
             auth: auth,
             profileRepository: profileRepository,
-            childBuilder: (_) =>
-                AdoptionRequestDetailsPage(requestId: requestId),
+            childBuilder: (_) => AdoptionRequestDetailsPage(
+              requestId: requestId,
+              currentUserId: auth.currentUser?.uid,
+            ),
           ),
           settings: settings,
         );
@@ -603,6 +620,67 @@ class AppRouter {
           settings: settings,
         );
 
+      case veterinarianDiscovery:
+        return MaterialPageRoute(
+          builder: (context) {
+            // This route is owner-protected. Keep Firebase-backed dependencies
+            // inside the builder so they are created only after access is allowed.
+            final veterinarianRepository = FirebaseVeterinarianRepository(
+              firestore: firestore ?? FirebaseFirestore.instance,
+            );
+            final hospitalRepository = FirebaseHospitalRepository(
+              firestore: firestore ?? FirebaseFirestore.instance,
+            );
+            final veterinarianProvider = VeterinarianProvider(
+              getVeterinarians: GetVeterinarians(veterinarianRepository),
+              hospitalRepository: hospitalRepository,
+            );
+            return VeterinarianDiscoveryPage(
+              provider: veterinarianProvider,
+              onVeterinarianTap: (veterinarian) {
+                final hospital = veterinarianProvider.getHospital(
+                  veterinarian.hospitalId,
+                );
+                Navigator.of(context).pushNamed(
+                  veterinarianProfile,
+                  arguments: VeterinarianProfileRouteArgs(
+                    veterinarian: veterinarian,
+                    hospital: hospital,
+                  ),
+                );
+              },
+            );
+          },
+          settings: settings,
+        );
+
+      case veterinarianProfile:
+        final arguments = settings.arguments;
+        if (arguments is! VeterinarianProfileRouteArgs) {
+          return MaterialPageRoute(
+            builder: (_) => const Scaffold(
+              body: Center(child: Text('Unable to open veterinarian profile.')),
+            ),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (context) => VeterinarianProfilePage(
+            veterinarian: arguments.veterinarian,
+            hospital: arguments.hospital,
+            onBookAppointment: () {
+              Navigator.of(context).pushNamed(
+                bookAppointment,
+                arguments: BookAppointmentRouteArgs(
+                  hospitalId: arguments.veterinarian.hospitalId,
+                  veterinarianId: arguments.veterinarian.vetId,
+                ),
+              );
+            },
+          ),
+          settings: settings,
+        );
+
       case hospitalDetails:
         final hospitalId = settings.arguments;
         if (hospitalId is! String || hospitalId.isEmpty) {
@@ -633,60 +711,117 @@ class AppRouter {
           settings: settings,
         );
 
-        case myAppointments:
-  final appointmentRepository = FirebaseAppointmentRepository();
-  final petRepository = FirebasePetRepository();
-  final hospitalRepository = FirebaseHospitalRepository();
-  final serviceRepository = FirebaseServiceRepository();
-  final veterinarianRepository = FirebaseVeterinarianRepository();
-
-  final appointmentProvider = AppointmentProvider(
-    getAppointments: GetAppointments(appointmentRepository),
-    petRepository: petRepository,
-    hospitalRepository: hospitalRepository,
-    serviceRepository: serviceRepository,
-    veterinarianRepository: veterinarianRepository,
-  );
-
-  return MaterialPageRoute(
-    builder: (_) => MyAppointmentsPage(
-      provider: appointmentProvider,
-    ),
-    settings: settings,
-  );
+      case myAppointments:
+        final appointmentRepository = FirebaseAppointmentRepository();
+        final petRepository = FirebasePetRepository();
+        final hospitalRepository = FirebaseHospitalRepository();
+        final serviceRepository = FirebaseServiceRepository();
+        final veterinarianRepository = FirebaseVeterinarianRepository();
+        final appointmentProvider = AppointmentProvider(
+          getAppointments: GetAppointments(appointmentRepository),
+          petRepository: petRepository,
+          hospitalRepository: hospitalRepository,
+          serviceRepository: serviceRepository,
+          veterinarianRepository: veterinarianRepository,
+        );
+        return MaterialPageRoute(
+          builder: (_) => MyAppointmentsPage(provider: appointmentProvider),
+          settings: settings,
+        );
 
       case bookAppointment:
-        final hospitalId = settings.arguments;
-        if (hospitalId is! String || hospitalId.isEmpty) {
+        final routeArguments = settings.arguments;
+
+        // Build Firebase dependencies only when the page is actually opened.
+        // OwnerAccessGate can deny unauthorized users before this runs.
+        Widget buildBookingPage({
+          required String hospitalId,
+          String? veterinarianId,
+        }) {
+          final repository = FirebasePetRepository(
+            auth: auth,
+            firestore: FirebaseFirestore.instance,
+          );
+
+          final imageRepository = CloudinaryPetImageRepository(
+            cloudName: CloudinaryConfig.cloudName,
+            uploadPreset: CloudinaryConfig.uploadPreset,
+          );
+
+          final petsController = PetsController(
+            CreatePet(repository),
+            GetPets(repository),
+            UpdatePet(repository),
+            DeletePet(repository),
+            UploadPetImage(imageRepository),
+            DeletePetImage(imageRepository),
+          );
+
+          return BookAppointmentPage(
+            hospitalId: hospitalId,
+            veterinarianId: veterinarianId,
+            petsController: petsController,
+          );
+        }
+
+        if (routeArguments is BookAppointmentRouteArgs) {
           return MaterialPageRoute(
-            builder: (_) => const Scaffold(
-              body: Center(child: Text('Hospital ID is required.')),
+            builder: (_) => buildBookingPage(
+              hospitalId: routeArguments.hospitalId,
+              veterinarianId: routeArguments.veterinarianId,
             ),
             settings: settings,
           );
         }
-        // Create the existing Pet controller for the booking screen.
-        final repository = FirebasePetRepository(
-          auth: auth,
-          firestore: FirebaseFirestore.instance,
-        );
-        final imageRepository = CloudinaryPetImageRepository(
-          cloudName: CloudinaryConfig.cloudName,
-          uploadPreset: CloudinaryConfig.uploadPreset,
-        );
-        final petsController = PetsController(
-          CreatePet(repository),
-          GetPets(repository),
-          UpdatePet(repository),
-          DeletePet(repository),
-          UploadPetImage(imageRepository),
-          DeletePetImage(imageRepository),
-        );
+
+        if (routeArguments is String) {
+          return MaterialPageRoute(
+            builder: (_) => buildBookingPage(
+              hospitalId: routeArguments,
+            ),
+            settings: settings,
+          );
+        }
+
         return MaterialPageRoute(
-          builder: (_) => BookAppointmentPage(
-            hospitalId: hospitalId,
-            petsController: petsController,
-          ),
+          builder: (_) {
+            // Validate the arguments before constructing Firebase-backed
+            // dependencies. The route is wrapped by OwnerAccessGate above,
+            // so this builder runs only after owner access is granted.
+            if (routeArguments is! BookAppointmentRouteArgs &&
+                routeArguments is! String) {
+              return const Scaffold(
+                body: Center(child: Text('Hospital ID is required.')),
+              );
+            }
+            final repository = FirebasePetRepository(
+              auth: auth,
+              firestore: firestore ?? FirebaseFirestore.instance,
+            );
+            final imageRepository = CloudinaryPetImageRepository(
+              cloudName: CloudinaryConfig.cloudName,
+              uploadPreset: CloudinaryConfig.uploadPreset,
+            );
+            final petsController = PetsController(
+              CreatePet(repository),
+              GetPets(repository),
+              UpdatePet(repository),
+              DeletePet(repository),
+              UploadPetImage(imageRepository),
+              DeletePetImage(imageRepository),
+            );
+            if (routeArguments is BookAppointmentRouteArgs) {
+              return BookAppointmentPage(
+                hospitalId: routeArguments.hospitalId,
+                veterinarianId: routeArguments.veterinarianId,
+                petsController: petsController,
+              );
+            }
+            return BookAppointmentPage(
+              hospitalId: routeArguments as String,
+              petsController: petsController,
+            );
+          },
           settings: settings,
         );
       default:

@@ -14,6 +14,9 @@ class HomePage extends StatefulWidget {
     required this.onMyPetsTap,
     required this.onAddPetTap,
     required this.onAppointmentsTap,
+    required this.onAskAITap,
+    required this.onVeterinariansTap,
+    required this.onProfileTap,
     required this.userName,
     required this.photoUrl,
     this.notificationRepository,
@@ -24,6 +27,9 @@ class HomePage extends StatefulWidget {
   final VoidCallback onMyPetsTap;
   final VoidCallback onAddPetTap;
   final VoidCallback onAppointmentsTap;
+  final VoidCallback onAskAITap;
+  final VoidCallback onVeterinariansTap;
+  final VoidCallback onProfileTap;
   final String userName;
   final String? photoUrl;
   final NotificationRepository? notificationRepository;
@@ -113,6 +119,7 @@ class _HomePageState extends State<HomePage> {
                           photoUrl: widget.photoUrl,
                           unreadCount: _notificationProvider.unreadCount,
                           onNotificationsTap: _openNotifications,
+                          onProfileTap: widget.onProfileTap,
                         ),
                         const SizedBox(height: 22),
                         _GreetingSection(
@@ -144,6 +151,8 @@ class _HomePageState extends State<HomePage> {
                           onNotificationsTap: _openNotifications,
                           onHospitalsTap: _openHospitals,
                           onAppointmentsTap: widget.onAppointmentsTap,
+                          onAskAITap: widget.onAskAITap,
+                          onVeterinariansTap: widget.onVeterinariansTap,
                         ),
 
                         const SizedBox(height: 24),
@@ -243,12 +252,14 @@ class _HomeHeader extends StatelessWidget {
     required this.photoUrl,
     required this.unreadCount,
     required this.onNotificationsTap,
+    required this.onProfileTap,
   });
 
   final String userName;
   final String? photoUrl;
   final int unreadCount;
   final VoidCallback onNotificationsTap;
+  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
@@ -316,34 +327,46 @@ class _HomeHeader extends StatelessWidget {
         ),
 
         const SizedBox(width: 10),
-        Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            color: AppTheme.secondary.withValues(alpha: 0.22),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppTheme.secondary.withValues(alpha: 0.35),
+        Tooltip(
+          message: 'Open profile',
+          child: Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: onProfileTap,
+              customBorder: const CircleBorder(),
+              child: Ink(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary.withValues(alpha: 0.22),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppTheme.secondary.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: ClipOval(
+                  child: photoUrl == null || photoUrl!.isEmpty
+                      ? const Icon(
+                          Icons.person_rounded,
+                          color: AppTheme.deepBrown,
+                          size: 24,
+                        )
+                      : Image.network(
+                          photoUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(
+                              Icons.person_rounded,
+                              color: AppTheme.deepBrown,
+                              size: 24,
+                            );
+                          },
+                        ),
+                ),
+              ),
             ),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: photoUrl == null
-              ? const Icon(
-                  Icons.person_rounded,
-                  color: AppTheme.deepBrown,
-                  size: 24,
-                )
-              : Image.network(
-                  photoUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Icon(
-                      Icons.person_rounded,
-                      color: AppTheme.deepBrown,
-                      size: 24,
-                    );
-                  },
-                ),
         ),
       ],
     );
@@ -829,11 +852,15 @@ class _QuickActions extends StatelessWidget {
     required this.onNotificationsTap,
     required this.onHospitalsTap,
     required this.onAppointmentsTap,
+    required this.onAskAITap,
+    required this.onVeterinariansTap,
   });
 
   final VoidCallback onNotificationsTap;
   final VoidCallback onHospitalsTap;
   final VoidCallback onAppointmentsTap;
+  final VoidCallback onAskAITap;
+  final VoidCallback onVeterinariansTap;
   @override
   Widget build(BuildContext context) {
     return GridView.count(
@@ -852,20 +879,18 @@ class _QuickActions extends StatelessWidget {
           onTap: onNotificationsTap,
         ),
         _QuickActionCard(
-          icon: Icons.calendar_month_rounded,
-          title: 'Appointments',
-          subtitle: 'View appointments',
+          icon: Icons.medical_services_outlined,
+          title: 'Find Veterinarians',
+          subtitle: 'Find a veterinarian',
           enabled: true,
-          onTap: onAppointmentsTap,
+          onTap: onVeterinariansTap,
         ),
         _QuickActionCard(
           icon: Icons.psychology_rounded,
           title: 'Ask AI',
           subtitle: 'Get pet care advice',
           enabled: true,
-          onTap: () {
-            Navigator.pushNamed(context, AppRouter.aiChat);
-          },
+          onTap: onAskAITap,
         ),
         _QuickActionCard(
           icon: Icons.local_hospital_rounded,
@@ -1105,9 +1130,7 @@ class _ResourceCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppTheme.secondary.withValues(alpha: 0.22),
-          ),
+          border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.22)),
         ),
         child: Row(
           children: [

@@ -176,18 +176,18 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
       _ownsAppointmentProvider = false;
     } else {
       final appointmentRepository = FirebaseAppointmentRepository();
-final petRepository = FirebasePetRepository();
-final hospitalRepository = FirebaseHospitalRepository();
-final serviceRepository = FirebaseServiceRepository();
-final veterinarianRepository = FirebaseVeterinarianRepository();
+      final petRepository = FirebasePetRepository();
+      final hospitalRepository = FirebaseHospitalRepository();
+      final serviceRepository = FirebaseServiceRepository();
+      final veterinarianRepository = FirebaseVeterinarianRepository();
 
-_appointmentProvider = AppointmentProvider(
-  getAppointments: GetAppointments(appointmentRepository),
-  petRepository: petRepository,
-  hospitalRepository: hospitalRepository,
-  serviceRepository: serviceRepository,
-  veterinarianRepository: veterinarianRepository,
-);
+      _appointmentProvider = AppointmentProvider(
+        getAppointments: GetAppointments(appointmentRepository),
+        petRepository: petRepository,
+        hospitalRepository: hospitalRepository,
+        serviceRepository: serviceRepository,
+        veterinarianRepository: veterinarianRepository,
+      );
 
       _ownsAppointmentProvider = true;
     }
@@ -231,6 +231,10 @@ _appointmentProvider = AppointmentProvider(
     Navigator.pushNamed(context, AppRouter.addPet, arguments: _petsController);
   }
 
+  void _openProfile() {
+    _onTabSelected(4);
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = widget.auth ?? FirebaseAuth.instance;
@@ -255,6 +259,11 @@ _appointmentProvider = AppointmentProvider(
             photoUrl: photoUrl,
             notificationRepository: widget.notificationRepository,
             onAppointmentsTap: () => _onTabSelected(2),
+            onAskAITap: () => _onTabSelected(3),
+            onProfileTap: _openProfile,
+            onVeterinariansTap: () {
+              Navigator.pushNamed(context, AppRouter.veterinarianDiscovery);
+            },
           ),
           MyPetsPage(
             controller: _petsController,
@@ -270,6 +279,7 @@ _appointmentProvider = AppointmentProvider(
           ProfilePage(
             profileRepository: widget.profileRepository,
             authRepository: widget.authRepository,
+            photoUrl: photoUrl,
           ),
         ],
       ),

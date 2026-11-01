@@ -45,6 +45,8 @@ const _ownerOnlyRoutes = <String>[
   AppRouter.petProfile,
   AppRouter.hospitalDiscovery,
   AppRouter.hospitalDetails,
+  AppRouter.veterinarianDiscovery,
+  AppRouter.veterinarianProfile,
   AppRouter.bookAppointment,
   AppRouter.appointmentConfirmation,
   AppRouter.aiHub,

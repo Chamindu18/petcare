@@ -9,12 +9,11 @@ import '../../../veterinary/domain/usecases/veterinarian_usecases.dart';
 import '../../data/repositories/firebase_hospital_repository.dart';
 import '../../domain/usecases/hospital_usecases.dart';
 import '../providers/hospital_details_provider.dart';
+import '../../../veterinary/domain/entities/veterinarian.dart';
+import '../../../veterinary/presentation/pages/veterinarian_profile_page.dart';
 
 class HospitalDetailsPage extends StatefulWidget {
-  const HospitalDetailsPage({
-    required this.hospitalId,
-    super.key,
-  });
+  const HospitalDetailsPage({required this.hospitalId, super.key});
 
   final String hospitalId;
 
@@ -29,14 +28,9 @@ class _HospitalDetailsPageState extends State<HospitalDetailsPage> {
   void initState() {
     super.initState();
 
-    
     _provider = HospitalDetailsProvider(
-      getHospitalById: GetHospitalById(
-        FirebaseHospitalRepository(),
-      ),
-      getServicesByHospital: GetServicesByHospital(
-        FirebaseServiceRepository(),
-      ),
+      getHospitalById: GetHospitalById(FirebaseHospitalRepository()),
+      getServicesByHospital: GetServicesByHospital(FirebaseServiceRepository()),
       getVeterinariansByHospital: GetVeterinariansByHospital(
         FirebaseVeterinarianRepository(),
       ),
@@ -55,46 +49,31 @@ class _HospitalDetailsPageState extends State<HospitalDetailsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        title: const Text('Hospital Details'),
-      ),
+      appBar: AppBar(title: const Text('Hospital Details')),
       body: ListenableBuilder(
         listenable: _provider,
         builder: (context, _) {
           if (_provider.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
 
           if (_provider.errorMessage != null) {
             return _ErrorState(
               message: _provider.errorMessage!,
-              onRetry: () => _provider.loadHospital(
-                widget.hospitalId,
-              ),
+              onRetry: () => _provider.loadHospital(widget.hospitalId),
             );
           }
 
           final hospital = _provider.hospital;
 
           if (hospital == null) {
-            return const _ErrorState(
-              message: 'Hospital not found.',
-            );
+            return const _ErrorState(message: 'Hospital not found.');
           }
 
           return RefreshIndicator(
-            onRefresh: () => _provider.loadHospital(
-              widget.hospitalId,
-            ),
+            onRefresh: () => _provider.loadHospital(widget.hospitalId),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(
-                20,
-                16,
-                20,
-                32,
-              ),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
               children: [
                 _HospitalHeader(
                   name: hospital.name,
@@ -119,9 +98,7 @@ class _HospitalDetailsPageState extends State<HospitalDetailsPage> {
                 else
                   ..._provider.services.map(
                     (service) => Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: 10,
-                      ),
+                      padding: const EdgeInsets.only(bottom: 10),
                       child: _ServiceCard(
                         name: service.name,
                         description: service.description,
@@ -141,18 +118,24 @@ class _HospitalDetailsPageState extends State<HospitalDetailsPage> {
 
                 if (_provider.veterinarians.isEmpty)
                   const _EmptySection(
-                    message:
-                        'No veterinarians are currently available.',
+                    message: 'No veterinarians are currently available.',
                   )
                 else
                   ..._provider.veterinarians.map(
                     (veterinarian) => Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: 10,
-                      ),
+                      padding: const EdgeInsets.only(bottom: 10),
                       child: _VeterinarianCard(
-                        name: veterinarian.name,
-                        specialty: veterinarian.specialty,
+                        veterinarian: veterinarian,
+                        onTap: () {
+                          Navigator.pushNamed(
+                            context,
+                            AppRouter.veterinarianProfile,
+                            arguments: VeterinarianProfileRouteArgs(
+                              veterinarian: veterinarian,
+                              hospital: hospital,
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -218,35 +201,23 @@ class _HospitalHeader extends StatelessWidget {
 
             Text(
               name,
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall
-                  ?.copyWith(
-                    color: AppTheme.espresso,
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: AppTheme.espresso,
+                fontWeight: FontWeight.w700,
+              ),
             ),
 
             const SizedBox(height: 16),
 
-            _InfoRow(
-              icon: Icons.location_on_outlined,
-              text: location,
-            ),
+            _InfoRow(icon: Icons.location_on_outlined, text: location),
 
             const SizedBox(height: 10),
 
-            _InfoRow(
-              icon: Icons.phone_outlined,
-              text: contact,
-            ),
+            _InfoRow(icon: Icons.phone_outlined, text: contact),
 
             const SizedBox(height: 10),
 
-            _InfoRow(
-              icon: Icons.access_time_outlined,
-              text: hours,
-            ),
+            _InfoRow(icon: Icons.access_time_outlined, text: hours),
           ],
         ),
       ),
@@ -255,10 +226,7 @@ class _HospitalHeader extends StatelessWidget {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
-    required this.title,
-    required this.count,
-  });
+  const _SectionTitle({required this.title, required this.count});
 
   final String title;
   final int count;
@@ -270,24 +238,18 @@ class _SectionTitle extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(
-                  color: AppTheme.espresso,
-                  fontWeight: FontWeight.w700,
-                ),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: AppTheme.espresso,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
         Text(
           '$count',
-          style: Theme.of(context)
-              .textTheme
-              .bodyMedium
-              ?.copyWith(
-                color: AppTheme.deepBrown,
-                fontWeight: FontWeight.w600,
-              ),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppTheme.deepBrown,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ],
     );
@@ -326,13 +288,10 @@ class _ServiceCard extends StatelessWidget {
                 children: [
                   Text(
                     name,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(
-                          color: AppTheme.espresso,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppTheme.espresso,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
 
                   if (description.isNotEmpty) ...[
@@ -344,12 +303,8 @@ class _ServiceCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       '$duration minutes',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(
-                            color: AppTheme.deepBrown,
-                          ),
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: AppTheme.deepBrown),
                     ),
                   ],
                 ],
@@ -363,49 +318,40 @@ class _ServiceCard extends StatelessWidget {
 }
 
 class _VeterinarianCard extends StatelessWidget {
-  const _VeterinarianCard({
-    required this.name,
-    required this.specialty,
-  });
+  const _VeterinarianCard({required this.veterinarian, required this.onTap});
 
-  final String name;
-  final String? specialty;
+  final Veterinarian veterinarian;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 6,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         leading: CircleAvatar(
           backgroundColor: AppTheme.secondary,
-          child: const Icon(
-            Icons.person_outline,
-            color: AppTheme.deepBrown,
-          ),
+          child: const Icon(Icons.person_outline, color: AppTheme.deepBrown),
         ),
         title: Text(
-          name,
+          veterinarian.name,
           style: const TextStyle(
             color: AppTheme.espresso,
             fontWeight: FontWeight.w600,
           ),
         ),
-        subtitle: specialty == null || specialty!.isEmpty
+        subtitle:
+            veterinarian.specialty == null || veterinarian.specialty!.isEmpty
             ? null
-            : Text(specialty!),
+            : Text(veterinarian.specialty!),
+        trailing: const Icon(Icons.chevron_right, color: AppTheme.deepBrown),
+        onTap: onTap,
       ),
     );
   }
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.icon,
-    required this.text,
-  });
+  const _InfoRow({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
@@ -414,24 +360,16 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 18,
-          color: AppTheme.deepBrown,
-        ),
+        Icon(icon, size: 18, color: AppTheme.deepBrown),
         const SizedBox(width: 8),
-        Expanded(
-          child: Text(text),
-        ),
+        Expanded(child: Text(text)),
       ],
     );
   }
 }
 
 class _EmptySection extends StatelessWidget {
-  const _EmptySection({
-    required this.message,
-  });
+  const _EmptySection({required this.message});
 
   final String message;
 
@@ -440,22 +378,14 @@ class _EmptySection extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Text(
-          message,
-          style: const TextStyle(
-            color: AppTheme.deepBrown,
-          ),
-        ),
+        child: Text(message, style: const TextStyle(color: AppTheme.deepBrown)),
       ),
     );
   }
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({
-    required this.message,
-    this.onRetry,
-  });
+  const _ErrorState({required this.message, this.onRetry});
 
   final String message;
   final VoidCallback? onRetry;
@@ -468,11 +398,7 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.error_outline,
-              size: 56,
-              color: AppTheme.error,
-            ),
+            const Icon(Icons.error_outline, size: 56, color: AppTheme.error),
 
             const SizedBox(height: 16),
 
