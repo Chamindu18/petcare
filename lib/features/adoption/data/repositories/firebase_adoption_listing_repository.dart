@@ -21,8 +21,12 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
   Future<String> _roleFor(String uid) async {
     final profile = await _firestore.collection('users').doc(uid).get();
     final role = profile.data()?['role'];
+<<<<<<< ours
 
     if (role is! String || role != 'adoption_provider') {
+=======
+    if (role is! String || (role != 'owner' && role != 'adoption_provider')) {
+>>>>>>> theirs
       throw const AdoptionListingRepositoryException(
         'Only adoption providers can manage adoption listings.',
       );
@@ -104,9 +108,9 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
         existing['listingOwnerType'] as String? ?? 'adoption_provider';
     final ownerId = existing['listingOwnerId'] as String? ?? legacyProviderId;
     final canManage =
-        ownerType == 'adoption_provider' &&
-        ownerId == user.uid &&
-        (legacyProviderId.isEmpty || legacyProviderId == user.uid);
+          ownerId == user.uid &&
+          ((ownerType == 'owner' && role == 'owner') ||
+            (ownerType == 'adoption_provider' && role == 'adoption_provider'));
 
     if (!canManage) {
       throw const AdoptionListingRepositoryException(
@@ -154,7 +158,12 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
         .where('status', isEqualTo: 'available')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map(_mapListings);
+        .map(
+          (snapshot) => snapshot.docs
+              .map(AdoptionListingModel.fromFirestore)
+              .where((listing) => listing.listingOwnerId != user.uid)
+              .toList(),
+        );
   }
 
   @override
