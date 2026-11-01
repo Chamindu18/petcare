@@ -10,6 +10,7 @@ class UserProfile {
     this.vetId,
     this.staffId,
     this.hospitalId,
+    this.photoUrl,
   });
 
   final String uid;
@@ -22,4 +23,5 @@ class UserProfile {
   final String? vetId;
   final String? staffId;
   final String? hospitalId;
+  final String? photoUrl;
 }

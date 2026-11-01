@@ -8,6 +8,11 @@ import '../../features/adoption/presentation/pages/adoption_provider_dashboard_p
 import '../../features/adoption/presentation/providers/my_adoption_listings_provider.dart';
 import '../../features/adoption/presentation/providers/received_adoption_requests_provider.dart';
 import '../../features/home/presentation/pages/owner_shell_page.dart';
+import '../../features/hospital_staff/data/repositories/firebase_hospital_staff_assignment_repository.dart';
+import '../../features/hospital_staff/domain/entities/hospital_staff_assignment.dart';
+import '../../features/hospital_staff/domain/repositories/hospital_staff_assignment_repository.dart';
+import '../../features/hospital_staff/presentation/pages/staff_shell_page.dart';
+import '../../features/hospital_staff/presentation/widgets/hospital_staff_access_gate.dart';
 import '../../features/profile/data/repositories/firebase_profile_repository.dart';
 import '../../features/profile/domain/repositories/profile_repository.dart';
 import '../../features/profile/presentation/providers/profile_provider.dart';
@@ -19,17 +24,30 @@ class RoleBasedHomePage extends StatefulWidget {
     super.key,
     this.auth,
     this.profileRepository,
+    this.hospitalStaffAssignmentRepository,
     this.ownerDashboardBuilder,
     this.adoptionProviderDashboardBuilder,
+    this.staffWorkspaceBuilder,
   });
 
   final FirebaseAuth? auth;
   final ProfileRepository? profileRepository;
+  final HospitalStaffAssignmentRepository? hospitalStaffAssignmentRepository;
 
   // Optional overrides for isolated routing tests.
   // The production dashboards are used when these are null.
   final Widget Function()? ownerDashboardBuilder;
   final Widget Function()? adoptionProviderDashboardBuilder;
+
+  /// Optional override for the hospital staff workspace.
+  ///
+  /// The workspace is only built after the staff assignment has been
+  /// successfully verified by HospitalStaffAccessGate.
+  final Widget Function(
+    BuildContext context,
+    HospitalStaffAssignment assignment,
+  )?
+  staffWorkspaceBuilder;
 
   @override
   State<RoleBasedHomePage> createState() => _RoleBasedHomePageState();
@@ -51,6 +69,7 @@ class _RoleBasedHomePageState extends State<RoleBasedHomePage> {
           widget.profileRepository ??
           FirebaseProfileRepository(auth: widget.auth),
     );
+
     _profileProvider.addListener(_handleProfileChange);
 
     try {
@@ -79,6 +98,7 @@ class _RoleBasedHomePageState extends State<RoleBasedHomePage> {
     }
 
     final role = UserRoleX.tryParseFirestore(_profileProvider.profile?.role);
+
     final roleKey = role?.firestoreValue ?? '__unknown';
 
     if (_destination != null && _destinationKey == roleKey) {
@@ -123,12 +143,28 @@ class _RoleBasedHomePageState extends State<RoleBasedHomePage> {
           ),
         );
 
+      case UserRole.veterinaryStaff:
+        return HospitalStaffAccessGate(
+          repository:
+              widget.hospitalStaffAssignmentRepository ??
+              FirebaseHospitalStaffAssignmentRepository(auth: widget.auth),
+          workspaceBuilder: (context, assignment) {
+            final builder = widget.staffWorkspaceBuilder;
+
+            if (builder != null) {
+              return builder(context, assignment);
+            }
+
+            return StaffShellPage(assignment: assignment);
+          },
+        );
+
       case UserRole.veterinarian:
         return const _HomeMessagePage(
           title: 'Dashboard unavailable',
           message:
-              'Your account role is recognized, but its dashboard '
-              'is not available in this build.',
+              'Your veterinarian account is recognized, but its '
+              'dashboard is not available in this build.',
         );
 
       case UserRole.veterinaryStaff:

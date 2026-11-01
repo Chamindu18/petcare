@@ -45,10 +45,6 @@ service cloud.firestore {
         ).data.role == 'veterinary_staff';
     }
 
-    function isVeterinaryUser() {
-      return isVeterinarian() || isVeterinaryStaff();
-    }
-
     function isAdoptionProvider() {
       return signedIn()
         && exists(
@@ -67,18 +63,49 @@ service cloud.firestore {
         && get(
           /databases/$(database)/documents/pets/$(petId)
         ).data.ownerId == request.auth.uid;
-    }  
-    // A veterinary role alone does not grant access to a hospital.
-    // The user must have a provisioned veterinarian profile assigned to
-    // that hospital. The sentinel value 'unassigned' grants no hospital access.
-    function isVeterinaryUserForHospital(hospitalId) {
+    }
+
+    // Veterinarians retain their existing authenticated assignment path.
+    // The veterinarian directory remains separate from staff assignments.
+    function isVeterinarianForHospital(hospitalId) {
       return signedIn()
         && hospitalId is string
         && hospitalId != 'unassigned'
-        && isVeterinaryUser()
+        && isVeterinarian()
+        && exists(
+          /databases/$(database)/documents/veterinarians/$(request.auth.uid)
+        )
         && get(
           /databases/$(database)/documents/users/$(request.auth.uid)
         ).data.hospitalId == hospitalId;
+    }
+
+    // Staff access requires a trusted assignment document keyed by the
+    // authenticated UID. Inactive and unassigned records grant no access.
+    function isVeterinaryStaffForHospital(hospitalId) {
+      return signedIn()
+        && hospitalId is string
+        && hospitalId != 'unassigned'
+        && isVeterinaryStaff()
+        && exists(
+          /databases/$(database)/documents/hospital_staff/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/hospital_staff/$(request.auth.uid)
+        ).data.userId == request.auth.uid
+        && get(
+          /databases/$(database)/documents/hospital_staff/$(request.auth.uid)
+        ).data.hospitalId == hospitalId
+        && get(
+          /databases/$(database)/documents/hospital_staff/$(request.auth.uid)
+        ).data.active == true;
+    }
+
+    // Shared hospital-scoped access is limited to appointment and queue
+    // workflows. Other resources use the narrower veterinarian predicate.
+    function isVeterinaryUserForHospital(hospitalId) {
+      return isVeterinarianForHospital(hospitalId)
+        || isVeterinaryStaffForHospital(hospitalId);
     }
 
     // ============================================================
@@ -279,8 +306,8 @@ service cloud.firestore {
       // Hospital creation is reserved for trusted provisioning/Admin SDK.
       allow create: if false;
 
-      // Only veterinary users assigned to this hospital can manage it.
-      allow update, delete: if isVeterinaryUserForHospital(hospitalId);
+      // Hospital configuration is veterinarian-managed, not staff-managed.
+      allow update, delete: if isVeterinarianForHospital(hospitalId);
     }
 
     // ============================================================
@@ -293,38 +320,51 @@ service cloud.firestore {
       // Service documents must contain a hospitalId field. Until the app's
       // service model/writers provide that field, client writes fail closed.
       allow create: if request.resource.data.hospitalId is string
-        && isVeterinaryUserForHospital(request.resource.data.hospitalId);
+        && isVeterinarianForHospital(request.resource.data.hospitalId);
 
       allow update: if resource.data.hospitalId is string
-        && isVeterinaryUserForHospital(resource.data.hospitalId)
+        && isVeterinarianForHospital(resource.data.hospitalId)
         && request.resource.data.hospitalId == resource.data.hospitalId;
 
       allow delete: if resource.data.hospitalId is string
-        && isVeterinaryUserForHospital(resource.data.hospitalId);
+        && isVeterinarianForHospital(resource.data.hospitalId);
     }
 
     // ============================================================
-    // Veterinarians / Veterinary Staff
+    // Hospital Staff Assignments
+    // ============================================================
+
+    match /hospital_staff/{staffUid} {
+      // A staff account may read its own assignment to resolve its hospital.
+      // Inactive assignments remain readable so the app can explain access state.
+      allow get: if isCurrentUser(staffUid) && isVeterinaryStaff();
+
+      // Staff cannot enumerate assignments or provision/change their access.
+      allow list, create, update, delete: if false;
+    }
+
+    // ============================================================
+    // Veterinarians
     // ============================================================
 
     match /veterinarians/{veterinarianId} {
       allow read: if signedIn();
 
-      // A veterinary user may create only their own initially unassigned
+      // A veterinarian may create only their own initially unassigned
       // profile. Assigning a real hospital requires trusted provisioning.
-      allow create: if isVeterinaryUser()
+      allow create: if isVeterinarian()
         && veterinarianId == request.auth.uid
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.hospitalId == 'unassigned';
 
       // Users cannot alter their identity or hospital assignment themselves.
-      allow update: if isVeterinaryUser()
+      allow update: if isVeterinarian()
         && veterinarianId == request.auth.uid
         && resource.data.userId == request.auth.uid
         && request.resource.data.userId == resource.data.userId
         && request.resource.data.hospitalId == resource.data.hospitalId;
 
-      allow delete: if isVeterinaryUser()
+      allow delete: if isVeterinarian()
         && veterinarianId == request.auth.uid;
     }
 
@@ -333,8 +373,9 @@ service cloud.firestore {
     // ============================================================
 
     match /appointments/{appointmentId} {
-      // Owners can read their own appointments; veterinary users can read
-      // appointments associated with their provisioned hospital.
+      // Owners can read their own appointments. Active staff and assigned
+      // veterinarians can read appointments in their hospital. List queries
+      // must include a matching hospitalId filter for Firestore to prove scope.
       allow read: if signedIn()
         && (
           resource.data.ownerId == request.auth.uid
@@ -393,6 +434,8 @@ service cloud.firestore {
     // ============================================================
 
     match /queue_records/{queueId} {
+      // Hospital staff and assigned veterinarians must use a hospitalId-scoped
+      // query when listing queue records.
       allow read: if signedIn()
         && (
           resource.data.ownerId == request.auth.uid
@@ -616,47 +659,48 @@ service cloud.firestore {
     }
 
     match /adoption_listings/{listingId} {
-  // Signed-in users can browse published listings.
-  // Only providers can read their own drafts.
-  allow read: if signedIn()
-    && (
-      resource.data.status != 'draft'
-      || (
-        isAdoptionProvider()
-        && ownsListing(resource.data)
-      )
-    );
+      // Signed-in users can browse published listings.
+      // Only providers can read their own drafts.
+      allow read: if signedIn()
+        && (
+          resource.data.status != 'draft'
+          || (
+            isAdoptionProvider()
+            && ownsListing(resource.data)
+          )
+        );
 
-  // Only adoption providers can create advertisements.
-  allow create: if isAdoptionProvider()
-    && (
-      (
-        validListingFields(request.resource.data)
-        && request.resource.data.listingOwnerType == 'adoption_provider'
-        && request.resource.data.listingOwnerId == request.auth.uid
-        && request.resource.data.providerId == request.auth.uid
-        && request.resource.data.status in ['draft', 'available']
-        && request.resource.data.createdAt == request.time
-        && request.resource.data.updatedAt == request.time
-      )
-      ||
-      (
-        validLegacyProviderListingFields(request.resource.data)
-        && request.resource.data.providerId == request.auth.uid
-      )
-    );
+      // Only adoption providers can create advertisements.
+      allow create: if isAdoptionProvider()
+        && (
+          (
+            validListingFields(request.resource.data)
+            && request.resource.data.listingOwnerType == 'adoption_provider'
+            && request.resource.data.listingOwnerId == request.auth.uid
+            && request.resource.data.providerId == request.auth.uid
+            && request.resource.data.status in ['draft', 'available']
+            && request.resource.data.createdAt == request.time
+            && request.resource.data.updatedAt == request.time
+          )
+          ||
+          (
+            validLegacyProviderListingFields(request.resource.data)
+            && request.resource.data.providerId == request.auth.uid
+          )
+        );
 
-  // Only adoption providers can update or reserve their listings.
-  allow update: if isAdoptionProvider()
-    && (
-      request.resource.data.status == 'reserved'
-        ? listingCanBeReserved(listingId)
-        : normalListingCanBeUpdated()
-    );
+      // Only adoption providers can update or reserve their listings.
+      allow update: if isAdoptionProvider()
+        && (
+          request.resource.data.status == 'reserved'
+            ? listingCanBeReserved(listingId)
+            : normalListingCanBeUpdated()
+        );
 
-  // Listings are retained rather than hard-deleted.
-  allow delete: if false;
-}
+      // Listings are retained rather than hard-deleted.
+      allow delete: if false;
+    }
+
     // ============================================================
     // Adoption Requests
     // ============================================================
@@ -694,42 +738,42 @@ service cloud.firestore {
     }
 
     function validNewAdoptionRequest(data) {
-  return data.keys().hasAll([
-      'listingId', 'requesterId', 'recipientId', 'recipientType',
-      'status', 'submittedAt', 'updatedAt'
-    ])
-    && data.keys().hasOnly([
-      'listingId', 'requesterId', 'providerId', 'recipientId',
-      'recipientType', 'message', 'status', 'submittedAt', 'updatedAt'
-    ])
-    && data.listingId is string
-    && data.requesterId is string
-    && data.requesterId == request.auth.uid
-    && data.recipientId is string
-    && data.recipientId != request.auth.uid
-    && data.recipientType == 'adoption_provider'
-    && data.status == 'pending'
-    && data.submittedAt == request.time
-    && data.updatedAt == request.time
-    && (!data.keys().hasAny(['message']) ||
-      (data.message is string && data.message.size() <= 500))
-    && exists(
-      /databases/$(database)/documents/adoption_listings/$(data.listingId)
-    )
-    && get(
-      /databases/$(database)/documents/adoption_listings/$(data.listingId)
-    ).data.status == 'available'
-    && listingOwnerType(get(
-      /databases/$(database)/documents/adoption_listings/$(data.listingId)
-    ).data) == 'adoption_provider'
-    && listingOwnerId(get(
-      /databases/$(database)/documents/adoption_listings/$(data.listingId)
-    ).data) == data.recipientId
-    && get(
-      /databases/$(database)/documents/users/$(data.recipientId)
-    ).data.role == 'adoption_provider'
-    && data.get('providerId', '') == data.recipientId;
-}
+      return data.keys().hasAll([
+        'listingId', 'requesterId', 'recipientId', 'recipientType',
+        'status', 'submittedAt', 'updatedAt'
+      ])
+        && data.keys().hasOnly([
+          'listingId', 'requesterId', 'providerId', 'recipientId',
+          'recipientType', 'message', 'status', 'submittedAt', 'updatedAt'
+        ])
+        && data.listingId is string
+        && data.requesterId is string
+        && data.requesterId == request.auth.uid
+        && data.recipientId is string
+        && data.recipientId != request.auth.uid
+        && data.recipientType == 'adoption_provider'
+        && data.status == 'pending'
+        && data.submittedAt == request.time
+        && data.updatedAt == request.time
+        && (!data.keys().hasAny(['message']) ||
+          (data.message is string && data.message.size() <= 500))
+        && exists(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        )
+        && get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data.status == 'available'
+        && listingOwnerType(get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data) == 'adoption_provider'
+        && listingOwnerId(get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data) == data.recipientId
+        && get(
+          /databases/$(database)/documents/users/$(data.recipientId)
+        ).data.role == 'adoption_provider'
+        && data.get('providerId', '') == data.recipientId;
+    }
 
     function ownerCanWithdrawRequest() {
       return isOwner()

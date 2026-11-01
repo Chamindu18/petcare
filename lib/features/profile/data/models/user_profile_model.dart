@@ -12,9 +12,13 @@ class UserProfileModel extends UserProfile {
     super.vetId,
     super.staffId,
     super.hospitalId,
+    super.photoUrl,
   });
 
-  factory UserProfileModel.fromMap(Map<String, dynamic> map) {
+  factory UserProfileModel.fromMap(
+    Map<String, dynamic> map, {
+    String? photoUrl,
+  }) {
     return UserProfileModel(
       uid: map['uid'] as String? ?? '',
       fullName: map['fullName'] as String? ?? '',
@@ -26,6 +30,7 @@ class UserProfileModel extends UserProfile {
       vetId: map['vetId'] as String?,
       staffId: map['staffId'] as String?,
       hospitalId: map['hospitalId'] as String?,
+      photoUrl: photoUrl,
     );
   }
 
@@ -41,6 +46,7 @@ class UserProfileModel extends UserProfile {
       vetId: profile.vetId,
       staffId: profile.staffId,
       hospitalId: profile.hospitalId,
+      photoUrl: profile.photoUrl,
     );
   }
 
