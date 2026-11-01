@@ -280,6 +280,8 @@ class _ProfileHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final normalizedPhotoUrl = photoUrl?.trim();
 
+    final photoUrl = profile.photoUrl;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),

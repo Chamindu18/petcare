@@ -37,7 +37,12 @@ class FirebaseProfileRepository implements ProfileRepository {
         return null;
       }
 
-      return UserProfileModel.fromMap(snapshot.data()!);
+      final authUser = _auth.currentUser;
+
+      return UserProfileModel.fromMap(
+        snapshot.data()!,
+        photoUrl: authUser?.photoURL,
+      );
     });
   }
 

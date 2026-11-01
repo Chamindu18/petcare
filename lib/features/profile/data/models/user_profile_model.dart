@@ -9,9 +9,13 @@ class UserProfileModel extends UserProfile {
     required super.phone,
     required super.role,
     required super.notificationEnabled,
+    super.photoUrl,
   });
 
-  factory UserProfileModel.fromMap(Map<String, dynamic> map) {
+  factory UserProfileModel.fromMap(
+    Map<String, dynamic> map, {
+    String? photoUrl,
+  }) {
     return UserProfileModel(
       uid: map['uid'] as String? ?? '',
       fullName: map['fullName'] as String? ?? '',
@@ -20,6 +24,7 @@ class UserProfileModel extends UserProfile {
       phone: map['phone'] as String? ?? '',
       role: map['role'] as String? ?? '',
       notificationEnabled: map['notificationEnabled'] as bool? ?? true,
+      photoUrl: photoUrl,
     );
   }
 
@@ -32,6 +37,7 @@ class UserProfileModel extends UserProfile {
       phone: profile.phone,
       role: profile.role,
       notificationEnabled: profile.notificationEnabled,
+      photoUrl: profile.photoUrl,
     );
   }
 

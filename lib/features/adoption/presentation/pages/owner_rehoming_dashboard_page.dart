@@ -20,6 +20,8 @@ class OwnerRehomingDashboardPage extends StatelessWidget {
                 ?.copyWith(color: AppTheme.deepBrown),
           ),
           const SizedBox(height: 20),
+
+          // Normal users can browse pets listed by adoption providers.
           _DashboardAction(
             icon: Icons.search_rounded,
             title: 'Browse available pets',
@@ -27,6 +29,8 @@ class OwnerRehomingDashboardPage extends StatelessWidget {
             onTap: () =>
                 Navigator.pushNamed(context, AppRouter.adoptionListings),
           ),
+
+          // Normal users can track adoption requests they submitted.
           _DashboardAction(
             icon: Icons.assignment_outlined,
             title: 'My adoption requests',

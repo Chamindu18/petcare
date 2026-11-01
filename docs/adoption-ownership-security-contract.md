@@ -70,12 +70,4 @@ These tests use a demo project. They do not deploy or verify production rules.
 
 ## Current verification scope
 
-The local Windows checkout has validated the provider-only repository changes:
-
-- `flutter analyze`: no issues found.
-- `flutter test`: all 213 tests passed.
-- Repository tests: all 3 provider-only access tests passed.
-- `npm run test:rules`: all 33 Firestore rules and backfill-planner tests passed.
-- `git diff --check`: no whitespace errors.
-
-These are local validation results. They do not prove that the latest rules have been deployed or that the production dataset has been migrated. Rerun the relevant checks after any subsequent code or rules changes and before release approval.
+Prior to this follow-up, the local Windows checkout reported 19 Firestore Emulator tests, 44 focused adoption tests, 198 full Flutter tests, and `flutter analyze` with no issues. These are **results for the earlier patch**, not this follow-up. In the current authoring environment, the pure Node backfill-planner tests can run, but the npm registry is unreachable and Flutter/Dart are unavailable; therefore the updated Emulator and Flutter suites must be rerun on the Windows development machine before approval.
