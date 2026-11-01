@@ -72,6 +72,32 @@ class FirebaseAppointmentRepository implements AppointmentRepository {
   }
 
   @override
+  Future<List<Appointment>> getAppointmentsByHospital(String hospitalId) async {
+    final snapshot = await _appointmentsCollection
+        .where('hospitalId', isEqualTo: hospitalId)
+        .get();
+
+    return snapshot.docs
+        .map((document) => AppointmentModel.fromMap(document.data()))
+        .toList();
+  }
+
+  @override
+  Future<List<Appointment>> getAppointmentsByVeterinarian({
+    required String vetId,
+    required String hospitalId,
+  }) async {
+    final snapshot = await _appointmentsCollection
+        .where('vetId', isEqualTo: vetId)
+        .where('hospitalId', isEqualTo: hospitalId)
+        .get();
+
+    return snapshot.docs
+        .map((document) => AppointmentModel.fromMap(document.data()))
+        .toList();
+  }
+
+  @override
   Future<Appointment?> getAppointmentById(String appointmentId) async {
     final ownerId = _currentUserId;
 
@@ -134,6 +160,56 @@ class FirebaseAppointmentRepository implements AppointmentRepository {
     throw UnimplementedError(
       'Appointment cancellation requires the agreed appointment status value.',
     );
+  }
+
+  @override
+  Future<void> confirmAppointment(String appointmentId) async {
+    final document = await _appointmentsCollection.doc(appointmentId).get();
+
+    if (!document.exists) {
+      throw const AppointmentRepositoryException('Appointment was not found.');
+    }
+
+    final data = document.data();
+
+    if (data == null) {
+      throw const AppointmentRepositoryException(
+        'Appointment data was not found.',
+      );
+    }
+
+    if (data['status'] != 'pending') {
+      throw const AppointmentRepositoryException(
+        'Only pending appointments can be confirmed.',
+      );
+    }
+
+    await document.reference.update({'status': 'confirmed'});
+  }
+
+  @override
+  Future<void> rejectAppointment(String appointmentId) async {
+    final document = await _appointmentsCollection.doc(appointmentId).get();
+
+    if (!document.exists) {
+      throw const AppointmentRepositoryException('Appointment was not found.');
+    }
+
+    final data = document.data();
+
+    if (data == null) {
+      throw const AppointmentRepositoryException(
+        'Appointment data was not found.',
+      );
+    }
+
+    if (data['status'] != 'pending') {
+      throw const AppointmentRepositoryException(
+        'Only pending appointments can be rejected.',
+      );
+    }
+
+    await document.reference.update({'status': 'rejected'});
   }
 }
 

@@ -17,6 +17,7 @@ import '../../features/profile/data/repositories/firebase_profile_repository.dar
 import '../../features/profile/domain/repositories/profile_repository.dart';
 import '../../features/profile/presentation/providers/profile_provider.dart';
 import '../../shared/enums/user_role.dart';
+import '../../features/appointments/presentation/pages/veterinary_staff_dashboard_page.dart';
 
 class RoleBasedHomePage extends StatefulWidget {
   const RoleBasedHomePage({
@@ -165,6 +166,20 @@ class _RoleBasedHomePageState extends State<RoleBasedHomePage> {
               'Your veterinarian account is recognized, but its '
               'dashboard is not available in this build.',
         );
+
+      case UserRole.veterinaryStaff:
+        final profile = _profileProvider.profile;
+
+        if (profile?.staffId == null || profile?.hospitalId == null) {
+          return const _HomeMessagePage(
+            title: 'Staff account configuration unavailable',
+            message:
+                'Your staff account is missing its staff or hospital assignment. '
+                'Please contact an administrator.',
+          );
+        }
+
+        return VeterinaryStaffDashboardPage(hospitalId: profile!.hospitalId!);
     }
   }
 
