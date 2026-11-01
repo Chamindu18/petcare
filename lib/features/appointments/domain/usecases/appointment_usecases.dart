@@ -74,3 +74,31 @@ class RejectAppointment {
     return _repository.rejectAppointment(appointmentId);
   }
 }
+
+/// Gets all appointments belonging to a hospital.
+class GetAppointmentsByHospital {
+  const GetAppointmentsByHospital(this._repository);
+
+  final AppointmentRepository _repository;
+
+  Future<List<Appointment>> call(String hospitalId) {
+    return _repository.getAppointmentsByHospital(hospitalId);
+  }
+}
+
+/// Gets appointments assigned to a veterinarian within a hospital.
+class GetAppointmentsByVeterinarian {
+  const GetAppointmentsByVeterinarian(this._repository);
+
+  final AppointmentRepository _repository;
+
+  Future<List<Appointment>> call({
+    required String vetId,
+    required String hospitalId,
+  }) {
+    return _repository.getAppointmentsByVeterinarian(
+      vetId: vetId,
+      hospitalId: hospitalId,
+    );
+  }
+}
