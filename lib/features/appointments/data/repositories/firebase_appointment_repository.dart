@@ -135,6 +135,56 @@ class FirebaseAppointmentRepository implements AppointmentRepository {
       'Appointment cancellation requires the agreed appointment status value.',
     );
   }
+
+  @override
+  Future<void> confirmAppointment(String appointmentId) async {
+    final document = await _appointmentsCollection.doc(appointmentId).get();
+
+    if (!document.exists) {
+      throw const AppointmentRepositoryException('Appointment was not found.');
+    }
+
+    final data = document.data();
+
+    if (data == null) {
+      throw const AppointmentRepositoryException(
+        'Appointment data was not found.',
+      );
+    }
+
+    if (data['status'] != 'pending') {
+      throw const AppointmentRepositoryException(
+        'Only pending appointments can be confirmed.',
+      );
+    }
+
+    await document.reference.update({'status': 'confirmed'});
+  }
+
+  @override
+  Future<void> rejectAppointment(String appointmentId) async {
+    final document = await _appointmentsCollection.doc(appointmentId).get();
+
+    if (!document.exists) {
+      throw const AppointmentRepositoryException('Appointment was not found.');
+    }
+
+    final data = document.data();
+
+    if (data == null) {
+      throw const AppointmentRepositoryException(
+        'Appointment data was not found.',
+      );
+    }
+
+    if (data['status'] != 'pending') {
+      throw const AppointmentRepositoryException(
+        'Only pending appointments can be rejected.',
+      );
+    }
+
+    await document.reference.update({'status': 'rejected'});
+  }
 }
 
 class AppointmentRepositoryException implements Exception {
