@@ -220,41 +220,41 @@ class _PetImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (imageAsset == null || imageAsset!.isEmpty) {
-      return Container(
-        width: double.infinity,
-        height: 240,
-        decoration: BoxDecoration(
-          color: AppTheme.secondary,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: const Icon(
-          Icons.pets_rounded,
-          size: 72,
-          color: AppTheme.deepBrown,
-        ),
-      );
+    final imageUrl = imageAsset?.trim();
+
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return _buildPlaceholder();
     }
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
-      child: Image.asset(
-        imageAsset!,
+      child: SizedBox(
         width: double.infinity,
-        height: 240,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) {
-          return Container(
-            width: double.infinity,
-            height: 240,
-            color: AppTheme.secondary,
-            child: const Icon(
-              Icons.pets_rounded,
-              size: 72,
-              color: AppTheme.deepBrown,
-            ),
-          );
-        },
+        height: 450,
+        child: Image.network(
+          imageUrl,
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) {
+            return _buildPlaceholder();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      width: double.infinity,
+      height: 450,
+      decoration: BoxDecoration(
+        color: AppTheme.secondary,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.pets_rounded,
+        size: 72,
+        color: AppTheme.deepBrown,
       ),
     );
   }
