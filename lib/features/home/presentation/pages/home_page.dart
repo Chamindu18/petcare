@@ -7,6 +7,7 @@ import '../../../notifications/domain/repositories/notification_repository.dart'
 import '../../../notifications/presentation/providers/notification_provider.dart';
 import '../../../pets/domain/entities/pet.dart';
 import '../../../pets/presentation/providers/pets_controller.dart';
+import 'pet_care_tips_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -166,6 +167,12 @@ class _HomePageState extends State<HomePage> {
                         const _SectionHeader(title: 'More for Your Pets'),
                         const SizedBox(height: 10),
                         _HelpfulResources(
+                          onPetCareTipsTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const PetCareTipsPage(),
+                            ),
+                          ),
                           onAdoptionTap: () => Navigator.pushNamed(
                             context,
                             AppRouter.ownerRehomingDashboard,
@@ -1077,22 +1084,27 @@ class _EmptyAppointmentCard extends StatelessWidget {
 // -----------------------------------------------------------------------------
 
 class _HelpfulResources extends StatelessWidget {
-  const _HelpfulResources({required this.onAdoptionTap});
+  const _HelpfulResources({
+    required this.onPetCareTipsTap,
+    required this.onAdoptionTap,
+  });
 
+  final VoidCallback onPetCareTipsTap;
   final VoidCallback onAdoptionTap;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(
+        Expanded(
           child: _ResourceCard(
             icon: Icons.lightbulb_outline_rounded,
             title: 'Pet Care Tips',
             subtitle: 'Helpful guidance',
+            onTap: onPetCareTipsTap,
           ),
         ),
-        SizedBox(width: 10),
+        const SizedBox(width: 10),
         Expanded(
           child: _ResourceCard(
             icon: Icons.favorite_border_rounded,
