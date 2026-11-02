@@ -3,9 +3,9 @@ import 'package:flutter/foundation.dart';
 import '../../domain/repositories/adoption_request_repository.dart';
 
 class AdoptionRequestProvider extends ChangeNotifier {
-  AdoptionRequestProvider({required this._repository});
+  AdoptionRequestProvider({required this.repository});
 
-  final AdoptionRequestRepository _repository;
+  final AdoptionRequestRepository repository;
 
   bool _isSubmitting = false;
   bool _isSubmitted = false;
@@ -23,8 +23,16 @@ class AdoptionRequestProvider extends ChangeNotifier {
     String? message,
   }) async {
     if (_isSubmitting) {
+      debugPrint('ADOPTION REQUEST: submission already in progress');
       return;
     }
+
+    debugPrint('========== ADOPTION REQUEST START ==========');
+    debugPrint('listingId: $listingId');
+    debugPrint('providerId: $providerId');
+    debugPrint('recipientId: $recipientId');
+    debugPrint('recipientType: $recipientType');
+    debugPrint('messageLength: ${message?.trim().length ?? 0}');
 
     _isSubmitting = true;
     _isSubmitted = false;
@@ -32,7 +40,9 @@ class AdoptionRequestProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _repository.createRequest(
+      debugPrint('ADOPTION REQUEST: calling repository.createRequest()');
+
+      await repository.createRequest(
         listingId: listingId,
         providerId: providerId,
         recipientId: recipientId,
@@ -40,13 +50,27 @@ class AdoptionRequestProvider extends ChangeNotifier {
         message: message,
       );
 
+      debugPrint('ADOPTION REQUEST: repository.createRequest() SUCCESS');
+
       _isSubmitted = true;
-    } catch (error) {
+    } catch (error, stackTrace) {
+      debugPrint('========== ADOPTION REQUEST ERROR ==========');
+      debugPrint('ERROR TYPE: ${error.runtimeType}');
+      debugPrint('ERROR: $error');
+      debugPrint('STACK TRACE:');
+      debugPrintStack(stackTrace: stackTrace);
+      debugPrint('============================================');
+
       _errorMessage =
           'Unable to submit your adoption request. Please try again.';
     } finally {
       _isSubmitting = false;
       notifyListeners();
+
+      debugPrint(
+        'ADOPTION REQUEST: finished '
+        '(isSubmitted=$_isSubmitted, error=$_errorMessage)',
+      );
     }
   }
 

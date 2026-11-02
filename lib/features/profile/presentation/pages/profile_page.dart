@@ -119,7 +119,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
           return _ProfileContent(
             profile: profile,
-            photoUrl: widget.photoUrl,
+            photoUrl: profile.photoUrl ?? widget.photoUrl,
             onLogout: _confirmLogout,
           );
         },
@@ -145,9 +145,7 @@ class _ProfileContent extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
         _ProfileHeader(profile: profile, photoUrl: photoUrl),
-
         const SizedBox(height: 28),
-
         _SettingsSection(
           title: 'Account',
           subtitle: 'Manage your personal account details.',
@@ -163,9 +161,7 @@ class _ProfileContent extends StatelessWidget {
             ),
           ],
         ),
-
         const SizedBox(height: 22),
-
         _SettingsSection(
           title: 'Preferences',
           subtitle: 'Manage your application preferences.',
@@ -184,9 +180,7 @@ class _ProfileContent extends StatelessWidget {
             ),
           ],
         ),
-
         const SizedBox(height: 22),
-
         _SettingsSection(
           title: 'Security',
           subtitle: 'Manage your account protection and privacy.',
@@ -201,9 +195,7 @@ class _ProfileContent extends StatelessWidget {
             ),
           ],
         ),
-
         const SizedBox(height: 22),
-
         _SettingsSection(
           title: 'Support',
           subtitle: 'Application information and assistance.',
@@ -227,13 +219,9 @@ class _ProfileContent extends StatelessWidget {
             ),
           ],
         ),
-
         const SizedBox(height: 28),
-
         _LogoutButton(onPressed: onLogout),
-
         const SizedBox(height: 16),
-
         Center(
           child: Text(
             'PetCare+',
@@ -312,9 +300,7 @@ class _ProfileHeader extends StatelessWidget {
                       ),
                     ),
             ),
-
             const SizedBox(width: 16),
-
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,9 +314,7 @@ class _ProfileHeader extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-
                   const SizedBox(height: 5),
-
                   Text(
                     profile.email,
                     maxLines: 1,
@@ -338,9 +322,7 @@ class _ProfileHeader extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodyMedium
                         ?.copyWith(color: AppTheme.deepBrown),
                   ),
-
                   const SizedBox(height: 9),
-
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -425,9 +407,7 @@ class _SettingsSection extends StatelessWidget {
             ],
           ),
         ),
-
         const SizedBox(height: 12),
-
         Card(child: Column(children: children)),
       ],
     );
@@ -454,7 +434,6 @@ class _SettingsTile extends StatelessWidget {
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         minVerticalPadding: 12,
-
         leading: Container(
           width: 46,
           height: 46,
@@ -464,13 +443,11 @@ class _SettingsTile extends StatelessWidget {
           ),
           child: Icon(icon, color: AppTheme.deepBrown, size: 23),
         ),
-
         title: Text(
           title,
           style: Theme.of(context).textTheme.bodyLarge
               ?.copyWith(color: AppTheme.espresso, fontWeight: FontWeight.w700),
         ),
-
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 3),
           child: Text(
@@ -479,13 +456,11 @@ class _SettingsTile extends StatelessWidget {
                 ?.copyWith(color: AppTheme.deepBrown, height: 1.4),
           ),
         ),
-
         trailing: const Icon(
           Icons.chevron_right_rounded,
           color: AppTheme.deepBrown,
           size: 24,
         ),
-
         onTap: onTap,
       ),
     );
@@ -555,9 +530,7 @@ class _ErrorState extends StatelessWidget {
               size: 48,
               color: AppTheme.error,
             ),
-
             const SizedBox(height: 16),
-
             Text(
               'Unable to load your profile',
               textAlign: TextAlign.center,
@@ -566,18 +539,14 @@ class _ErrorState extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-
             const SizedBox(height: 8),
-
             Text(
               'Please check your connection and try again.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium
                   ?.copyWith(color: AppTheme.deepBrown),
             ),
-
             const SizedBox(height: 20),
-
             ElevatedButton(onPressed: onRetry, child: const Text('Try again')),
           ],
         ),

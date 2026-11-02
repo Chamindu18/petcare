@@ -18,13 +18,17 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
   CollectionReference<Map<String, dynamic>> get _listingsCollection =>
       _firestore.collection('adoption_listings');
 
+  /// Returns the authenticated user's Firestore role.
+  ///
+  /// Both owners and adoption providers are valid application roles, but
+  /// individual repository operations apply their own authorization rules.
   Future<String> _roleFor(String uid) async {
     final profile = await _firestore.collection('users').doc(uid).get();
     final role = profile.data()?['role'];
 
-    if (role is! String || role != 'adoption_provider') {
+    if (role is! String || (role != 'owner' && role != 'adoption_provider')) {
       throw const AdoptionListingRepositoryException(
-        'Only adoption providers can manage adoption listings.',
+        'Only owners and adoption providers can manage adoption listings.',
       );
     }
 
@@ -34,6 +38,7 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
   @override
   Future<AdoptionListing> createListing(AdoptionListing listing) async {
     final user = _auth.currentUser;
+
     if (user == null) {
       throw const AdoptionListingRepositoryException(
         'You must be signed in to create an adoption listing.',
@@ -46,12 +51,21 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
       );
     }
 
-    await _roleFor(user.uid);
+    final role = await _roleFor(user.uid);
+
+    // Only adoption providers are allowed to create adoption listings.
+    if (role != 'adoption_provider') {
+      throw const AdoptionListingRepositoryException(
+        'Only adoption providers can create adoption listings.',
+      );
+    }
+
     final document = _listingsCollection.doc();
+
     final persistedListing = AdoptionListing(
       listingId: document.id,
       providerId: user.uid,
-      listingOwnerType: 'adoption_provider',
+      listingOwnerType: role,
       listingOwnerId: user.uid,
       petName: listing.petName,
       species: listing.species,
@@ -70,13 +84,16 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
     final map = AdoptionListingModel.fromEntity(persistedListing).toMap()
       ..['createdAt'] = FieldValue.serverTimestamp()
       ..['updatedAt'] = FieldValue.serverTimestamp();
+
     await document.set(map);
+
     return persistedListing;
   }
 
   @override
   Future<void> updateListing(AdoptionListing listing) async {
     final user = _auth.currentUser;
+
     if (user == null) {
       throw const AdoptionListingRepositoryException(
         'You must be signed in to update an adoption listing.',
@@ -92,21 +109,27 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
     final reference = _listingsCollection.doc(listing.listingId);
     final document = await reference.get();
     final existing = document.data();
+
     if (!document.exists || existing == null) {
       throw const AdoptionListingRepositoryException(
         'Adoption listing was not found.',
       );
     }
 
-    await _roleFor(user.uid);
+    final role = await _roleFor(user.uid);
+
     final legacyProviderId = existing['providerId'] as String? ?? '';
+
     final ownerType =
         existing['listingOwnerType'] as String? ?? 'adoption_provider';
+
     final ownerId = existing['listingOwnerId'] as String? ?? legacyProviderId;
+
+    // Only the adoption provider who owns the listing can update it.
     final canManage =
-        ownerType == 'adoption_provider' &&
         ownerId == user.uid &&
-        (legacyProviderId.isEmpty || legacyProviderId == user.uid);
+        ownerType == 'adoption_provider' &&
+        role == 'adoption_provider';
 
     if (!canManage) {
       throw const AdoptionListingRepositoryException(
@@ -116,7 +139,7 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
 
     final persistedListing = AdoptionListing(
       listingId: listing.listingId,
-      providerId: ownerType == 'adoption_provider' ? user.uid : '',
+      providerId: user.uid,
       listingOwnerType: ownerType,
       listingOwnerId: ownerId,
       petName: listing.petName,
@@ -136,12 +159,14 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
     final map = AdoptionListingModel.fromEntity(persistedListing).toMap()
       ..['createdAt'] = existing['createdAt']
       ..['updatedAt'] = FieldValue.serverTimestamp();
+
     await reference.update(map);
   }
 
   @override
   Stream<List<AdoptionListing>> watchAvailableListings() {
     final user = _auth.currentUser;
+
     if (user == null) {
       return Stream.error(
         const AdoptionListingRepositoryException(
@@ -154,12 +179,20 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
         .where('status', isEqualTo: 'available')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map(_mapListings);
+        .map(
+          (snapshot) => snapshot.docs
+              .map(AdoptionListingModel.fromFirestore)
+              // Users must not be able to submit an adoption request
+              // against their own listing.
+              .where((listing) => listing.listingOwnerId != user.uid)
+              .toList(),
+        );
   }
 
   @override
   Stream<List<AdoptionListing>> watchMyListings() {
     final user = _auth.currentUser;
+
     if (user == null) {
       return Stream.error(
         const AdoptionListingRepositoryException(
@@ -168,9 +201,18 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
       );
     }
 
-    return Stream.fromFuture(_roleFor(user.uid)).asyncExpand((_) {
-      return _listingsCollection
-          .where('providerId', isEqualTo: user.uid)
+    return Stream.fromFuture(_roleFor(user.uid)).asyncExpand((role) {
+      Query<Map<String, dynamic>> query;
+
+      if (role == 'owner') {
+        query = _listingsCollection
+            .where('listingOwnerType', isEqualTo: 'owner')
+            .where('listingOwnerId', isEqualTo: user.uid);
+      } else {
+        query = _listingsCollection.where('providerId', isEqualTo: user.uid);
+      }
+
+      return query
           .orderBy('createdAt', descending: true)
           .snapshots()
           .map(_mapListings);
@@ -188,18 +230,24 @@ class FirebaseAdoptionListingRepository implements AdoptionListingRepository {
     }
 
     return _listingsCollection.doc(listingId).snapshots().map((document) {
-      if (!document.exists) return null;
+      if (!document.exists) {
+        return null;
+      }
+
       return AdoptionListingModel.fromFirestore(document);
     });
   }
 
   List<AdoptionListing> _mapListings(
     QuerySnapshot<Map<String, dynamic>> snapshot,
-  ) => snapshot.docs.map(AdoptionListingModel.fromFirestore).toList();
+  ) {
+    return snapshot.docs.map(AdoptionListingModel.fromFirestore).toList();
+  }
 }
 
 class AdoptionListingRepositoryException implements Exception {
   const AdoptionListingRepositoryException(this.message);
+
   final String message;
 
   @override
