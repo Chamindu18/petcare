@@ -21,10 +21,9 @@ class AppointmentSlotGenerator {
   /// [appointmentDurations] maps appointment IDs to their actual service
   /// durations.
   ///
-  /// An existing appointment without a known duration is treated as a
-  /// conflict rather than being ignored. This is the safer behaviour because
-  /// incorrectly marking an occupied period as available could cause
-  /// double-booking.
+  /// Rejected and cancelled appointments do not reserve slots.
+  /// Pending and confirmed appointments remain reserved.
+  /// Unknown statuses are treated as occupied for safety.
   static List<AppointmentSlot> generate({
     required DateTime date,
     required HospitalOperatingHours operatingHours,
@@ -68,6 +67,13 @@ class AppointmentSlotGenerator {
       final overlapsExistingAppointment = existingAppointments.any((
         appointment,
       ) {
+        // Rejected and cancelled appointments release their reservations.
+        final status = appointment.status.trim().toLowerCase();
+
+        if (status == 'rejected' || status == 'cancelled') {
+          return false;
+        }
+
         if (appointment.vetId != veterinarianId) {
           return false;
         }
