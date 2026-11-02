@@ -1,9 +1,9 @@
 {
   "name": "petcare-firestore-security-tests",
   "private": true,
-  "description": "Firestore Emulator security tests for PetCare+ adoption workflows",
+  "description": "Firestore Emulator security tests for PetCare+ workflows",
   "scripts": {
-    "test:rules": "firebase emulators:exec --only firestore --project demo-petcare \"node --test test/firestore/rules.test.mjs test/firestore/recipient_backfill_plan.test.mjs\"",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-petcare \"node --test --test-concurrency=1 test/firestore/rules.test.mjs test/firestore/recipient_backfill_plan.test.mjs test/firestore/appointment_rules.test.mjs\"",
     "backfill:adoption-request-recipients": "node scripts/backfill-adoption-request-recipients.mjs"
   },
   "devDependencies": {

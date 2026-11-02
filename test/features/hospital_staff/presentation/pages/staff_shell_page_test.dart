@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:petcare/features/appointments/domain/entities/appointment.dart';
+import 'package:petcare/features/appointments/domain/repositories/appointment_repository.dart';
 import 'package:petcare/features/hospital_staff/domain/entities/hospital_staff_assignment.dart';
 import 'package:petcare/features/hospital_staff/presentation/pages/staff_shell_page.dart';
 import 'package:petcare/features/hospitals/domain/entities/hospital.dart';
@@ -29,6 +31,51 @@ class _FakeHospitalRepository implements HospitalRepository {
   Future<List<Hospital>> getHospitals() async => [];
 }
 
+class _FakeAppointmentRepository implements AppointmentRepository {
+  int hospitalAppointmentCallCount = 0;
+  final List<String> requestedHospitalIds = [];
+
+  @override
+  Future<List<Appointment>> getAppointmentsByHospital(String hospitalId) async {
+    hospitalAppointmentCallCount++;
+    requestedHospitalIds.add(hospitalId);
+    return [];
+  }
+
+  @override
+  Future<Appointment> createAppointment(Appointment appointment) {
+    throw UnsupportedError('Not required by this test.');
+  }
+
+  @override
+  Future<List<Appointment>> getAppointments() async => [];
+
+  @override
+  Future<List<Appointment>> getAppointmentsByVeterinarian({
+    required String vetId,
+    required String hospitalId,
+  }) async {
+    return [];
+  }
+
+  @override
+  Future<Appointment?> getAppointmentById(String appointmentId) async {
+    return null;
+  }
+
+  @override
+  Future<void> updateAppointment(Appointment appointment) async {}
+
+  @override
+  Future<void> cancelAppointment(String appointmentId) async {}
+
+  @override
+  Future<void> confirmAppointment(String appointmentId) async {}
+
+  @override
+  Future<void> rejectAppointment(String appointmentId) async {}
+}
+
 void main() {
   group('StaffShellPage', () {
     const assignment = HospitalStaffAssignment(
@@ -40,13 +87,15 @@ void main() {
     testWidgets('displays the assigned hospital overview and navigation', (
       tester,
     ) async {
-      final repository = _FakeHospitalRepository();
+      final hospitalRepository = _FakeHospitalRepository();
+      final appointmentRepository = _FakeAppointmentRepository();
 
       await tester.pumpWidget(
         MaterialApp(
           home: StaffShellPage(
             assignment: assignment,
-            hospitalRepository: repository,
+            hospitalRepository: hospitalRepository,
+            appointmentRepository: appointmentRepository,
           ),
         ),
       );
@@ -65,20 +114,25 @@ void main() {
       expect(find.text('Queue'), findsOneWidget);
       expect(find.text('Profile'), findsOneWidget);
 
-      expect(repository.callCount, 1);
-      expect(repository.requestedHospitalIds, ['hospital-001']);
+      expect(hospitalRepository.callCount, 1);
+      expect(hospitalRepository.requestedHospitalIds, ['hospital-001']);
+
+      expect(appointmentRepository.hospitalAppointmentCallCount, 1);
+      expect(appointmentRepository.requestedHospitalIds, ['hospital-001']);
     });
 
     testWidgets('navigates between all five dashboard sections', (
       tester,
     ) async {
-      final repository = _FakeHospitalRepository();
+      final hospitalRepository = _FakeHospitalRepository();
+      final appointmentRepository = _FakeAppointmentRepository();
 
       await tester.pumpWidget(
         MaterialApp(
           home: StaffShellPage(
             assignment: assignment,
-            hospitalRepository: repository,
+            hospitalRepository: hospitalRepository,
+            appointmentRepository: appointmentRepository,
           ),
         ),
       );
@@ -90,13 +144,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.widgetWithText(AppBar, 'Appointments'), findsOneWidget);
-      expect(
-        find.text(
-          'Review appointment requests, manage confirmations, '
-          'and monitor hospital appointments.',
-        ),
-        findsOneWidget,
-      );
+      expect(find.text('Hospital Appointments'), findsOneWidget);
+      expect(find.text('No appointments found'), findsOneWidget);
+      expect(find.text('Hospital ID: hospital-001'), findsOneWidget);
+
+      // The repository must only receive the assigned hospital ID.
+      expect(appointmentRepository.hospitalAppointmentCallCount, 1);
+      expect(appointmentRepository.requestedHospitalIds, ['hospital-001']);
 
       // Daily Schedule
       await tester.tap(find.text('Schedule').last);
@@ -126,9 +180,9 @@ void main() {
       expect(find.widgetWithText(AppBar, 'Overview'), findsOneWidget);
       expect(find.text('Hospital Workspace'), findsOneWidget);
 
-      // IndexedStack should preserve the loaded overview without
-      // issuing another repository request.
-      expect(repository.callCount, 1);
+      // IndexedStack preserves both loaded pages without refetching.
+      expect(hospitalRepository.callCount, 1);
+      expect(appointmentRepository.hospitalAppointmentCallCount, 1);
     });
   });
 }

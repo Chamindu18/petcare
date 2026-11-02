@@ -372,6 +372,76 @@ service cloud.firestore {
     // Appointments
     // ============================================================
 
+    // Keep appointment identity and ownership relationships immutable.
+    function appointmentIdentityIsPreserved() {
+      return request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.petId == resource.data.petId
+        && request.resource.data.hospitalId == resource.data.hospitalId
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    // Owners may edit scheduling details only while an appointment is pending.
+    // Status changes are handled by the dedicated transition predicates below.
+    function ownerCanEditPendingAppointment() {
+      return isOwner()
+        && resource.data.ownerId == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == resource.data.status
+        && appointmentIdentityIsPreserved()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'dateTime',
+          'reason',
+          'vetId',
+          'serviceId',
+          'updatedAt'
+        ]);
+    }
+
+    // Only the appointment owner can cancel a pending or confirmed appointment.
+    // The update must contain no other appointment-field changes.
+    function ownerCanCancelAppointment() {
+      return isOwner()
+        && resource.data.ownerId == request.auth.uid
+        && resource.data.status in ['pending', 'confirmed']
+        && request.resource.data.status == 'cancelled'
+        && appointmentIdentityIsPreserved()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'updatedAt'
+        ])
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    // Assigned staff and veterinarians may confirm or reject pending appointments.
+    // A status decision cannot be combined with edits to other appointment fields.
+    function veterinaryUserCanDecideAppointment() {
+      return isVeterinaryUserForHospital(resource.data.hospitalId)
+        && resource.data.status == 'pending'
+        && request.resource.data.status in ['confirmed', 'rejected']
+        && appointmentIdentityIsPreserved()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'updatedAt'
+        ])
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    // Preserve the existing hospital-side scheduling fields, but do not permit
+    // these edits to change the appointment status or immutable relationships.
+    function veterinaryUserCanEditAppointmentDetails() {
+      return isVeterinaryUserForHospital(resource.data.hospitalId)
+        && resource.data.status in ['pending', 'confirmed']
+        && request.resource.data.status == resource.data.status
+        && appointmentIdentityIsPreserved()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'vetId',
+          'dateTime',
+          'reason',
+          'queueId',
+          'updatedAt'
+        ]);
+    }
+
     match /appointments/{appointmentId} {
       // Owners can read their own appointments. Active staff and assigned
       // veterinarians can read appointments in their hospital. List queries
@@ -382,49 +452,25 @@ service cloud.firestore {
           || isVeterinaryUserForHospital(resource.data.hospitalId)
         );
 
-      // Owners can create appointments only for their own pets.
+      // New appointments must begin in the pending state and belong to the
+      // authenticated owner, who must own the referenced pet.
       allow create: if isOwner()
         && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.status == 'pending'
         && ownsPet(request.resource.data.petId);
 
-      // Preserve appointment identity and restrict each role to its expected
-      // mutable fields. Status-transition policy still needs workflow agreement.
+      // Keep ordinary edits separate from status transitions. This prevents
+      // owners from self-confirming and hospital users from self-cancelling.
       allow update: if signedIn()
         && (
-          (
-            isOwner()
-            && resource.data.ownerId == request.auth.uid
-            && request.resource.data.ownerId == resource.data.ownerId
-            && request.resource.data.petId == resource.data.petId
-            && request.resource.data.hospitalId == resource.data.hospitalId
-            && request.resource.data.createdAt == resource.data.createdAt
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'dateTime',
-              'reason',
-              'status',
-              'vetId',
-              'serviceId',
-              'updatedAt'
-            ])
-          )
-          ||
-          (
-            isVeterinaryUserForHospital(resource.data.hospitalId)
-            && request.resource.data.ownerId == resource.data.ownerId
-            && request.resource.data.petId == resource.data.petId
-            && request.resource.data.hospitalId == resource.data.hospitalId
-            && request.resource.data.createdAt == resource.data.createdAt
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'status',
-              'vetId',
-              'dateTime',
-              'reason',
-              'queueId',
-              'updatedAt'
-            ])
-          )
+          ownerCanEditPendingAppointment()
+          || ownerCanCancelAppointment()
+          || veterinaryUserCanDecideAppointment()
+          || veterinaryUserCanEditAppointmentDetails()
         );
 
+      // Retain the existing owner deletion policy. Cancellation is preferred
+      // for preserving appointment history and associated queue references.
       allow delete: if isOwner()
         && resource.data.ownerId == request.auth.uid;
     }

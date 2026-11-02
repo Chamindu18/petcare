@@ -34,7 +34,6 @@ class FirebaseAppointmentRepository implements AppointmentRepository {
   Future<Appointment> createAppointment(Appointment appointment) async {
     final ownerId = _currentUserId;
 
-    // Let Firestore generate the appointment document ID.
     final document = _appointmentsCollection.doc();
 
     final persistedAppointment = Appointment(
@@ -156,60 +155,77 @@ class FirebaseAppointmentRepository implements AppointmentRepository {
   }
 
   @override
-  Future<void> cancelAppointment(String appointmentId) async {
-    throw UnimplementedError(
-      'Appointment cancellation requires the agreed appointment status value.',
+  Future<void> cancelAppointment(String appointmentId) {
+    return _transitionAppointmentStatus(
+      appointmentId: appointmentId,
+      allowedCurrentStatuses: const {'pending', 'confirmed'},
+      nextStatus: 'cancelled',
+      failureMessage:
+          'Only pending or confirmed appointments can be cancelled.',
     );
   }
 
   @override
-  Future<void> confirmAppointment(String appointmentId) async {
-    final document = await _appointmentsCollection.doc(appointmentId).get();
-
-    if (!document.exists) {
-      throw const AppointmentRepositoryException('Appointment was not found.');
-    }
-
-    final data = document.data();
-
-    if (data == null) {
-      throw const AppointmentRepositoryException(
-        'Appointment data was not found.',
-      );
-    }
-
-    if (data['status'] != 'pending') {
-      throw const AppointmentRepositoryException(
-        'Only pending appointments can be confirmed.',
-      );
-    }
-
-    await document.reference.update({'status': 'confirmed'});
+  Future<void> confirmAppointment(String appointmentId) {
+    return _transitionAppointmentStatus(
+      appointmentId: appointmentId,
+      allowedCurrentStatuses: const {'pending'},
+      nextStatus: 'confirmed',
+      failureMessage: 'Only pending appointments can be confirmed.',
+    );
   }
 
   @override
-  Future<void> rejectAppointment(String appointmentId) async {
-    final document = await _appointmentsCollection.doc(appointmentId).get();
+  Future<void> rejectAppointment(String appointmentId) {
+    return _transitionAppointmentStatus(
+      appointmentId: appointmentId,
+      allowedCurrentStatuses: const {'pending'},
+      nextStatus: 'rejected',
+      failureMessage: 'Only pending appointments can be rejected.',
+    );
+  }
 
-    if (!document.exists) {
-      throw const AppointmentRepositoryException('Appointment was not found.');
-    }
+  /// Applies an appointment status transition atomically.
+  ///
+  /// Firestore retries transactions when the document changes concurrently.
+  /// Authorization must still be enforced by Firestore security rules.
+  Future<void> _transitionAppointmentStatus({
+    required String appointmentId,
+    required Set<String> allowedCurrentStatuses,
+    required String nextStatus,
+    required String failureMessage,
+  }) async {
+    final appointmentReference = _appointmentsCollection.doc(appointmentId);
 
-    final data = document.data();
+    await _firestore.runTransaction<void>((transaction) async {
+      final snapshot = await transaction.get(appointmentReference);
 
-    if (data == null) {
-      throw const AppointmentRepositoryException(
-        'Appointment data was not found.',
-      );
-    }
+      if (!snapshot.exists) {
+        throw const AppointmentRepositoryException(
+          'Appointment was not found.',
+        );
+      }
 
-    if (data['status'] != 'pending') {
-      throw const AppointmentRepositoryException(
-        'Only pending appointments can be rejected.',
-      );
-    }
+      final data = snapshot.data();
 
-    await document.reference.update({'status': 'rejected'});
+      if (data == null) {
+        throw const AppointmentRepositoryException(
+          'Appointment data was not found.',
+        );
+      }
+
+      final currentStatus = data['status'];
+
+      if (currentStatus is! String ||
+          !allowedCurrentStatuses.contains(currentStatus)) {
+        throw AppointmentRepositoryException(failureMessage);
+      }
+
+      transaction.update(appointmentReference, {
+        'status': nextStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
   }
 }
 

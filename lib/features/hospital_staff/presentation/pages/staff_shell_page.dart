@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../appointments/domain/repositories/appointment_repository.dart';
 import '../../../hospitals/domain/repositories/hospital_repository.dart';
 import '../../domain/entities/hospital_staff_assignment.dart';
+import 'staff_appointments_page.dart';
 import 'staff_hospital_overview_page.dart';
 
 /// Main navigation shell for an authenticated hospital staff member.
@@ -13,10 +15,12 @@ class StaffShellPage extends StatefulWidget {
     super.key,
     required this.assignment,
     this.hospitalRepository,
+    this.appointmentRepository,
   });
 
   final HospitalStaffAssignment assignment;
   final HospitalRepository? hospitalRepository;
+  final AppointmentRepository? appointmentRepository;
 
   @override
   State<StaffShellPage> createState() => _StaffShellPageState();
@@ -50,12 +54,9 @@ class _StaffShellPageState extends State<StaffShellPage> {
         hospitalId: assignment.hospitalId,
         repository: widget.hospitalRepository,
       ),
-      const _StaffSectionPage(
-        icon: Icons.calendar_month_rounded,
-        title: 'Appointments',
-        description:
-            'Review appointment requests, manage confirmations, '
-            'and monitor hospital appointments.',
+      StaffAppointmentsPage(
+        hospitalId: assignment.hospitalId,
+        repository: widget.appointmentRepository,
       ),
       const _StaffSectionPage(
         icon: Icons.event_note_rounded,
