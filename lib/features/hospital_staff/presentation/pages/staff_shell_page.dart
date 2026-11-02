@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../hospitals/domain/repositories/hospital_repository.dart';
 import '../../domain/entities/hospital_staff_assignment.dart';
+import 'staff_hospital_overview_page.dart';
 
 /// Main navigation shell for an authenticated hospital staff member.
 ///
 /// Access to this page must be controlled by HospitalStaffAccessGate.
 class StaffShellPage extends StatefulWidget {
-  const StaffShellPage({super.key, required this.assignment});
+  const StaffShellPage({
+    super.key,
+    required this.assignment,
+    this.hospitalRepository,
+  });
 
   final HospitalStaffAssignment assignment;
+  final HospitalRepository? hospitalRepository;
 
   @override
   State<StaffShellPage> createState() => _StaffShellPageState();
@@ -27,7 +34,7 @@ class _StaffShellPageState extends State<StaffShellPage> {
   ];
 
   void _onTabSelected(int index) {
-    if (index == _currentIndex) return;
+    if (_currentIndex == index) return;
 
     setState(() {
       _currentIndex = index;
@@ -39,7 +46,10 @@ class _StaffShellPageState extends State<StaffShellPage> {
     final assignment = widget.assignment;
 
     final pages = [
-      _StaffOverviewPage(hospitalId: assignment.hospitalId),
+      StaffHospitalOverviewPage(
+        hospitalId: assignment.hospitalId,
+        repository: widget.hospitalRepository,
+      ),
       const _StaffSectionPage(
         icon: Icons.calendar_month_rounded,
         title: 'Appointments',
@@ -76,176 +86,6 @@ class _StaffShellPageState extends State<StaffShellPage> {
         currentIndex: _currentIndex,
         onSelected: _onTabSelected,
         items: _navigationItems,
-      ),
-    );
-  }
-}
-
-class _StaffOverviewPage extends StatelessWidget {
-  const _StaffOverviewPage({required this.hospitalId});
-
-  final String hospitalId;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Hospital Workspace',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.deepBrown,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Manage your hospital operations from one place.',
-              style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(color: AppTheme.deepBrown.withValues(alpha: 0.7)),
-            ),
-            const SizedBox(height: 24),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppTheme.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppTheme.secondary.withValues(alpha: 0.25),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(
-                        Icons.local_hospital_rounded,
-                        color: AppTheme.primary,
-                        size: 25,
-                      ),
-                      SizedBox(width: 10),
-                      Text(
-                        'Assigned Hospital',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.deepBrown,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    hospitalId,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'You are accessing the workspace assigned '
-                    'to your staff account.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.deepBrown.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Hospital Operations',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.deepBrown,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const _OperationShortcut(
-              icon: Icons.calendar_month_rounded,
-              title: 'Appointments',
-              description: 'Review and manage appointment requests.',
-            ),
-            const SizedBox(height: 12),
-            const _OperationShortcut(
-              icon: Icons.event_note_rounded,
-              title: 'Daily Schedule',
-              description: 'Monitor veterinarian schedules.',
-            ),
-            const SizedBox(height: 12),
-            const _OperationShortcut(
-              icon: Icons.groups_rounded,
-              title: 'Queue Management',
-              description: 'Monitor check-ins and consultation queues.',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _OperationShortcut extends StatelessWidget {
-  const _OperationShortcut({
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
-
-  final IconData icon;
-  final String title;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppTheme.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: AppTheme.primary, size: 23),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.deepBrown,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.deepBrown.withValues(alpha: 0.7),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
