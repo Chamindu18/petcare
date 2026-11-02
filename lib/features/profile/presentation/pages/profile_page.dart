@@ -266,7 +266,11 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final normalizedPhotoUrl = photoUrl?.trim();
+    // Prefer the Firestore profile photo. Fall back to the authenticated
+    // user's photo URL when the Firestore profile has no usable photo.
+    final normalizedPhotoUrl = profile.photoUrl?.trim().isNotEmpty == true
+        ? profile.photoUrl!.trim()
+        : photoUrl?.trim();
 
     return Card(
       child: Padding(

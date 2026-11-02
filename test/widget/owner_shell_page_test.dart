@@ -151,6 +151,25 @@ class _FakeAppointmentRepository implements AppointmentRepository {
 
   @override
   Future<void> cancelAppointment(String appointmentId) async {}
+
+  @override
+  Future<void> confirmAppointment(String appointmentId) async {}
+
+  @override
+  Future<void> rejectAppointment(String appointmentId) async {}
+
+  @override
+  Future<List<Appointment>> getAppointmentsByHospital(String hospitalId) async {
+    return [];
+  }
+
+  @override
+  Future<List<Appointment>> getAppointmentsByVeterinarian({
+    required String vetId,
+    required String hospitalId,
+  }) async {
+    return [];
+  }
 }
 
 class _FakeProfileRepository implements ProfileRepository {
@@ -369,11 +388,11 @@ void main() {
       routeCapture = _RouteCapture();
       healthController = _createFakeHealthController();
       appointmentProvider = AppointmentProvider(
-      getAppointments: GetAppointments(_FakeAppointmentRepository()),
-      petRepository: _FakePetRepository(),
-      hospitalRepository: _FakeHospitalRepository(),
-      serviceRepository: _FakeServiceRepository(),
-      veterinarianRepository: _FakeVeterinarianRepository(),
+        getAppointments: GetAppointments(_FakeAppointmentRepository()),
+        petRepository: _FakePetRepository(),
+        hospitalRepository: _FakeHospitalRepository(),
+        serviceRepository: _FakeServiceRepository(),
+        veterinarianRepository: _FakeVeterinarianRepository(),
       );
     });
 

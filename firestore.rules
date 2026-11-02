@@ -76,7 +76,7 @@ service cloud.firestore {
           /databases/$(database)/documents/veterinarians/$(request.auth.uid)
         )
         && get(
-          /databases/$(database)/documents/veterinarians/$(request.auth.uid)
+          /databases/$(database)/documents/users/$(request.auth.uid)
         ).data.hospitalId == hospitalId;
     }
 
