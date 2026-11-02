@@ -1,11 +1,16 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/config/cloudinary_config.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../domain/repositories/cloudinary_adoption_image_repository.dart';
 import '../../data/repositories/firebase_adoption_listing_repository.dart';
 import '../../domain/entities/adoption_listing.dart';
 import '../../domain/repositories/adoption_listing_repository.dart';
 import '../../domain/usecases/create_adoption_listing.dart';
 import '../../domain/usecases/update_adoption_listing.dart';
+import '../../domain/usecases/upload_adoption_image.dart';
 import '../providers/adoption_listing_controller.dart';
 
 class CreateEditAdoptionListingPage extends StatefulWidget {
@@ -37,11 +42,14 @@ class _CreateEditAdoptionListingPageState
   late final TextEditingController _descriptionController;
   late final TextEditingController _locationController;
   late final TextEditingController _contactNoteController;
-  late final TextEditingController _imageAssetController;
 
   String? _selectedSpecies;
   String? _selectedGender;
   bool _hasChanges = false;
+
+  final ImagePicker _imagePicker = ImagePicker();
+  Uint8List? _selectedImageBytes;
+  String? _existingImageUrl;
 
   static const List<String> _speciesOptions = [
     'Dog',
@@ -61,13 +69,19 @@ class _CreateEditAdoptionListingPageState
     super.initState();
 
     final listing = widget.listing;
+    _existingImageUrl = listing?.imageAsset;
 
     final repository =
         widget.adoptionListingRepository ?? FirebaseAdoptionListingRepository();
 
+    final imageRepository = CloudinaryAdoptionImageRepository(
+      cloudName: CloudinaryConfig.cloudName,
+      uploadPreset: CloudinaryConfig.uploadPreset,
+    );
     _controller = AdoptionListingController(
       CreateAdoptionListing(repository),
       UpdateAdoptionListing(repository),
+      UploadAdoptionImage(imageRepository),
     );
 
     _petNameController = TextEditingController(text: listing?.petName ?? '');
@@ -82,10 +96,6 @@ class _CreateEditAdoptionListingPageState
     _contactNoteController = TextEditingController(
       text: listing?.contactNote ?? '',
     );
-    _imageAssetController = TextEditingController(
-      text: listing?.imageAsset ?? '',
-    );
-
     _selectedSpecies = listing?.species;
     _selectedGender = listing?.gender;
 
@@ -96,7 +106,6 @@ class _CreateEditAdoptionListingPageState
       _descriptionController,
       _locationController,
       _contactNoteController,
-      _imageAssetController,
     ]) {
       controller.addListener(_markChanged);
     }
@@ -124,10 +133,6 @@ class _CreateEditAdoptionListingPageState
     _contactNoteController
       ..removeListener(_markChanged)
       ..dispose();
-    _imageAssetController
-      ..removeListener(_markChanged)
-      ..dispose();
-
     super.dispose();
   }
 
@@ -177,7 +182,7 @@ class _CreateEditAdoptionListingPageState
       gender: _selectedGender!.trim(),
       description: _descriptionController.text.trim(),
       location: _locationController.text.trim(),
-      imageAsset: _optionalValue(_imageAssetController.text),
+      imageAsset: _existingImageUrl,
       status: status,
       contactNote: _optionalValue(_contactNoteController.text),
       createdAt: existing?.createdAt ?? now,
@@ -210,8 +215,9 @@ class _CreateEditAdoptionListingPageState
     final listing = _buildListing(status: status);
 
     final result = _isEditing
-        ? await _controller.update(listing)
-        : await _controller.create(listing) != null;
+        ? await _controller.update(listing, imageBytes: _selectedImageBytes)
+        : await _controller.create(listing, imageBytes: _selectedImageBytes) !=
+              null;
 
     if (!mounted) {
       return;
@@ -245,6 +251,133 @@ class _CreateEditAdoptionListingPageState
       );
 
     Navigator.pop(context);
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final pickedFile = await _imagePicker.pickImage(
+      source: source,
+      imageQuality: 85,
+      maxWidth: 1600,
+      maxHeight: 1600,
+    );
+
+    if (pickedFile == null) {
+      return;
+    }
+
+    final bytes = await pickedFile.readAsBytes();
+
+    if (bytes.isEmpty || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedImageBytes = bytes;
+      _existingImageUrl = null;
+      _hasChanges = true;
+    });
+  }
+
+  Future<void> _showImageSourcePicker() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Choose from Gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined),
+                title: const Text('Take a Photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _removeImage() {
+    setState(() {
+      _selectedImageBytes = null;
+      _existingImageUrl = null;
+      _hasChanges = true;
+    });
+  }
+
+  Widget _buildImagePreview() {
+    if (_selectedImageBytes != null && _selectedImageBytes!.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Image.memory(
+          _selectedImageBytes!,
+          width: double.infinity,
+          height: 220,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    final imageUrl = _existingImageUrl?.trim();
+
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Image.network(
+          imageUrl,
+          width: double.infinity,
+          height: 220,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildImagePlaceholder();
+          },
+        ),
+      );
+    }
+
+    return _buildImagePlaceholder();
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      width: double.infinity,
+      height: 180,
+      decoration: BoxDecoration(
+        color: AppTheme.secondary.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.55)),
+      ),
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.add_a_photo_outlined, size: 42, color: AppTheme.deepBrown),
+          SizedBox(height: 10),
+          Text(
+            'Add a photo of the pet',
+            style: TextStyle(
+              color: AppTheme.deepBrown,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          SizedBox(height: 4),
+          Text(
+            'Gallery or camera',
+            style: TextStyle(color: AppTheme.deepBrown),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleBack() async {
@@ -550,20 +683,49 @@ class _CreateEditAdoptionListingPageState
 
                       const SizedBox(height: 14),
 
-                      const _FieldLabel(label: 'Image Asset / URL'),
+                      const _FieldLabel(label: 'Pet Photo'),
                       const SizedBox(height: 6),
-                      TextFormField(
-                        controller: _imageAssetController,
-                        enabled: !isLoading,
-                        keyboardType: TextInputType.url,
-                        textInputAction: TextInputAction.done,
-                        decoration: const InputDecoration(
-                          hintText: 'Optional image asset or URL',
-                          prefixIcon: Icon(
-                            Icons.image_outlined,
-                            color: AppTheme.deepBrown,
+                      _buildImagePreview(),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: isLoading
+                                  ? null
+                                  : _showImageSourcePicker,
+                              icon: const Icon(Icons.add_a_photo_outlined),
+                              label: Text(
+                                (_selectedImageBytes != null ||
+                                        (_existingImageUrl?.trim().isNotEmpty ??
+                                            false))
+                                    ? 'Change Photo'
+                                    : 'Add Photo',
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(48),
+                                foregroundColor: AppTheme.deepBrown,
+                                side: const BorderSide(
+                                  color: AppTheme.secondary,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                          if (_selectedImageBytes != null ||
+                              (_existingImageUrl?.trim().isNotEmpty ?? false))
+                            const SizedBox(width: 10),
+                          if (_selectedImageBytes != null ||
+                              (_existingImageUrl?.trim().isNotEmpty ?? false))
+                            IconButton(
+                              onPressed: isLoading ? null : _removeImage,
+                              tooltip: 'Remove photo',
+                              icon: const Icon(Icons.delete_outline_rounded),
+                              color: AppTheme.primary,
+                            ),
+                        ],
                       ),
 
                       const SizedBox(height: 24),
