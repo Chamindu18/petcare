@@ -59,7 +59,6 @@ class FirebaseAdoptionRequestRepository
 
     final requestReference = _requestsCollection.doc();
     final listingReference = _listingsCollection.doc(listingId);
-    final suppliedRecipient = recipientId ?? providerId;
 
     await _firestore.runTransaction((transaction) async {
       final listingDocument = await transaction.get(listingReference);
@@ -93,24 +92,23 @@ class FirebaseAdoptionRequestRepository
         );
       }
 
-      if (suppliedRecipient != listingOwnerId ||
-          recipientType != 'adoption_provider') {
-        throw const AdoptionRequestRepositoryException(
-          'The listing recipient does not match the selected listing.',
-        );
-      }
-
-      final providerProfileReference = _firestore
-          .collection('users')
-          .doc(listingOwnerId);
-      final providerProfile = await transaction.get(providerProfileReference);
-
-      if (providerProfile.data()?['role'] != 'adoption_provider') {
-        throw const AdoptionRequestRepositoryException(
-          'The listing provider could not be verified.',
-        );
-      }
       final normalizedMessage = message?.trim();
+
+      transaction.set(requestReference, {
+        'listingId': listingId,
+        'requesterId': user.uid,
+        'recipientId': listingOwnerId,
+        'recipientType': listingOwnerType,
+        // Retain the legacy alias for provider documents/queries only.
+        if (listingOwnerType == 'adoption_provider')
+          'providerId': listingOwnerId,
+        if (normalizedMessage != null && normalizedMessage.isNotEmpty)
+          'message': normalizedMessage,
+        'status': 'pending',
+        'submittedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
       transaction.set(requestReference, {
         'listingId': listingId,
         'requesterId': user.uid,
