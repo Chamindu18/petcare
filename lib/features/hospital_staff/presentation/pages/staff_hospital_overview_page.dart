@@ -4,14 +4,12 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../appointments/data/repositories/firebase_appointment_repository.dart';
 import '../../../appointments/domain/entities/appointment.dart';
 import '../../../appointments/domain/repositories/appointment_repository.dart';
+import '../../../appointments/domain/utils/appointment_date_classifier.dart';
 import '../../../hospitals/data/repositories/firebase_hospital_repository.dart';
 import '../../../hospitals/domain/entities/hospital.dart';
 import '../../../hospitals/domain/repositories/hospital_repository.dart';
 
-/// Represents the result of loading hospital appointments.
-///
-/// Converting failures into a typed result prevents an unhandled Future
-/// error while the hospital details screen is still loading.
+/// Resolves an appointment load without leaving an unhandled asynchronous error.
 class _AppointmentLoadResult {
   const _AppointmentLoadResult.success(this.appointments) : hasError = false;
 
@@ -23,10 +21,8 @@ class _AppointmentLoadResult {
   final bool hasError;
 }
 
-/// Operational dashboard for authenticated hospital staff.
-///
-/// The hospital ID must come from a verified staff assignment.
-/// Firestore rules independently enforce hospital-scoped access.
+/// Hospital-scoped staff overview. The hospital ID must come from a verified
+/// staff assignment; Firestore rules enforce that scope independently.
 class StaffHospitalOverviewPage extends StatefulWidget {
   const StaffHospitalOverviewPage({
     super.key,
@@ -49,7 +45,6 @@ class StaffHospitalOverviewPage extends StatefulWidget {
 class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
   late HospitalRepository _hospitalRepository;
   late AppointmentRepository _appointmentRepository;
-
   late Future<Hospital?> _hospitalFuture;
   late Future<_AppointmentLoadResult> _appointmentsFuture;
 
@@ -63,7 +58,6 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
   @override
   void didUpdateWidget(covariant StaffHospitalOverviewPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-
     if (oldWidget.hospitalId != widget.hospitalId ||
         oldWidget.repository != widget.repository ||
         oldWidget.appointmentRepository != widget.appointmentRepository) {
@@ -74,20 +68,13 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
 
   void _configureRepositories() {
     _hospitalRepository = widget.repository ?? FirebaseHospitalRepository();
-
     _appointmentRepository =
         widget.appointmentRepository ?? FirebaseAppointmentRepository();
   }
 
-  /// Starts both requests and immediately handles appointment failures.
-  ///
-  /// The appointment result never completes with an unhandled error.
-  /// Hospital errors remain handled by the hospital FutureBuilder.
   void _loadDashboard() {
     final hospitalId = widget.hospitalId;
-
     _hospitalFuture = _hospitalRepository.getHospitalById(hospitalId);
-
     _appointmentsFuture = _loadAppointmentsSafely(hospitalId);
   }
 
@@ -98,17 +85,15 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
       final appointments = await _appointmentRepository
           .getAppointmentsByHospital(hospitalId);
 
-      // Never include another hospital's records in dashboard totals.
-      // This is defensive validation, not a replacement for rules.
+      // Defense in depth if a repository accidentally returns another
+      // hospital's appointments. Firestore rules remain authoritative.
       final scopedAppointments = appointments
           .where((appointment) => appointment.hospitalId == hospitalId)
           .toList(growable: false);
-
       return _AppointmentLoadResult.success(scopedAppointments);
     } catch (error, stackTrace) {
       debugPrint('Staff overview appointment loading failed: $error');
       debugPrintStack(stackTrace: stackTrace);
-
       return const _AppointmentLoadResult.failure();
     }
   }
@@ -119,11 +104,10 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
 
   Future<void> _refreshAndWait() async {
     _refresh();
-
     try {
       await Future.wait<Object?>([_hospitalFuture, _appointmentsFuture]);
     } catch (_) {
-      // The appropriate dashboard section presents the failure.
+      // Errors are displayed by their respective dashboard sections.
     }
   }
 
@@ -135,7 +119,6 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
         if (hospitalSnapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-
         if (hospitalSnapshot.hasError) {
           return _buildMessage(
             icon: Icons.cloud_off_outlined,
@@ -148,7 +131,6 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
         }
 
         final hospital = hospitalSnapshot.data;
-
         if (hospital == null || !hospital.active) {
           return _buildMessage(
             icon: Icons.local_hospital_outlined,
@@ -160,7 +142,6 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
             actionLabel: 'Check Again',
           );
         }
-
         return _buildDashboard(hospital);
       },
     );
@@ -187,13 +168,10 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
                   ?.copyWith(color: AppTheme.deepBrown.withValues(alpha: 0.7)),
             ),
             const SizedBox(height: 20),
-
             _buildHospitalCard(hospital),
-
             const SizedBox(height: 24),
             _sectionHeading('Appointment Overview'),
             const SizedBox(height: 12),
-
             FutureBuilder<_AppointmentLoadResult>(
               future: _appointmentsFuture,
               builder: (context, snapshot) {
@@ -203,49 +181,39 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
                     child: Center(child: CircularProgressIndicator()),
                   );
                 }
-
                 final result = snapshot.data;
-
                 if (snapshot.hasError || result == null || result.hasError) {
                   return _buildAppointmentError();
                 }
-
                 return _buildAppointmentOverview(result.appointments);
               },
             ),
-
             const SizedBox(height: 24),
             _sectionHeading('Hospital Information'),
             const SizedBox(height: 12),
-
             _HospitalInformationTile(
               icon: Icons.location_on_outlined,
               title: 'Location',
               value: hospital.location,
             ),
             const SizedBox(height: 12),
-
             _HospitalInformationTile(
               icon: Icons.phone_outlined,
               title: 'Contact Information',
               value: hospital.contact,
             ),
             const SizedBox(height: 12),
-
             _HospitalInformationTile(
               icon: Icons.access_time_rounded,
               title: 'Operating Hours',
               value: hospital.hours,
             ),
-
             const SizedBox(height: 24),
-
             OutlinedButton.icon(
               onPressed: _refresh,
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Refresh Dashboard'),
             ),
-
             const SizedBox(height: 12),
           ],
         ),
@@ -333,18 +301,33 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
     final pending = appointments
         .where((appointment) => _status(appointment) == 'pending')
         .length;
-
     final confirmed = appointments
         .where((appointment) => _status(appointment) == 'confirmed')
         .length;
 
     final today = appointments.where((appointment) {
-      return _isSameDay(appointment.dateTime, now) && _isScheduled(appointment);
+      return AppointmentDateClassifier.classify(appointment, now: now) ==
+          AppointmentDateCategory.today;
     }).length;
 
-    final upcoming = appointments.where((appointment) {
-      return _isScheduled(appointment) && !appointment.dateTime.isBefore(now);
-    }).toList()..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    final overdue = <Appointment>[];
+    final upcoming = <Appointment>[];
+    for (final appointment in appointments) {
+      final category = AppointmentDateClassifier.classify(
+        appointment,
+        now: now,
+      );
+      if (category == AppointmentDateCategory.overdue) {
+        overdue.add(appointment);
+      } else if (category == AppointmentDateCategory.tomorrow ||
+          category == AppointmentDateCategory.upcoming ||
+          (category == AppointmentDateCategory.today &&
+              !appointment.dateTime.isBefore(now))) {
+        upcoming.add(appointment);
+      }
+    }
+    overdue.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    upcoming.sort((a, b) => a.dateTime.compareTo(b.dateTime));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -389,7 +372,34 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
           ],
         ),
         const SizedBox(height: 24),
-
+        if (overdue.isNotEmpty) ...[
+          Row(
+            children: [
+              Expanded(child: _sectionHeading('Overdue Appointments')),
+              if (widget.onOpenAppointments != null)
+                TextButton(
+                  onPressed: widget.onOpenAppointments,
+                  child: const Text('View All Overdue'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${overdue.length} unresolved appointment${overdue.length == 1 ? '' : 's'} scheduled before today.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.deepOrange.shade800,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...overdue
+              .take(3)
+              .map(
+                (appointment) =>
+                    _buildAppointmentPreview(appointment, isOverdue: true),
+              ),
+          const SizedBox(height: 18),
+        ],
         Row(
           children: [
             Expanded(child: _sectionHeading('Upcoming Appointments')),
@@ -401,7 +411,6 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
           ],
         ),
         const SizedBox(height: 12),
-
         if (upcoming.isEmpty)
           Container(
             width: double.infinity,
@@ -416,21 +425,23 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
             ),
           )
         else
-          ...upcoming.take(3).map(_buildUpcomingAppointment),
+          ...upcoming
+              .take(3)
+              .map((appointment) => _buildAppointmentPreview(appointment)),
       ],
     );
   }
 
-  Widget _buildUpcomingAppointment(Appointment appointment) {
+  Widget _buildAppointmentPreview(
+    Appointment appointment, {
+    bool isOverdue = false,
+  }) {
     final date = appointment.dateTime.toLocal();
-
     final dateText =
         '${date.day.toString().padLeft(2, '0')}/'
         '${date.month.toString().padLeft(2, '0')}/'
         '${date.year}';
-
     final time = TimeOfDay.fromDateTime(date).format(context);
-
     final status = _status(appointment);
 
     return Padding(
@@ -440,11 +451,20 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
         decoration: BoxDecoration(
           color: AppTheme.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.2)),
+          border: Border.all(
+            color: isOverdue
+                ? Colors.deepOrange.shade200
+                : AppTheme.secondary.withValues(alpha: 0.2),
+          ),
         ),
         child: Row(
           children: [
-            const Icon(Icons.event_note_rounded, color: AppTheme.primary),
+            Icon(
+              isOverdue
+                  ? Icons.warning_amber_rounded
+                  : Icons.event_note_rounded,
+              color: isOverdue ? Colors.deepOrange.shade800 : AppTheme.primary,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -474,9 +494,11 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
             ),
             const SizedBox(width: 6),
             Text(
-              status.toUpperCase(),
+              isOverdue ? 'OVERDUE' : status.toUpperCase(),
               style: TextStyle(
-                color: status == 'confirmed'
+                color: isOverdue
+                    ? Colors.deepOrange.shade800
+                    : status == 'confirmed'
                     ? Colors.green.shade700
                     : Colors.orange.shade800,
                 fontSize: 10,
@@ -565,28 +587,10 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
     );
   }
 
-  static String _status(Appointment appointment) {
-    return appointment.status.trim().toLowerCase();
-  }
+  static String _status(Appointment appointment) =>
+      appointment.status.trim().toLowerCase();
 
-  static bool _isScheduled(Appointment appointment) {
-    final status = _status(appointment);
-
-    return status == 'pending' || status == 'confirmed';
-  }
-
-  static bool _isSameDay(DateTime a, DateTime b) {
-    final localA = a.toLocal();
-    final localB = b.toLocal();
-
-    return localA.year == localB.year &&
-        localA.month == localB.month &&
-        localA.day == localB.day;
-  }
-
-  static String _shortId(String id) {
-    return id.length > 8 ? id.substring(0, 8) : id;
-  }
+  static String _shortId(String id) => id.length > 8 ? id.substring(0, 8) : id;
 }
 
 class _StatisticCard extends StatelessWidget {

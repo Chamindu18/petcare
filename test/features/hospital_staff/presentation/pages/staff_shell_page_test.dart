@@ -39,12 +39,14 @@ const _profile = UserProfile(
 
 class _FakeHospitalRepository implements HospitalRepository {
   int callCount = 0;
+
   final List<String> requestedHospitalIds = [];
 
   @override
   Future<Hospital?> getHospitalById(String hospitalId) async {
     callCount++;
     requestedHospitalIds.add(hospitalId);
+
     return _hospital;
   }
 
@@ -54,12 +56,14 @@ class _FakeHospitalRepository implements HospitalRepository {
 
 class _FakeAppointmentRepository implements AppointmentRepository {
   int hospitalAppointmentCallCount = 0;
+
   final List<String> requestedHospitalIds = [];
 
   @override
   Future<List<Appointment>> getAppointmentsByHospital(String hospitalId) async {
     hospitalAppointmentCallCount++;
     requestedHospitalIds.add(hospitalId);
+
     return [];
   }
 
@@ -100,6 +104,7 @@ class _FakeProfileRepository implements ProfileRepository {
   @override
   Stream<UserProfile?> watchCurrentProfile() {
     watchCount++;
+
     return Stream<UserProfile?>.value(_profile);
   }
 
@@ -169,9 +174,7 @@ class _TestRepositories {
   final auth = _FakeAuthRepository();
 }
 
-/// Builds the staff workspace with only fake dependencies.
-///
-/// No Firebase network connection is needed for these tests.
+/// Mounts the staff shell without accessing live Firebase data.
 Future<void> _pumpShell(
   WidgetTester tester,
   _TestRepositories repositories,
@@ -191,9 +194,25 @@ Future<void> _pumpShell(
   await tester.pumpAndSettle();
 }
 
-/// Selects a bottom navigation item by its visible label.
+/// Navigates using the bottom navigation bar.
 Future<void> _selectTab(WidgetTester tester, String label) async {
   await tester.tap(find.text(label).last);
+  await tester.pumpAndSettle();
+}
+
+/// Finds content that may be below the visible portion of the
+/// active page's lazily built ListView.
+Future<void> _scrollToText(WidgetTester tester, String label) async {
+  final target = find.text(label);
+
+  await tester.scrollUntilVisible(
+    target,
+    180,
+    scrollable: find.byType(Scrollable).first,
+    maxScrolls: 30,
+  );
+
+  await tester.ensureVisible(target);
   await tester.pumpAndSettle();
 }
 
@@ -220,14 +239,12 @@ void main() {
       expect(repositories.hospital.callCount, 1);
       expect(repositories.hospital.requestedHospitalIds, ['hospital-001']);
 
-      // Overview and Appointments both load hospital-scoped data.
       expect(repositories.appointments.hospitalAppointmentCallCount, 2);
       expect(repositories.appointments.requestedHospitalIds, [
         'hospital-001',
         'hospital-001',
       ]);
 
-      // Profile should not initialize on the default Overview tab.
       expect(repositories.profile.watchCount, 0);
       expect(repositories.profile.updateCount, 0);
       expect(repositories.auth.signOutCount, 0);
@@ -245,6 +262,11 @@ void main() {
 
       expect(find.widgetWithText(AppBar, 'Appointments'), findsOneWidget);
       expect(find.text('Hospital Appointments'), findsOneWidget);
+
+      // Date and status filters increase the page height.
+      // Scroll before checking the lazily built empty-state content.
+      await _scrollToText(tester, 'No appointments found');
+
       expect(find.text('No appointments found'), findsOneWidget);
 
       expect(repositories.appointments.hospitalAppointmentCallCount, 2);
@@ -278,7 +300,6 @@ void main() {
       expect(find.widgetWithText(AppBar, 'Overview'), findsOneWidget);
       expect(find.text('Hospital Workspace'), findsOneWidget);
 
-      // Initial Overview, Profile, refreshed Overview.
       expect(repositories.hospital.callCount, 3);
       expect(repositories.hospital.requestedHospitalIds, [
         'hospital-001',
@@ -286,7 +307,6 @@ void main() {
         'hospital-001',
       ]);
 
-      // Initial Overview, Appointments, refreshed Overview.
       expect(repositories.appointments.hospitalAppointmentCallCount, 3);
       expect(repositories.appointments.requestedHospitalIds, [
         'hospital-001',
@@ -312,7 +332,6 @@ void main() {
       await _selectTab(tester, 'Schedule');
       await _selectTab(tester, 'Queue');
 
-      // Visiting other tabs should not initialize Profile.
       expect(find.byType(StaffProfilePage), findsNothing);
       expect(repositories.profile.watchCount, 0);
 
@@ -341,13 +360,8 @@ void main() {
       expect(find.text('Staff Profile'), findsOneWidget);
       expect(find.text('Test Staff Member'), findsOneWidget);
 
-      // IndexedStack retains the existing Profile widget.
       expect(repositories.profile.watchCount, 1);
-
-      // Hospital details should not be refetched on tab return.
       expect(repositories.hospital.callCount, 2);
-
-      // No profile mutations or sign-out operations.
       expect(repositories.profile.updateCount, 0);
       expect(repositories.auth.signOutCount, 0);
     });
@@ -366,7 +380,6 @@ void main() {
 
       expect(repositories.hospital.callCount, 1);
       expect(repositories.appointments.hospitalAppointmentCallCount, 2);
-
       expect(repositories.profile.watchCount, 0);
     });
   });
