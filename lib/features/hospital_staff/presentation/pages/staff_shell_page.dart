@@ -10,6 +10,7 @@ import 'staff_hospital_overview_page.dart';
 /// Main navigation shell for an authenticated hospital staff member.
 ///
 /// Access to this page must be controlled by HospitalStaffAccessGate.
+/// The hospital ID must originate from the verified staff assignment.
 class StaffShellPage extends StatefulWidget {
   const StaffShellPage({
     super.key,
@@ -29,6 +30,10 @@ class StaffShellPage extends StatefulWidget {
 class _StaffShellPageState extends State<StaffShellPage> {
   int _currentIndex = 0;
 
+  // Recreates the Overview page when staff return to it, allowing
+  // appointment statistics to reflect changes made in other tabs.
+  int _overviewRevision = 0;
+
   static const List<_StaffNavItem> _navigationItems = [
     _StaffNavItem(label: 'Overview', icon: Icons.dashboard_rounded),
     _StaffNavItem(label: 'Appointments', icon: Icons.calendar_month_rounded),
@@ -38,9 +43,17 @@ class _StaffShellPageState extends State<StaffShellPage> {
   ];
 
   void _onTabSelected(int index) {
+    if (index < 0 || index >= _navigationItems.length) return;
+
     if (_currentIndex == index) return;
 
     setState(() {
+      // Refresh operational statistics when returning to Overview.
+      // Other tab states remain preserved by IndexedStack.
+      if (index == 0) {
+        _overviewRevision++;
+      }
+
       _currentIndex = index;
     });
   }
@@ -51,8 +64,11 @@ class _StaffShellPageState extends State<StaffShellPage> {
 
     final pages = [
       StaffHospitalOverviewPage(
+        key: ValueKey('${assignment.hospitalId}-overview-$_overviewRevision'),
         hospitalId: assignment.hospitalId,
         repository: widget.hospitalRepository,
+        appointmentRepository: widget.appointmentRepository,
+        onOpenAppointments: () => _onTabSelected(1),
       ),
       StaffAppointmentsPage(
         hospitalId: assignment.hospitalId,
@@ -92,6 +108,7 @@ class _StaffShellPageState extends State<StaffShellPage> {
   }
 }
 
+/// Temporary placeholder for staff workflow sections not yet implemented.
 class _StaffSectionPage extends StatelessWidget {
   const _StaffSectionPage({
     required this.icon,
@@ -148,6 +165,7 @@ class _StaffSectionPage extends StatelessWidget {
   }
 }
 
+/// Temporary staff profile until the dedicated profile task is implemented.
 class _StaffProfilePage extends StatelessWidget {
   const _StaffProfilePage({required this.hospitalId});
 

@@ -39,6 +39,7 @@ class _FakeAppointmentRepository implements AppointmentRepository {
   Future<List<Appointment>> getAppointmentsByHospital(String hospitalId) async {
     hospitalAppointmentCallCount++;
     requestedHospitalIds.add(hospitalId);
+
     return [];
   }
 
@@ -54,14 +55,10 @@ class _FakeAppointmentRepository implements AppointmentRepository {
   Future<List<Appointment>> getAppointmentsByVeterinarian({
     required String vetId,
     required String hospitalId,
-  }) async {
-    return [];
-  }
+  }) async => [];
 
   @override
-  Future<Appointment?> getAppointmentById(String appointmentId) async {
-    return null;
-  }
+  Future<Appointment?> getAppointmentById(String appointmentId) async => null;
 
   @override
   Future<void> updateAppointment(Appointment appointment) async {}
@@ -84,7 +81,7 @@ void main() {
       active: true,
     );
 
-    testWidgets('displays the assigned hospital overview and navigation', (
+    testWidgets('displays the operational overview and all navigation tabs', (
       tester,
     ) async {
       final hospitalRepository = _FakeHospitalRepository();
@@ -104,9 +101,6 @@ void main() {
 
       expect(find.text('Hospital Workspace'), findsOneWidget);
       expect(find.text('PetCare Animal Hospital'), findsOneWidget);
-      expect(find.text('Colombo, Sri Lanka'), findsOneWidget);
-      expect(find.text('0112345678'), findsOneWidget);
-      expect(find.text('Monday - Saturday, 8 AM - 6 PM'), findsOneWidget);
 
       expect(find.text('Overview'), findsWidgets);
       expect(find.text('Appointments'), findsWidgets);
@@ -117,8 +111,19 @@ void main() {
       expect(hospitalRepository.callCount, 1);
       expect(hospitalRepository.requestedHospitalIds, ['hospital-001']);
 
-      expect(appointmentRepository.hospitalAppointmentCallCount, 1);
-      expect(appointmentRepository.requestedHospitalIds, ['hospital-001']);
+      // Overview and Appointments each load hospital-scoped data.
+      expect(appointmentRepository.hospitalAppointmentCallCount, 2);
+
+      expect(appointmentRepository.requestedHospitalIds, [
+        'hospital-001',
+        'hospital-001',
+      ]);
+
+      // Appointment statistics must be available on Overview.
+      expect(find.text('Appointment Overview'), findsOneWidget);
+      expect(find.text('Pending'), findsOneWidget);
+      expect(find.text('Confirmed'), findsOneWidget);
+      expect(find.text('Total Appointments'), findsOneWidget);
     });
 
     testWidgets('navigates between all five dashboard sections', (
@@ -148,18 +153,21 @@ void main() {
       expect(find.text('No appointments found'), findsOneWidget);
       expect(find.text('Hospital ID: hospital-001'), findsOneWidget);
 
-      // The repository must only receive the assigned hospital ID.
-      expect(appointmentRepository.hospitalAppointmentCallCount, 1);
-      expect(appointmentRepository.requestedHospitalIds, ['hospital-001']);
+      // Both Overview and Appointments read the assigned hospital only.
+      expect(appointmentRepository.hospitalAppointmentCallCount, 2);
+      expect(appointmentRepository.requestedHospitalIds, [
+        'hospital-001',
+        'hospital-001',
+      ]);
 
-      // Daily Schedule
+      // Schedule
       await tester.tap(find.text('Schedule').last);
       await tester.pumpAndSettle();
 
       expect(find.widgetWithText(AppBar, 'Schedule'), findsOneWidget);
       expect(find.text('Daily Schedule'), findsOneWidget);
 
-      // Queue Management
+      // Queue
       await tester.tap(find.text('Queue').last);
       await tester.pumpAndSettle();
 
@@ -173,16 +181,55 @@ void main() {
       expect(find.widgetWithText(AppBar, 'Profile'), findsOneWidget);
       expect(find.text('Staff Profile'), findsOneWidget);
 
-      // Return to Overview
+      // Return to Overview.
       await tester.tap(find.text('Overview').last);
       await tester.pumpAndSettle();
 
       expect(find.widgetWithText(AppBar, 'Overview'), findsOneWidget);
       expect(find.text('Hospital Workspace'), findsOneWidget);
 
-      // IndexedStack preserves both loaded pages without refetching.
+      // Returning to Overview refreshes its hospital and appointment data.
+      expect(hospitalRepository.callCount, 2);
+      expect(hospitalRepository.requestedHospitalIds, [
+        'hospital-001',
+        'hospital-001',
+      ]);
+
+      expect(appointmentRepository.hospitalAppointmentCallCount, 3);
+
+      expect(appointmentRepository.requestedHospitalIds, [
+        'hospital-001',
+        'hospital-001',
+        'hospital-001',
+      ]);
+    });
+
+    testWidgets('does not reload Overview when its tab is already selected', (
+      tester,
+    ) async {
+      final hospitalRepository = _FakeHospitalRepository();
+      final appointmentRepository = _FakeAppointmentRepository();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StaffShellPage(
+            assignment: assignment,
+            hospitalRepository: hospitalRepository,
+            appointmentRepository: appointmentRepository,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
       expect(hospitalRepository.callCount, 1);
-      expect(appointmentRepository.hospitalAppointmentCallCount, 1);
+      expect(appointmentRepository.hospitalAppointmentCallCount, 2);
+
+      await tester.tap(find.text('Overview').last);
+      await tester.pumpAndSettle();
+
+      expect(hospitalRepository.callCount, 1);
+      expect(appointmentRepository.hospitalAppointmentCallCount, 2);
     });
   });
 }
