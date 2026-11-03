@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/theme/app_theme.dart';
 import '../../../appointments/data/repositories/firebase_appointment_repository.dart';
 import '../../../appointments/domain/entities/appointment.dart';
 import '../../../appointments/domain/usecases/appointment_usecases.dart';
@@ -12,7 +13,10 @@ import '../../domain/entities/veterinarian.dart';
 import '../../domain/usecases/veterinarian_usecases.dart';
 
 class VeterinarianDashboardPage extends StatefulWidget {
-  const VeterinarianDashboardPage({super.key, required this.profile});
+  const VeterinarianDashboardPage({
+    super.key,
+    required this.profile,
+  });
 
   final UserProfile profile;
 
@@ -21,7 +25,8 @@ class VeterinarianDashboardPage extends StatefulWidget {
       _VeterinarianDashboardPageState();
 }
 
-class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
+class _VeterinarianDashboardPageState
+    extends State<VeterinarianDashboardPage> {
   late final GetAppointmentsByVeterinarian _getAppointments;
   late final GetVeterinarianById _getVeterinarian;
   late final GetHospitalById _getHospital;
@@ -41,9 +46,13 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
       FirebaseAppointmentRepository(),
     );
 
-    _getVeterinarian = GetVeterinarianById(FirebaseVeterinarianRepository());
+    _getVeterinarian = GetVeterinarianById(
+      FirebaseVeterinarianRepository(),
+    );
 
-    _getHospital = GetHospitalById(FirebaseHospitalRepository());
+    _getHospital = GetHospitalById(
+      FirebaseHospitalRepository(),
+    );
 
     _loadDashboard();
   }
@@ -68,25 +77,29 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
       setState(() {
         _isLoading = false;
         _errorMessage =
-            'Your veterinarian account is missing its '
-            'veterinarian or hospital assignment.';
+            'Your veterinarian account is missing its veterinarian or hospital assignment.';
       });
+
       return;
     }
 
     try {
-      // Load the three dashboard data sources concurrently.
       final results = await Future.wait([
         _getVeterinarian(vetId),
         _getHospital(hospitalId),
-        _getAppointments(vetId: vetId, hospitalId: hospitalId),
+        _getAppointments(
+          vetId: vetId,
+          hospitalId: hospitalId,
+        ),
       ]);
 
       final veterinarian = results[0] as Veterinarian?;
       final hospital = results[1] as Hospital?;
       final appointments = results[2] as List<Appointment>;
 
-      appointments.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+      appointments.sort(
+        (a, b) => a.dateTime.compareTo(b.dateTime),
+      );
 
       if (!mounted) return;
 
@@ -102,82 +115,118 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
       setState(() {
         _isLoading = false;
         _errorMessage =
-            'Unable to load dashboard information. Please check your '
-            'connection and try again.';
+            'Unable to load dashboard information. Please check your connection and try again.';
       });
 
       debugPrint('Veterinarian dashboard error: $error');
     }
   }
 
-  bool _isToday(DateTime dateTime) {
-    final now = DateTime.now();
-
-    return dateTime.year == now.year &&
-        dateTime.month == now.month &&
-        dateTime.day == now.day;
+  bool _sameDay(DateTime a, DateTime b) {
+    return a.year == b.year &&
+        a.month == b.month &&
+        a.day == b.day;
   }
 
-  bool _isUpcoming(Appointment appointment) {
-    return appointment.dateTime.isAfter(DateTime.now()) &&
-        appointment.status != 'cancelled' &&
-        appointment.status != 'rejected';
+  bool _isTerminal(String status) {
+    final normalized = status.toLowerCase();
+
+    return normalized == 'cancelled' ||
+        normalized == 'rejected';
   }
 
   List<Appointment> get _todayAppointments {
+    final now = DateTime.now();
+
     return _appointments.where((appointment) {
-      return _isToday(appointment.dateTime) &&
-          appointment.status != 'cancelled' &&
-          appointment.status != 'rejected';
+      return _sameDay(appointment.dateTime, now) &&
+          !_isTerminal(appointment.status);
     }).toList();
   }
 
   List<Appointment> get _upcomingAppointments {
-    return _appointments.where(_isUpcoming).toList();
+    final now = DateTime.now();
+
+    return _appointments.where((appointment) {
+      return appointment.dateTime.isAfter(now) &&
+          !_sameDay(appointment.dateTime, now) &&
+          !_isTerminal(appointment.status);
+    }).toList();
   }
 
   int get _pendingCount {
-    return _appointments.where((appointment) {
-      return appointment.status == 'pending';
-    }).length;
+    return _appointments
+        .where((a) => a.status.toLowerCase() == 'pending')
+        .length;
   }
 
   String get _displayName {
-    final profileName = widget.profile.fullName.trim();
-    final veterinarianName = _veterinarian?.name.trim() ?? '';
+    final fullName = widget.profile.fullName.trim();
+    final vetName = _veterinarian?.name.trim() ?? '';
     final displayName = widget.profile.displayName.trim();
 
-    if (profileName.isNotEmpty) return profileName;
-    if (veterinarianName.isNotEmpty) return veterinarianName;
+    if (fullName.isNotEmpty) return fullName;
+    if (vetName.isNotEmpty) return vetName;
     if (displayName.isNotEmpty) return displayName;
 
     return 'Veterinarian';
   }
 
+  String get _greeting {
+    final hour = DateTime.now().hour;
+
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+
+    return 'Good evening';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Veterinarian Dashboard'),
+        automaticallyImplyLeading: false,
+        title: Text(
+          'Dashboard',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: AppTheme.espresso,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
         actions: [
           IconButton(
             tooltip: 'Refresh dashboard',
             onPressed: _isLoading ? null : _loadDashboard,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(
+              Icons.refresh_rounded,
+              color: AppTheme.deepBrown,
+            ),
           ),
+          const SizedBox(width: 8),
         ],
       ),
-      body: RefreshIndicator(onRefresh: _loadDashboard, child: _buildBody()),
+      body: RefreshIndicator(
+        color: AppTheme.primary,
+        onRefresh: _loadDashboard,
+        child: _buildBody(),
+      ),
+      bottomNavigationBar: _buildBottomNavigationPreview(),
     );
   }
 
   Widget _buildBody() {
     if (_isLoading) {
       return ListView(
-        children: [
-          const SizedBox(
-            height: 500,
-            child: Center(child: CircularProgressIndicator()),
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: const [
+          SizedBox(
+            height: 520,
+            child: Center(
+              child: CircularProgressIndicator(
+                color: AppTheme.primary,
+              ),
+            ),
           ),
         ],
       );
@@ -185,17 +234,28 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
 
     if (_errorMessage != null) {
       return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
         children: [
-          const SizedBox(height: 120),
-          const Icon(Icons.cloud_off_outlined, size: 48),
+          const SizedBox(height: 100),
+          const Icon(
+            Icons.cloud_off_rounded,
+            size: 48,
+            color: AppTheme.deepBrown,
+          ),
           const SizedBox(height: 16),
-          Center(child: Text(_errorMessage!, textAlign: TextAlign.center)),
-          const SizedBox(height: 16),
+          Text(
+            _errorMessage!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppTheme.espresso,
+            ),
+          ),
+          const SizedBox(height: 18),
           Center(
             child: ElevatedButton.icon(
               onPressed: _loadDashboard,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(Icons.refresh_rounded),
               label: const Text('Try again'),
             ),
           ),
@@ -204,107 +264,161 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
     }
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
       children: [
-        _buildWelcomeSection(),
-        const SizedBox(height: 20),
+        _buildWelcomeHeader(),
+        const SizedBox(height: 22),
 
-        _buildProfessionalProfile(),
-        const SizedBox(height: 20),
-
-        _buildHospitalSection(),
-        const SizedBox(height: 24),
-
-        _buildSectionHeading('Appointment Overview'),
+        _sectionTitle(
+          'Appointment overview',
+          subtitle: 'Your schedule at a glance',
+        ),
         const SizedBox(height: 12),
+        _buildOverviewCards(),
 
-        _buildSummaryCards(),
         const SizedBox(height: 24),
 
-        _buildSectionHeading(
-          "Today's Appointments",
+        _sectionTitle(
+          'Quick actions',
+          subtitle: 'Common tasks',
+        ),
+        const SizedBox(height: 12),
+        _buildQuickActions(),
+
+        const SizedBox(height: 24),
+
+        _sectionTitle(
+          "Today's appointments",
           count: _todayAppointments.length,
+          subtitle: 'Your appointments scheduled for today',
         ),
         const SizedBox(height: 12),
 
         if (_todayAppointments.isEmpty)
-          _buildEmptyState(
+          _emptyState(
             'No appointments scheduled for today.',
             Icons.event_available_outlined,
           )
         else
-          ..._todayAppointments.map(_buildAppointmentCard),
+          ..._todayAppointments.take(4).map(_buildAppointmentCard),
 
         const SizedBox(height: 24),
 
-        _buildSectionHeading(
-          'Upcoming Appointments',
+        _sectionTitle(
+          'Queue overview',
+          subtitle: 'Hospital queue snapshot',
+        ),
+        const SizedBox(height: 12),
+        _buildQueuePreview(),
+
+        const SizedBox(height: 24),
+
+        _sectionTitle(
+          'Upcoming appointments',
           count: _upcomingAppointments.length,
+          subtitle: 'Your next scheduled visits',
         ),
         const SizedBox(height: 12),
 
         if (_upcomingAppointments.isEmpty)
-          _buildEmptyState(
+          _emptyState(
             'No upcoming appointments.',
             Icons.calendar_month_outlined,
           )
         else
-          ..._upcomingAppointments.take(10).map(_buildAppointmentCard),
-
-        const SizedBox(height: 24),
+          ..._upcomingAppointments.take(4).map(_buildAppointmentCard),
       ],
     );
   }
 
-  // ---------------------------------------------------------
-  // Welcome section
-  // ---------------------------------------------------------
-
-  Widget _buildWelcomeSection() {
-    final imageUrl = _veterinarian?.profileImageUrl ?? widget.profile.photoUrl;
+  Widget _buildWelcomeHeader() {
+    final imageUrl =
+        _veterinarian?.profileImageUrl ?? widget.profile.photoUrl;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(16),
+        color: AppTheme.secondary.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppTheme.secondary.withValues(alpha: 0.65),
+        ),
       ),
       child: Row(
         children: [
           CircleAvatar(
-            radius: 34,
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            child: imageUrl != null && imageUrl.isNotEmpty
-                ? ClipOval(
-                    child: Image.network(
-                      imageUrl,
-                      width: 68,
-                      height: 68,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) =>
-                          const Icon(Icons.person, size: 38),
-                    ),
+            radius: 29,
+            backgroundColor: AppTheme.white,
+            backgroundImage:
+                imageUrl != null && imageUrl.isNotEmpty
+                    ? NetworkImage(imageUrl)
+                    : null,
+            child: imageUrl == null || imageUrl.isEmpty
+                ? const Icon(
+                    Icons.person_rounded,
+                    size: 31,
+                    color: AppTheme.deepBrown,
                   )
-                : const Icon(Icons.medical_services_outlined, size: 36),
+                : null,
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Welcome back,',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  _greeting,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.deepBrown,
+                      ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Text(
                   _displayName,
-                  style: Theme.of(context).textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: AppTheme.espresso,
+                        fontWeight: FontWeight.w800,
+                      ),
                 ),
                 const SizedBox(height: 4),
-                const Text('Veterinarian'),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.local_hospital_outlined,
+                      size: 14,
+                      color: AppTheme.deepBrown,
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        _hospital?.name ?? 'Veterinarian',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.deepBrown,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppTheme.white.withValues(alpha: 0.8),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.notifications_none_rounded,
+              color: AppTheme.deepBrown,
+              size: 21,
             ),
           ),
         ],
@@ -312,297 +426,479 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
     );
   }
 
-  // ---------------------------------------------------------
-  // Professional profile
-  // ---------------------------------------------------------
-
-  Widget _buildProfessionalProfile() {
-    final vet = _veterinarian;
-
-    return _buildInformationCard(
-      title: 'Professional Profile',
-      icon: Icons.person_outline,
+  Widget _sectionTitle(
+    String title, {
+    String? subtitle,
+    int? count,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        _informationRow(Icons.person_outline, 'Full Name', _displayName),
-        _informationRow(Icons.email_outlined, 'Email', widget.profile.email),
-        _informationRow(
-          Icons.medical_information_outlined,
-          'Specialty',
-          vet?.specialty ?? 'Not specified',
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppTheme.espresso,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.deepBrown,
+                      ),
+                ),
+              ],
+            ],
+          ),
         ),
-        _informationRow(
-          Icons.school_outlined,
-          'Qualifications',
-          vet?.qualifications ?? 'Not specified',
-        ),
-        _informationRow(
-          Icons.work_history_outlined,
-          'Experience',
-          vet?.experienceYears == null
-              ? 'Not specified'
-              : '${vet!.experienceYears} years',
-        ),
-        if (vet?.bio != null && vet!.bio!.trim().isNotEmpty)
-          _informationRow(Icons.info_outline, 'About', vet.bio!),
+        if (count != null)
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 5,
+            ),
+            decoration: BoxDecoration(
+              color: AppTheme.secondary.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '$count',
+              style: const TextStyle(
+                color: AppTheme.espresso,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
       ],
     );
   }
 
-  // ---------------------------------------------------------
-  // Hospital information
-  // ---------------------------------------------------------
-
-  Widget _buildHospitalSection() {
-    final hospital = _hospital;
-
-    return _buildInformationCard(
-      title: 'Hospital Information',
-      icon: Icons.local_hospital_outlined,
-      children: [
-        _informationRow(
-          Icons.business_outlined,
-          'Hospital',
-          hospital?.name ?? 'Hospital information unavailable',
-        ),
-        _informationRow(
-          Icons.location_on_outlined,
-          'Location',
-          hospital?.location ?? 'Not available',
-        ),
-        _informationRow(
-          Icons.phone_outlined,
-          'Contact',
-          hospital?.contact ?? 'Not available',
-        ),
-        _informationRow(
-          Icons.access_time_outlined,
-          'Operating Hours',
-          hospital?.hours ?? 'Not available',
-        ),
-      ],
-    );
-  }
-
-  // ---------------------------------------------------------
-  // Appointment statistics
-  // ---------------------------------------------------------
-
-  Widget _buildSummaryCards() {
+  Widget _buildOverviewCards() {
     return Row(
       children: [
         Expanded(
-          child: _SummaryCard(
-            title: 'Today',
+          child: _OverviewCard(
+            label: 'Today',
             value: '${_todayAppointments.length}',
-            icon: Icons.calendar_today_outlined,
+            icon: Icons.today_rounded,
+            accent: AppTheme.primary,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 9),
         Expanded(
-          child: _SummaryCard(
-            title: 'Pending',
+          child: _OverviewCard(
+            label: 'Pending',
             value: '$_pendingCount',
-            icon: Icons.pending_actions_outlined,
+            icon: Icons.hourglass_top_rounded,
+            accent: AppTheme.warning,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 9),
         Expanded(
-          child: _SummaryCard(
-            title: 'Upcoming',
+          child: _OverviewCard(
+            label: 'Upcoming',
             value: '${_upcomingAppointments.length}',
-            icon: Icons.event_available_outlined,
+            icon: Icons.event_available_rounded,
+            accent: AppTheme.success,
           ),
         ),
       ],
     );
   }
 
-  // ---------------------------------------------------------
-  // Appointment list
-  // ---------------------------------------------------------
-
-  Widget _buildAppointmentCard(Appointment appointment) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: CircleAvatar(child: const Icon(Icons.pets_outlined)),
-        title: Text(
-          _formatDateTime(appointment.dateTime),
-          style: const TextStyle(fontWeight: FontWeight.bold),
+  Widget _buildQuickActions() {
+    return GridView.count(
+      crossAxisCount: 4,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 9,
+      mainAxisSpacing: 10,
+      childAspectRatio: 0.82,
+      children: const [
+        _QuickAction(
+          icon: Icons.qr_code_scanner_rounded,
+          label: 'Scan Pet QR',
         ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text(
-            'Pet ID: ${appointment.petId}\n'
-            'Service ID: ${appointment.serviceId}',
-          ),
+        _QuickAction(
+          icon: Icons.calendar_month_rounded,
+          label: 'Appointments',
         ),
-        trailing: _StatusChip(status: appointment.status),
-        isThreeLine: true,
-      ),
+        _QuickAction(
+          icon: Icons.groups_rounded,
+          label: 'Manage Queue',
+        ),
+        _QuickAction(
+          icon: Icons.person_outline_rounded,
+          label: 'My Profile',
+        ),
+      ],
     );
   }
 
-  // ---------------------------------------------------------
-  // Shared UI components
-  // ---------------------------------------------------------
+  Widget _buildAppointmentCard(Appointment appointment) {
+    final isToday = _sameDay(
+      appointment.dateTime,
+      DateTime.now(),
+    );
 
-  Widget _buildInformationCard({
-    required String title,
-    required IconData icon,
-    required List<Widget> children,
-  }) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.secondary.withValues(alpha: 0.28),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 45,
+            height: 45,
+            decoration: BoxDecoration(
+              color: AppTheme.background,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(
+              Icons.pets_rounded,
+              color: AppTheme.primary,
+              size: 23,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                Text(
+                  isToday
+                      ? 'Today · ${_formatTime(appointment.dateTime)}'
+                      : _formatDate(appointment.dateTime),
+                  style: const TextStyle(
+                    color: AppTheme.espresso,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Pet appointment',
+                  style: TextStyle(
+                    color: AppTheme.deepBrown.withValues(alpha: 0.85),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Appointment #${_shortId(appointment.appointmentId)}',
+                  style: TextStyle(
+                    color: AppTheme.deepBrown.withValues(alpha: 0.7),
+                    fontSize: 11,
                   ),
                 ),
               ],
             ),
-            const Divider(height: 24),
-            ...children,
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _informationRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 105,
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
-            ),
           ),
           const SizedBox(width: 8),
-          Expanded(child: Text(value)),
+          _AppointmentStatus(status: appointment.status),
         ],
       ),
     );
   }
 
-  Widget _buildSectionHeading(String title, {int? count}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge
-              ?.copyWith(fontWeight: FontWeight.bold),
+  Widget _buildQueuePreview() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.white,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(
+          color: AppTheme.secondary.withValues(alpha: 0.35),
         ),
-        if (count != null)
-          Text('$count', style: Theme.of(context).textTheme.titleMedium),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppTheme.background,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(
+              Icons.people_alt_outlined,
+              color: AppTheme.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Queue management',
+                  style: TextStyle(
+                    color: AppTheme.espresso,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Queue information will be available here.',
+                  style: TextStyle(
+                    color: AppTheme.deepBrown,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: AppTheme.deepBrown,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyState(String message, IconData icon) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 18,
+        vertical: 22,
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            size: 30,
+            color: AppTheme.secondary,
+          ),
+          const SizedBox(height: 9),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppTheme.deepBrown,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomNavigationPreview() {
+    return NavigationBar(
+      height: 68,
+      backgroundColor: AppTheme.white,
+      indicatorColor: AppTheme.secondary.withValues(alpha: 0.42),
+      selectedIndex: 0,
+      onDestinationSelected: (_) {},
+      destinations: const [
+        NavigationDestination(
+          icon: Icon(Icons.dashboard_outlined),
+          selectedIcon: Icon(Icons.dashboard_rounded),
+          label: 'Home',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.calendar_month_outlined),
+          label: 'Appointments',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.groups_outlined),
+          label: 'Queue',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.person_outline_rounded),
+          label: 'Profile',
+        ),
       ],
     );
   }
 
-  Widget _buildEmptyState(String message, IconData icon) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              size: 36,
-              color: Theme.of(context).colorScheme.secondary,
-            ),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _formatDateTime(DateTime dateTime) {
+  String _formatTime(DateTime dateTime) {
     final hour = dateTime.hour % 12 == 0 ? 12 : dateTime.hour % 12;
 
-    final minute = dateTime.minute.toString().padLeft(2, '0');
-    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:${dateTime.minute.toString().padLeft(2, '0')} '
+        '${dateTime.hour >= 12 ? 'PM' : 'AM'}';
+  }
 
-    return '${dateTime.day}/${dateTime.month}/${dateTime.year} '
-        '$hour:$minute $period';
+  String _formatDate(DateTime dateTime) {
+    return '${dateTime.day.toString().padLeft(2, '0')}/'
+        '${dateTime.month.toString().padLeft(2, '0')}/'
+        '${dateTime.year} · ${_formatTime(dateTime)}';
+  }
+
+  String _shortId(String id) {
+    return id.length <= 7
+        ? id
+        : id.substring(0, 7).toUpperCase();
   }
 }
 
-// =============================================================
-// Summary card
-// =============================================================
-
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
-    required this.title,
+class _OverviewCard extends StatelessWidget {
+  const _OverviewCard({
+    required this.label,
     required this.value,
     required this.icon,
+    required this.accent,
   });
 
-  final String title;
+  final String label;
   final String value;
   final IconData icon;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon),
-            const SizedBox(height: 10),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(title, style: Theme.of(context).textTheme.bodySmall),
-          ],
+    return Container(
+      padding: const EdgeInsets.fromLTRB(11, 13, 8, 12),
+      decoration: BoxDecoration(
+        color: AppTheme.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.secondary.withValues(alpha: 0.3),
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: accent, size: 20),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: AppTheme.espresso,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppTheme.deepBrown,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// =============================================================
-// Appointment status
-// =============================================================
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+  });
 
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 4,
+        vertical: 10,
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: AppTheme.secondary.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppTheme.background,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: AppTheme.primary,
+              size: 20,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppTheme.espresso,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AppointmentStatus extends StatelessWidget {
+  const _AppointmentStatus({
+    required this.status,
+  });
 
   final String status;
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      label: Text(
-        status.replaceAll('_', ' ').toUpperCase(),
-        style: const TextStyle(fontSize: 10),
+    final normalized = status.toLowerCase();
+
+    final color = normalized == 'confirmed' ||
+            normalized == 'completed'
+        ? AppTheme.success
+        : normalized == 'pending'
+            ? AppTheme.warning
+            : normalized == 'cancelled' ||
+                    normalized == 'rejected'
+                ? AppTheme.error
+                : AppTheme.information;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 5,
       ),
-      visualDensity: VisualDensity.compact,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        status.replaceAll('_', ' ').toUpperCase(),
+        style: TextStyle(
+          color: color,
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
     );
   }
 }
