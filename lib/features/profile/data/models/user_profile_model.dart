@@ -17,10 +17,11 @@ class UserProfileModel extends UserProfile {
 
   factory UserProfileModel.fromMap(
     Map<String, dynamic> map, {
+    String? uid,
     String? photoUrl,
   }) {
     return UserProfileModel(
-      uid: map['uid'] as String? ?? '',
+      uid: uid ?? map['uid'] as String? ?? '',
       fullName: map['fullName'] as String? ?? '',
       displayName: map['displayName'] as String? ?? '',
       email: map['email'] as String? ?? '',
