@@ -14,8 +14,10 @@ import '../../features/hospital_staff/domain/repositories/hospital_staff_assignm
 import '../../features/hospital_staff/presentation/pages/staff_shell_page.dart';
 import '../../features/hospital_staff/presentation/widgets/hospital_staff_access_gate.dart';
 import '../../features/profile/data/repositories/firebase_profile_repository.dart';
+import '../../features/profile/domain/entities/user_profile.dart';
 import '../../features/profile/domain/repositories/profile_repository.dart';
 import '../../features/profile/presentation/providers/profile_provider.dart';
+import '../../features/veterinary/presentation/pages/veterinarian_dashboard_page.dart';
 import '../../shared/enums/user_role.dart';
 
 class RoleBasedHomePage extends StatefulWidget {
@@ -97,14 +99,13 @@ class _RoleBasedHomePageState extends State<RoleBasedHomePage> {
     }
 
     final role = UserRoleX.tryParseFirestore(_profileProvider.profile?.role);
-
     final roleKey = role?.firestoreValue ?? '__unknown';
 
     if (_destination != null && _destinationKey == roleKey) {
       return;
     }
 
-    final destination = _destinationForRole(role);
+    final destination = _destinationForRole(role, _profileProvider.profile);
 
     setState(() {
       _destination = destination;
@@ -112,7 +113,7 @@ class _RoleBasedHomePageState extends State<RoleBasedHomePage> {
     });
   }
 
-  Widget _destinationForRole(UserRole? role) {
+  Widget _destinationForRole(UserRole? role, UserProfile? profile) {
     if (role == null) {
       return const _HomeMessagePage(
         title: 'Account role unavailable',
@@ -159,12 +160,16 @@ class _RoleBasedHomePageState extends State<RoleBasedHomePage> {
         );
 
       case UserRole.veterinarian:
-        return const _HomeMessagePage(
-          title: 'Dashboard unavailable',
-          message:
-              'Your veterinarian account is recognized, but its '
-              'dashboard is not available in this build.',
-        );
+        if (profile == null) {
+          return const _HomeMessagePage(
+            title: 'Profile unavailable',
+            message:
+                'Your veterinarian profile could not be loaded. '
+                'Please try again.',
+          );
+        }
+
+        return VeterinarianDashboardPage(profile: profile);
     }
   }
 
