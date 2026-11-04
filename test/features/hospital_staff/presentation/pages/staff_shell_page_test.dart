@@ -282,7 +282,7 @@ void main() {
 
       expect(find.text('No appointments found'), findsOneWidget);
 
-      expect(repositories.appointments.hospitalAppointmentCallCount, 2);
+      expect(repositories.appointments.hospitalAppointmentCallCount, 3);
 
       // Schedule
       await _selectTab(tester, 'Schedule');
@@ -320,10 +320,10 @@ void main() {
         'hospital-001',
       ]);
 
-      expect(repositories.appointments.hospitalAppointmentCallCount, 4);
+      expect(repositories.appointments.hospitalAppointmentCallCount, 5);
       expect(
         repositories.appointments.requestedHospitalIds,
-        List.filled(4, 'hospital-001'),
+        List.filled(5, 'hospital-001'),
       );
 
       expect(repositories.profile.watchCount, 1);

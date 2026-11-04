@@ -395,7 +395,7 @@ test('assigned veterinarian can atomically check in without gaining cross-hospit
   await env.withSecurityRulesDisabled(async context => {
     const db = context.firestore();
     await setDoc(doc(db, 'users/vet-a'), { role: 'veterinarian', hospitalId: 'hospital-a' });
-    await setDoc(doc(db, 'veterinarians/vet-a'), { userId: 'vet-a', hospitalId: 'hospital-a' });
+    await setDoc(doc(db, 'veterinarians/vet-a'), { userId: 'vet-a', hospitalId: 'hospital-a', active: true });
   });
   await assertSucceeds(checkIn(authenticatedDb('vet-a')));
 });
@@ -503,4 +503,19 @@ test('legacy timestamp appointments and UTC boundary dates check in safely', asy
     });
     await assertSucceeds(checkIn(authenticatedDb('staff-a')));
   }
+});
+
+
+test('projected appointments preserve schedule and queue linkage through check-in', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    const db = context.firestore();
+    const appointment = (await getDoc(doc(db, 'appointments/appointment-1'))).data();
+    await setDoc(doc(db, 'appointment_schedule/appointment-1'), Object.fromEntries(
+      ['vetId', 'hospitalId', 'serviceId', 'dateTime', 'status'].map(key => [key, appointment[key]])));
+  });
+  await assertSucceeds(checkIn(authenticatedDb('staff-a')));
+  const owner = authenticatedDb('owner-1');
+  const appointment = (await getDoc(doc(owner, 'appointments/appointment-1'))).data();
+  assert.equal(appointment.queueId, 'queue-1');
+  assert.equal((await getDoc(doc(owner, 'appointment_schedule/appointment-1'))).data().status, 'confirmed');
 });

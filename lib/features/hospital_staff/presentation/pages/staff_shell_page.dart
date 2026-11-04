@@ -67,6 +67,7 @@ class _StaffShellPageState extends State<StaffShellPage> {
         _overviewRevision++;
       }
 
+      if (index == 1) _appointmentsRevision++;
       if (index == 3) _hasOpenedQueue = true;
       if (index == 4) {
         _hasOpenedProfile = true;

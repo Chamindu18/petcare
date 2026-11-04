@@ -14,7 +14,7 @@ class FirebaseAppointmentAvailabilityRepository
   final FirebaseFirestore _firestore;
 
   CollectionReference<Map<String, dynamic>> get _appointmentsCollection =>
-      _firestore.collection('appointments');
+      _firestore.collection('appointment_schedule');
 
   CollectionReference<Map<String, dynamic>> get _servicesCollection =>
       _firestore.collection('services');
@@ -35,13 +35,24 @@ class FirebaseAppointmentAvailabilityRepository
     final appointmentDurations = <String, Duration>{};
 
     for (final document in snapshot.docs) {
-      final appointment = AppointmentModel.fromMap(document.data());
+      final appointment = AppointmentModel.fromMap({
+        ...document.data(),
+        'appointmentId': document.id,
+        'ownerId': '',
+        'petId': '',
+        'reason': '',
+        'createdAt': document.data()['dateTime'],
+      });
 
-      if (!_isOnDate(appointment.dateTime, dayStart, dayEnd)) {
+      // A service can cross midnight. Include the preceding day's starts so
+      // the slot generator can compare their full intervals with this day.
+      if (!_isOnDate(
+        appointment.dateTime,
+        dayStart.subtract(const Duration(days: 1)),
+        dayEnd,
+      )) {
         continue;
       }
-
-      appointments.add(appointment);
 
       final serviceDocument = await _servicesCollection
           .doc(appointment.serviceId)
@@ -49,12 +60,18 @@ class FirebaseAppointmentAvailabilityRepository
 
       final serviceData = serviceDocument.data();
 
-      final duration = serviceData?['duration'];
+      final duration =
+          document.data()['durationMinutes'] ?? serviceData?['duration'];
 
       if (duration is num && duration > 0) {
         appointmentDurations[appointment.appointmentId] = Duration(
           minutes: duration.toInt(),
         );
+      }
+      final occupiedDuration = appointmentDurations[appointment.appointmentId];
+      if (occupiedDuration == null ||
+          appointment.dateTime.add(occupiedDuration).isAfter(dayStart)) {
+        appointments.add(appointment);
       }
     }
 

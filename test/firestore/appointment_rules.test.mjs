@@ -9,6 +9,7 @@ import {
   assertSucceeds,
 } from '@firebase/rules-unit-testing';
 import {
+  collection, getDoc, getDocs, query, where, writeBatch,
   doc,
   setDoc,
   updateDoc,
@@ -80,9 +81,16 @@ beforeEach(async () => {
         hospitalId: 'hospital-a',
       }),
       setDoc(doc(db, 'veterinarians/vet-a'), {
+        active: true,
         userId: 'vet-a',
         hospitalId: 'hospital-a',
       }),
+      setDoc(doc(db, 'users/doctor-b'), {role: 'veterinarian', hospitalId: 'hospital-a', vetId: 'directory-b'}),
+      setDoc(doc(db, 'veterinarians/directory-b'), {vetId: 'directory-b', userId: 'doctor-b', hospitalId: 'hospital-a', active: true}),
+      setDoc(doc(db, 'veterinarians/bad-link'), {hospitalId: 'hospital-a', active: true, userId: 'doctor-b'}),
+      setDoc(doc(db, 'veterinarians/unlinked'), {hospitalId: 'hospital-a', active: true}),
+      setDoc(doc(db, 'veterinarians/inactive'), {hospitalId: 'hospital-a', active: false}),
+      setDoc(doc(db, 'veterinarians/cross-hospital'), {hospitalId: 'hospital-b', active: true}),
       setDoc(doc(db, 'hospital_staff/staff-a'), {
         userId: 'staff-a',
         hospitalId: 'hospital-a',
@@ -203,10 +211,10 @@ test('owner cannot confirm or reject their own appointment', async () => {
   );
 });
 
-test('owner can edit scheduling details while appointment is pending', async () => {
+test('owner cannot bypass the trusted scheduler even while pending', async () => {
   await seedAppointment();
 
-  await assertSucceeds(
+  await assertFails(
     updateDoc(doc(authenticatedDb('owner-1'), 'appointments/appointment-1'), {
       dateTime: Timestamp.fromDate(new Date('2026-11-11T09:00:00.000Z')),
       reason: 'Follow-up consultation',
@@ -396,3 +404,100 @@ test('hospital staff can update scheduling details without changing status', asy
 // Keep the fixture timestamps deterministic and ensure this module fails
 // loudly if an assertion helper is accidentally removed from the test setup.
 assert.ok(CREATED_AT instanceof Timestamp);
+function doctorQuery(uid, vetId) {
+  return getDocs(query(collection(authenticatedDb(uid), 'appointments'),
+    where('hospitalId', '==', 'hospital-a'), where('vetId', '==', vetId)));
+}
+
+test('booking through confirmation and same-hospital reassignment isolates doctor views', async () => {
+  const owner = authenticatedDb('owner-1');
+  const data = appointmentData();
+  const batch = writeBatch(owner);
+  batch.set(doc(owner, 'appointments/integration'), data);
+  batch.set(doc(owner, 'appointment_schedule/integration'), {
+    vetId: data.vetId, hospitalId: data.hospitalId, serviceId: data.serviceId,
+    dateTime: data.dateTime, status: data.status,
+  });
+  await assertFails(batch.commit());
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'appointments/integration'), data);
+    await setDoc(doc(context.firestore(), 'appointment_schedule/integration'), {
+      vetId: data.vetId, hospitalId: data.hospitalId, serviceId: data.serviceId, dateTime: data.dateTime, status: data.status,
+    });
+  });
+  await assertSucceeds(getDocs(query(collection(authenticatedDb('staff-a'), 'appointments'), where('hospitalId', '==', 'hospital-a'))));
+  await assertFails(getDoc(doc(authenticatedDb('staff-b'), 'appointments/integration')));
+  await assertFails(getDoc(doc(authenticatedDb('doctor-b'), 'appointments/integration')));
+  assert.equal((await assertSucceeds(doctorQuery('vet-a', 'vet-a'))).size, 1);
+  assert.equal((await assertSucceeds(doctorQuery('doctor-b', 'directory-b'))).size, 0);
+  const staff = authenticatedDb('staff-a');
+  const confirm = writeBatch(staff);
+  confirm.update(doc(staff, 'appointments/integration'), {status: 'confirmed', updatedAt: serverTimestamp()});
+  confirm.update(doc(staff, 'appointment_schedule/integration'), {status: 'confirmed'});
+  await assertSucceeds(confirm.commit());
+  const reassign = writeBatch(staff);
+  reassign.update(doc(staff, 'appointments/integration'), {vetId: 'directory-b', updatedAt: serverTimestamp()});
+  reassign.update(doc(staff, 'appointment_schedule/integration'), {vetId: 'directory-b'});
+  await assertFails(reassign.commit());
+  // The server transaction's assignment behavior is covered by the concurrency suite.
+  await env.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'appointments/integration'), {vetId: 'directory-b'});
+    await updateDoc(doc(context.firestore(), 'appointment_schedule/integration'), {vetId: 'directory-b'});
+  });
+  assert.equal((await assertSucceeds(doctorQuery('vet-a', 'vet-a'))).size, 0);
+  assert.equal((await assertSucceeds(doctorQuery('doctor-b', 'directory-b'))).size, 1);
+  await assertFails(getDoc(doc(authenticatedDb('vet-a'), 'appointments/integration')));
+});
+
+for (const vetId of ['missing', 'inactive', 'cross-hospital', 'unlinked', 'bad-link']) {
+  test(`invalid veterinarian ${vetId} rejected on booking and reassignment`, async () => {
+    const owner = authenticatedDb('owner-1');
+    const data = {...appointmentData(), vetId};
+    const booking = writeBatch(owner);
+    booking.set(doc(owner, 'appointments/invalid'), data);
+    booking.set(doc(owner, 'appointment_schedule/invalid'), {
+      vetId, hospitalId: data.hospitalId, serviceId: data.serviceId,
+      dateTime: data.dateTime, status: data.status,
+    });
+    await assertFails(booking.commit());
+    await seedAppointment();
+    await assertFails(updateDoc(doc(authenticatedDb('staff-a'), 'appointments/appointment-1'), {vetId, updatedAt: serverTimestamp()}));
+  });
+}
+
+test('same-hospital doctor cannot query or modify another doctor appointment', async () => {
+  await seedAppointment();
+  await assertFails(doctorQuery('doctor-b', 'vet-a'));
+  await assertFails(updateAppointmentStatus(authenticatedDb('doctor-b'), 'appointment-1', 'confirmed'));
+  await assertFails(getDocs(query(collection(authenticatedDb('doctor-b'), 'appointments'), where('hospitalId', '==', 'hospital-a'))));
+});
+
+test('directory identity and active state cannot be self-promoted', async () => {
+  const vet = authenticatedDb('vet-a');
+  for (const patch of [{active: false}, {vetId: 'directory-b'}, {userId: 'doctor-b'}, {hospitalId: 'hospital-b'}]) {
+    await assertFails(updateDoc(doc(vet, 'veterinarians/vet-a'), patch));
+  }
+});
+
+test('queued appointment cannot be reassigned or rescheduled', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'appointments/queued'), {...appointmentData({status: 'confirmed'}), queueId: 'queue-1'});
+  });
+  await assertFails(updateDoc(doc(authenticatedDb('staff-a'), 'appointments/queued'), {vetId: 'directory-b', updatedAt: serverTimestamp()}));
+  await assertFails(updateDoc(doc(authenticatedDb('staff-a'), 'appointments/queued'), {dateTime: CREATED_AT, updatedAt: serverTimestamp()}));
+});
+
+test('availability exposes schedule fields only and cannot be forged', async () => {
+  await seedAppointment();
+  await assertFails(setDoc(doc(authenticatedDb('owner-2'), 'appointment_schedule/appointment-1'), {
+    vetId: 'vet-a', hospitalId: 'hospital-a', serviceId: 'service-a', dateTime: APPOINTMENT_DATE, status: 'pending',
+  }));
+  await assertFails(getDocs(collection(authenticatedDb('owner-2'), 'appointments')));
+});
+
+
+test('owner health-record creation remains independent of appointment assignment', async () => {
+  for (const collectionName of ['medical_conditions', 'vaccinations', 'treatments', 'health_measurements']) {
+    await assertSucceeds(setDoc(doc(authenticatedDb('owner-1'), `${collectionName}/health-record`), {petId: 'pet-1', notes: 'Owner record'}));
+  }
+});

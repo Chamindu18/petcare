@@ -4,14 +4,21 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../domain/entities/appointment.dart';
 import '../../domain/repositories/appointment_repository.dart';
 import '../models/appointment_model.dart';
+import '../datasources/appointment_scheduling_datasource.dart';
 
-class FirebaseAppointmentRepository implements AppointmentRepository {
+class FirebaseAppointmentRepository
+    implements AppointmentRepository, AppointmentAssignmentRepository {
   FirebaseAppointmentRepository({
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
+    AppointmentSchedulingDataSource? schedulingDataSource,
   }) : _auth = auth ?? FirebaseAuth.instance,
-       _firestore = firestore ?? FirebaseFirestore.instance;
+       _firestore = firestore ?? FirebaseFirestore.instance,
+       _scheduling =
+           schedulingDataSource ??
+           FirebaseAppointmentSchedulingDataSource(auth: auth);
 
+  final AppointmentSchedulingDataSource _scheduling;
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
 
@@ -32,30 +39,31 @@ class FirebaseAppointmentRepository implements AppointmentRepository {
 
   @override
   Future<Appointment> createAppointment(Appointment appointment) async {
-    final ownerId = _currentUserId;
-
-    final document = _appointmentsCollection.doc();
-
-    final persistedAppointment = Appointment(
-      appointmentId: document.id,
-      ownerId: ownerId,
-      petId: appointment.petId,
-      hospitalId: appointment.hospitalId,
-      serviceId: appointment.serviceId,
-      vetId: appointment.vetId,
-      dateTime: appointment.dateTime,
-      reason: appointment.reason,
-      status: appointment.status,
-      queueId: appointment.queueId,
-      createdAt: appointment.createdAt,
-    );
-
-    final appointmentModel = AppointmentModel.fromEntity(persistedAppointment);
-
-    await document.set(appointmentModel.toMap());
-
-    return persistedAppointment;
+    // Generate once before invoking the server, so transport retries can reuse
+    // the same request ID and cannot create another appointment silently.
+    _currentUserId;
+    final data = await _scheduling.reserve({
+      'action': 'create',
+      'appointmentId': _appointmentsCollection.doc().id,
+      'petId': appointment.petId,
+      'hospitalId': appointment.hospitalId,
+      'serviceId': appointment.serviceId,
+      'vetId': appointment.vetId,
+      'dateTime': appointment.dateTime.toUtc().toIso8601String(),
+      'reason': appointment.reason,
+    });
+    return AppointmentModel.fromMap(data);
   }
+
+  Map<String, dynamic> _schedule(Map<String, dynamic> data) => {
+    'vetId': data['vetId'],
+    'hospitalId': data['hospitalId'],
+    'serviceId': data['serviceId'],
+    'dateTime': data['dateTime'],
+    'status': data['status'],
+    if (data['durationMinutes'] != null)
+      'durationMinutes': data['durationMinutes'],
+  };
 
   @override
   Future<List<Appointment>> getAppointments() async {
@@ -66,7 +74,12 @@ class FirebaseAppointmentRepository implements AppointmentRepository {
         .get();
 
     return snapshot.docs
-        .map((document) => AppointmentModel.fromMap(document.data()))
+        .map(
+          (document) => AppointmentModel.fromMap({
+            ...document.data(),
+            'appointmentId': document.id,
+          }),
+        )
         .toList();
   }
 
@@ -77,7 +90,12 @@ class FirebaseAppointmentRepository implements AppointmentRepository {
         .get();
 
     return snapshot.docs
-        .map((document) => AppointmentModel.fromMap(document.data()))
+        .map(
+          (document) => AppointmentModel.fromMap({
+            ...document.data(),
+            'appointmentId': document.id,
+          }),
+        )
         .toList();
   }
 
@@ -92,7 +110,12 @@ class FirebaseAppointmentRepository implements AppointmentRepository {
         .get();
 
     return snapshot.docs
-        .map((document) => AppointmentModel.fromMap(document.data()))
+        .map(
+          (document) => AppointmentModel.fromMap({
+            ...document.data(),
+            'appointmentId': document.id,
+          }),
+        )
         .toList();
   }
 
@@ -112,46 +135,36 @@ class FirebaseAppointmentRepository implements AppointmentRepository {
       return null;
     }
 
-    return AppointmentModel.fromMap(data);
+    return AppointmentModel.fromMap({...data, 'appointmentId': document.id});
   }
 
   @override
   Future<void> updateAppointment(Appointment appointment) async {
-    final ownerId = _currentUserId;
+    _currentUserId;
+    await _scheduling.reserve({
+      'action': 'update',
+      'appointmentId': appointment.appointmentId,
+      'hospitalId': appointment.hospitalId,
+      'serviceId': appointment.serviceId,
+      'vetId': appointment.vetId,
+      'dateTime': appointment.dateTime.toUtc().toIso8601String(),
+      'reason': appointment.reason,
+    });
+  }
 
-    final document = await _appointmentsCollection
-        .doc(appointment.appointmentId)
-        .get();
-
-    if (!document.exists) {
-      throw const AppointmentRepositoryException('Appointment was not found.');
-    }
-
-    final existingData = document.data();
-
-    if (existingData == null || existingData['ownerId'] != ownerId) {
-      throw const AppointmentRepositoryException(
-        'You are not authorized to update this appointment.',
-      );
-    }
-
-    final appointmentModel = AppointmentModel.fromEntity(
-      Appointment(
-        appointmentId: appointment.appointmentId,
-        ownerId: ownerId,
-        petId: appointment.petId,
-        hospitalId: appointment.hospitalId,
-        serviceId: appointment.serviceId,
-        vetId: appointment.vetId,
-        dateTime: appointment.dateTime,
-        reason: appointment.reason,
-        status: appointment.status,
-        queueId: appointment.queueId,
-        createdAt: appointment.createdAt,
-      ),
-    );
-
-    await document.reference.update(appointmentModel.toMap());
+  @override
+  Future<void> reassignVeterinarian({
+    required String appointmentId,
+    required String hospitalId,
+    required String vetId,
+  }) async {
+    _currentUserId;
+    await _scheduling.reserve({
+      'action': 'reassign',
+      'appointmentId': appointmentId,
+      'hospitalId': hospitalId,
+      'vetId': vetId,
+    });
   }
 
   @override
@@ -221,6 +234,10 @@ class FirebaseAppointmentRepository implements AppointmentRepository {
         throw AppointmentRepositoryException(failureMessage);
       }
 
+      transaction.set(
+        _firestore.collection('appointment_schedule').doc(appointmentId),
+        _schedule({...data, 'status': nextStatus}),
+      );
       transaction.update(appointmentReference, {
         'status': nextStatus,
         'updatedAt': FieldValue.serverTimestamp(),

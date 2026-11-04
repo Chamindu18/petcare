@@ -6,6 +6,8 @@ import '../../../appointments/domain/entities/appointment.dart';
 import '../../../appointments/domain/repositories/appointment_repository.dart';
 import '../../../appointments/domain/utils/appointment_date_classifier.dart';
 import '../providers/staff_appointment_provider.dart';
+import '../../../veterinary/data/repositories/firebase_veterinarian_repository.dart';
+import '../../../veterinary/domain/usecases/veterinarian_usecases.dart';
 
 /// Appointment management screen for an authenticated hospital staff member.
 ///
@@ -109,6 +111,58 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
 
     if (!success) {
       _provider.clearErrors();
+    }
+  }
+
+  Future<void> _reassign(Appointment appointment) async {
+    try {
+      final doctors = await GetVeterinariansByHospital(
+        FirebaseVeterinarianRepository(),
+      )(widget.hospitalId);
+      if (!mounted) return;
+      final vetId = await showDialog<String>(
+        context: context,
+        builder: (context) => SimpleDialog(
+          title: const Text('Assign veterinarian'),
+          children: [
+            for (final doctor in doctors)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, doctor.vetId),
+                child: Text(doctor.name),
+              ),
+            if (doctors.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('No active veterinarians available.'),
+              ),
+          ],
+        ),
+      );
+      if (vetId == null || !mounted) return;
+      final success = await _provider.reassignVeterinarian(
+        appointment.appointmentId,
+        vetId,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? 'Veterinarian assignment updated.'
+                : _provider.actionErrorMessage ??
+                      'Unable to update assignment.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Unable to load hospital veterinarians. Please try again.',
+          ),
+        ),
+      );
     }
   }
 
@@ -235,6 +289,7 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
                             _handleDecision(appointment, confirm: true),
                         onReject: () =>
                             _handleDecision(appointment, confirm: false),
+                        onReassign: () => _reassign(appointment),
                       ),
                     ),
                   ),
@@ -494,6 +549,7 @@ class _StaffAppointmentCard extends StatelessWidget {
     required this.isProcessing,
     required this.onConfirm,
     required this.onReject,
+    required this.onReassign,
   });
 
   final Appointment appointment;
@@ -501,6 +557,7 @@ class _StaffAppointmentCard extends StatelessWidget {
   final bool isProcessing;
   final VoidCallback onConfirm;
   final VoidCallback onReject;
+  final VoidCallback onReassign;
 
   @override
   Widget build(BuildContext context) {
@@ -567,6 +624,13 @@ class _StaffAppointmentCard extends StatelessWidget {
                 value: appointment.reason,
               ),
             ],
+            if ((isPending || appointment.status == 'confirmed') &&
+                appointment.queueId == null)
+              TextButton.icon(
+                onPressed: isProcessing ? null : onReassign,
+                icon: const Icon(Icons.person_outline),
+                label: const Text('Change veterinarian'),
+              ),
             if (isPending) ...[
               const SizedBox(height: 18),
               const Divider(height: 1),

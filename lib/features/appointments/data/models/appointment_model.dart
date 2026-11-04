@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../domain/entities/appointment.dart';
 
 class AppointmentModel extends Appointment {
@@ -23,13 +25,17 @@ class AppointmentModel extends Appointment {
       hospitalId: map['hospitalId'] as String,
       serviceId: map['serviceId'] as String,
       vetId: map['vetId'] as String,
-      dateTime: DateTime.parse(map['dateTime'] as String),
+      dateTime: _date(map['dateTime']),
       reason: map['reason'] as String,
       status: map['status'] as String,
       queueId: map['queueId'] as String?,
-      createdAt: DateTime.parse(map['createdAt'] as String),
+      createdAt: _date(map['createdAt']),
     );
   }
+
+  static DateTime _date(dynamic value) =>
+      (value is Timestamp ? value.toDate() : DateTime.parse(value as String))
+          .toLocal();
 
   factory AppointmentModel.fromEntity(Appointment appointment) {
     return AppointmentModel(

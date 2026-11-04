@@ -8,15 +8,12 @@ import '../../../hospitals/data/repositories/firebase_hospital_repository.dart';
 import '../../../hospitals/domain/entities/hospital.dart';
 import '../../../hospitals/domain/usecases/hospital_usecases.dart';
 import '../../../profile/domain/entities/user_profile.dart';
-import '../../data/repositories/firebase_veterinarian_repository.dart';
+import '../../data/repositories/firebase_veterinarian_assignment_repository.dart';
 import '../../domain/entities/veterinarian.dart';
-import '../../domain/usecases/veterinarian_usecases.dart';
+import '../../domain/usecases/get_current_veterinarian_assignment.dart';
 
 class VeterinarianDashboardPage extends StatefulWidget {
-  const VeterinarianDashboardPage({
-    super.key,
-    required this.profile,
-  });
+  const VeterinarianDashboardPage({super.key, required this.profile});
 
   final UserProfile profile;
 
@@ -25,10 +22,9 @@ class VeterinarianDashboardPage extends StatefulWidget {
       _VeterinarianDashboardPageState();
 }
 
-class _VeterinarianDashboardPageState
-    extends State<VeterinarianDashboardPage> {
+class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
   late final GetAppointmentsByVeterinarian _getAppointments;
-  late final GetVeterinarianById _getVeterinarian;
+  late final GetCurrentVeterinarianAssignment _getAssignment;
   late final GetHospitalById _getHospital;
 
   List<Appointment> _appointments = [];
@@ -46,13 +42,11 @@ class _VeterinarianDashboardPageState
       FirebaseAppointmentRepository(),
     );
 
-    _getVeterinarian = GetVeterinarianById(
-      FirebaseVeterinarianRepository(),
+    _getAssignment = GetCurrentVeterinarianAssignment(
+      FirebaseVeterinarianAssignmentRepository(),
     );
 
-    _getHospital = GetHospitalById(
-      FirebaseHospitalRepository(),
-    );
+    _getHospital = GetHospitalById(FirebaseHospitalRepository());
 
     _loadDashboard();
   }
@@ -65,41 +59,26 @@ class _VeterinarianDashboardPageState
       });
     }
 
-    final vetId = widget.profile.vetId;
-    final hospitalId = widget.profile.hospitalId;
-
-    if (vetId == null ||
-        vetId.isEmpty ||
-        hospitalId == null ||
-        hospitalId.isEmpty) {
-      if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-        _errorMessage =
-            'Your veterinarian account is missing its veterinarian or hospital assignment.';
-      });
-
-      return;
-    }
-
     try {
+      final assignment = await _getAssignment();
+      if (assignment == null) {
+        throw StateError(
+          'Your active veterinarian assignment could not be verified.',
+        );
+      }
+      final vetId = assignment.vetId;
+      final hospitalId = assignment.hospitalId;
       final results = await Future.wait([
-        _getVeterinarian(vetId),
+        Future.value(assignment),
         _getHospital(hospitalId),
-        _getAppointments(
-          vetId: vetId,
-          hospitalId: hospitalId,
-        ),
+        _getAppointments(vetId: vetId, hospitalId: hospitalId),
       ]);
 
       final veterinarian = results[0] as Veterinarian?;
       final hospital = results[1] as Hospital?;
       final appointments = results[2] as List<Appointment>;
 
-      appointments.sort(
-        (a, b) => a.dateTime.compareTo(b.dateTime),
-      );
+      appointments.sort((a, b) => a.dateTime.compareTo(b.dateTime));
 
       if (!mounted) return;
 
@@ -114,8 +93,7 @@ class _VeterinarianDashboardPageState
 
       setState(() {
         _isLoading = false;
-        _errorMessage =
-            'Unable to load dashboard information. Please check your connection and try again.';
+        _errorMessage = 'Unable to load dashboard information. Please check your connection and try again.';
       });
 
       debugPrint('Veterinarian dashboard error: $error');
@@ -123,16 +101,13 @@ class _VeterinarianDashboardPageState
   }
 
   bool _sameDay(DateTime a, DateTime b) {
-    return a.year == b.year &&
-        a.month == b.month &&
-        a.day == b.day;
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   bool _isTerminal(String status) {
     final normalized = status.toLowerCase();
 
-    return normalized == 'cancelled' ||
-        normalized == 'rejected';
+    return normalized == 'cancelled' || normalized == 'rejected';
   }
 
   List<Appointment> get _todayAppointments {
@@ -189,19 +164,14 @@ class _VeterinarianDashboardPageState
         automaticallyImplyLeading: false,
         title: Text(
           'Dashboard',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: AppTheme.espresso,
-                fontWeight: FontWeight.w800,
-              ),
+          style: Theme.of(context).textTheme.titleLarge
+              ?.copyWith(color: AppTheme.espresso, fontWeight: FontWeight.w800),
         ),
         actions: [
           IconButton(
             tooltip: 'Refresh dashboard',
             onPressed: _isLoading ? null : _loadDashboard,
-            icon: const Icon(
-              Icons.refresh_rounded,
-              color: AppTheme.deepBrown,
-            ),
+            icon: const Icon(Icons.refresh_rounded, color: AppTheme.deepBrown),
           ),
           const SizedBox(width: 8),
         ],
@@ -223,9 +193,7 @@ class _VeterinarianDashboardPageState
           SizedBox(
             height: 520,
             child: Center(
-              child: CircularProgressIndicator(
-                color: AppTheme.primary,
-              ),
+              child: CircularProgressIndicator(color: AppTheme.primary),
             ),
           ),
         ],
@@ -247,9 +215,7 @@ class _VeterinarianDashboardPageState
           Text(
             _errorMessage!,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppTheme.espresso,
-            ),
+            style: const TextStyle(color: AppTheme.espresso),
           ),
           const SizedBox(height: 18),
           Center(
@@ -279,10 +245,7 @@ class _VeterinarianDashboardPageState
 
         const SizedBox(height: 24),
 
-        _sectionTitle(
-          'Quick actions',
-          subtitle: 'Common tasks',
-        ),
+        _sectionTitle('Quick actions', subtitle: 'Common tasks'),
         const SizedBox(height: 12),
         _buildQuickActions(),
 
@@ -305,10 +268,7 @@ class _VeterinarianDashboardPageState
 
         const SizedBox(height: 24),
 
-        _sectionTitle(
-          'Queue overview',
-          subtitle: 'Hospital queue snapshot',
-        ),
+        _sectionTitle('Queue overview', subtitle: 'Hospital queue snapshot'),
         const SizedBox(height: 12),
         _buildQueuePreview(),
 
@@ -333,27 +293,23 @@ class _VeterinarianDashboardPageState
   }
 
   Widget _buildWelcomeHeader() {
-    final imageUrl =
-        _veterinarian?.profileImageUrl ?? widget.profile.photoUrl;
+    final imageUrl = _veterinarian?.profileImageUrl ?? widget.profile.photoUrl;
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppTheme.secondary.withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppTheme.secondary.withValues(alpha: 0.65),
-        ),
+        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.65)),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 29,
             backgroundColor: AppTheme.white,
-            backgroundImage:
-                imageUrl != null && imageUrl.isNotEmpty
-                    ? NetworkImage(imageUrl)
-                    : null,
+            backgroundImage: imageUrl != null && imageUrl.isNotEmpty
+                ? NetworkImage(imageUrl)
+                : null,
             child: imageUrl == null || imageUrl.isEmpty
                 ? const Icon(
                     Icons.person_rounded,
@@ -369,9 +325,8 @@ class _VeterinarianDashboardPageState
               children: [
                 Text(
                   _greeting,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.deepBrown,
-                      ),
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: AppTheme.deepBrown),
                 ),
                 const SizedBox(height: 3),
                 Text(
@@ -379,9 +334,9 @@ class _VeterinarianDashboardPageState
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: AppTheme.espresso,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    color: AppTheme.espresso,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Row(
@@ -397,9 +352,8 @@ class _VeterinarianDashboardPageState
                         _hospital?.name ?? 'Veterinarian',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppTheme.deepBrown,
-                            ),
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: AppTheme.deepBrown),
                       ),
                     ),
                   ],
@@ -426,11 +380,7 @@ class _VeterinarianDashboardPageState
     );
   }
 
-  Widget _sectionTitle(
-    String title, {
-    String? subtitle,
-    int? count,
-  }) {
+  Widget _sectionTitle(String title, {String? subtitle, int? count}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -441,17 +391,16 @@ class _VeterinarianDashboardPageState
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppTheme.espresso,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  color: AppTheme.espresso,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               if (subtitle != null) ...[
                 const SizedBox(height: 3),
                 Text(
                   subtitle,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppTheme.deepBrown,
-                      ),
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: AppTheme.deepBrown),
                 ),
               ],
             ],
@@ -459,10 +408,7 @@ class _VeterinarianDashboardPageState
         ),
         if (count != null)
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 5,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: AppTheme.secondary.withValues(alpha: 0.45),
               borderRadius: BorderRadius.circular(20),
@@ -521,31 +467,16 @@ class _VeterinarianDashboardPageState
       mainAxisSpacing: 10,
       childAspectRatio: 0.82,
       children: const [
-        _QuickAction(
-          icon: Icons.qr_code_scanner_rounded,
-          label: 'Scan Pet QR',
-        ),
-        _QuickAction(
-          icon: Icons.calendar_month_rounded,
-          label: 'Appointments',
-        ),
-        _QuickAction(
-          icon: Icons.groups_rounded,
-          label: 'Manage Queue',
-        ),
-        _QuickAction(
-          icon: Icons.person_outline_rounded,
-          label: 'My Profile',
-        ),
+        _QuickAction(icon: Icons.qr_code_scanner_rounded, label: 'Scan Pet QR'),
+        _QuickAction(icon: Icons.calendar_month_rounded, label: 'Appointments'),
+        _QuickAction(icon: Icons.groups_rounded, label: 'Manage Queue'),
+        _QuickAction(icon: Icons.person_outline_rounded, label: 'My Profile'),
       ],
     );
   }
 
   Widget _buildAppointmentCard(Appointment appointment) {
-    final isToday = _sameDay(
-      appointment.dateTime,
-      DateTime.now(),
-    );
+    final isToday = _sameDay(appointment.dateTime, DateTime.now());
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -553,9 +484,7 @@ class _VeterinarianDashboardPageState
       decoration: BoxDecoration(
         color: AppTheme.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppTheme.secondary.withValues(alpha: 0.28),
-        ),
+        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.28)),
       ),
       child: Row(
         children: [
@@ -619,9 +548,7 @@ class _VeterinarianDashboardPageState
       decoration: BoxDecoration(
         color: AppTheme.white,
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: AppTheme.secondary.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [
@@ -652,18 +579,12 @@ class _VeterinarianDashboardPageState
                 SizedBox(height: 4),
                 Text(
                   'Queue information will be available here.',
-                  style: TextStyle(
-                    color: AppTheme.deepBrown,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: AppTheme.deepBrown, fontSize: 12),
                 ),
               ],
             ),
           ),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: AppTheme.deepBrown,
-          ),
+          const Icon(Icons.chevron_right_rounded, color: AppTheme.deepBrown),
         ],
       ),
     );
@@ -672,29 +593,19 @@ class _VeterinarianDashboardPageState
   Widget _emptyState(String message, IconData icon) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 18,
-        vertical: 22,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
       decoration: BoxDecoration(
         color: AppTheme.white,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
-          Icon(
-            icon,
-            size: 30,
-            color: AppTheme.secondary,
-          ),
+          Icon(icon, size: 30, color: AppTheme.secondary),
           const SizedBox(height: 9),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppTheme.deepBrown,
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: AppTheme.deepBrown, fontSize: 12),
           ),
         ],
       ),
@@ -744,9 +655,7 @@ class _VeterinarianDashboardPageState
   }
 
   String _shortId(String id) {
-    return id.length <= 7
-        ? id
-        : id.substring(0, 7).toUpperCase();
+    return id.length <= 7 ? id : id.substring(0, 7).toUpperCase();
   }
 }
 
@@ -770,9 +679,7 @@ class _OverviewCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppTheme.secondary.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -782,10 +689,10 @@ class _OverviewCard extends StatelessWidget {
           Text(
             value,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: AppTheme.espresso,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
-                ),
+              color: AppTheme.espresso,
+              fontWeight: FontWeight.w800,
+              height: 1,
+            ),
           ),
           const SizedBox(height: 5),
           Text(
@@ -805,10 +712,7 @@ class _OverviewCard extends StatelessWidget {
 }
 
 class _QuickAction extends StatelessWidget {
-  const _QuickAction({
-    required this.icon,
-    required this.label,
-  });
+  const _QuickAction({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -816,16 +720,11 @@ class _QuickAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 4,
-        vertical: 10,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
       decoration: BoxDecoration(
         color: AppTheme.white,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: AppTheme.secondary.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.3)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -837,11 +736,7 @@ class _QuickAction extends StatelessWidget {
               color: AppTheme.background,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              color: AppTheme.primary,
-              size: 20,
-            ),
+            child: Icon(icon, color: AppTheme.primary, size: 20),
           ),
           const SizedBox(height: 7),
           Text(
@@ -862,9 +757,7 @@ class _QuickAction extends StatelessWidget {
 }
 
 class _AppointmentStatus extends StatelessWidget {
-  const _AppointmentStatus({
-    required this.status,
-  });
+  const _AppointmentStatus({required this.status});
 
   final String status;
 
@@ -872,21 +765,16 @@ class _AppointmentStatus extends StatelessWidget {
   Widget build(BuildContext context) {
     final normalized = status.toLowerCase();
 
-    final color = normalized == 'confirmed' ||
-            normalized == 'completed'
+    final color = normalized == 'confirmed' || normalized == 'completed'
         ? AppTheme.success
         : normalized == 'pending'
-            ? AppTheme.warning
-            : normalized == 'cancelled' ||
-                    normalized == 'rejected'
-                ? AppTheme.error
-                : AppTheme.information;
+        ? AppTheme.warning
+        : normalized == 'cancelled' || normalized == 'rejected'
+        ? AppTheme.error
+        : AppTheme.information;
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
