@@ -1,3 +1,4 @@
+import { assertDenied as assertFails } from './assert_denied.mjs';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 import { readFileSync } from 'node:fs';
@@ -8,7 +9,6 @@ import assert from 'node:assert/strict';
 import {
   initializeTestEnvironment,
   assertSucceeds,
-  assertFails,
 } from '@firebase/rules-unit-testing';
 import {
   collection,

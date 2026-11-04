@@ -1,5 +1,5 @@
 const {
-  assertFails,
+  assertFails: firebaseAssertFails,
   assertSucceeds,
   initializeTestEnvironment,
 } = require('@firebase/rules-unit-testing');
@@ -15,10 +15,21 @@ const {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
+  Timestamp,
 } = require('firebase/firestore');
 
 const fs = require('fs');
 const path = require('path');
+
+const assert = require('node:assert/strict');
+
+async function assertFails(operation) {
+  const error = await firebaseAssertFails(operation);
+  assert.doesNotMatch(error.message,
+    /maximum of 1000|expression.*limit|access.*limit|undefined on object|Null value|Invalid path/i);
+  return error;
+}
 
 let testEnv;
 
@@ -41,6 +52,7 @@ async function seedUser(db, uid, role, fullName) {
 }
 
 async function seedVeterinarian(db, uid, hospitalId, fullName) {
+  await updateDoc(doc(db, 'users', uid), { hospitalId });
   await setDoc(doc(db, 'veterinarians', uid), {
     userId: uid,
     hospitalId,
@@ -103,6 +115,7 @@ async function seedQueueRecord(
     const db = context.firestore();
 
     await setDoc(doc(db, 'queue_records', queueId), {
+      queueId,
       ownerId,
       petId,
       appointmentId,
@@ -122,10 +135,10 @@ async function seedQueueRecord(
 // ================================================================
 
 before(async function () {
-  this.timeout(10000);
+  this.timeout(30000);
 
   testEnv = await initializeTestEnvironment({
-    projectId: 'petcare-d4413',
+    projectId: 'demo-petcare',
     firestore: {
       rules: fs.readFileSync(
         path.join(__dirname, '..', 'firestore.rules'),
@@ -138,7 +151,7 @@ before(async function () {
 });
 
 after(async function () {
-  this.timeout(10000);
+  this.timeout(30000);
 
   if (testEnv) {
     await testEnv.cleanup();
@@ -146,7 +159,7 @@ after(async function () {
 });
 
 beforeEach(async function () {
-  this.timeout(10000);
+  this.timeout(30000);
 
   await testEnv.clearFirestore();
 
@@ -744,23 +757,32 @@ describe('HOSPITAL QUEUE SECURITY', function () {
     );
   });
 
-  it('staff can create queue records for their assigned hospital', async function () {
+  it('staff can atomically create queue records for their assigned hospital', async function () {
+    await seedAppointment('appointment-a');
     const staffDb = testEnv.authenticatedContext('staff-a').firestore();
-
-    await assertSucceeds(
-      setDoc(doc(staffDb, 'queue_records', 'queue-new-a'), {
-        ownerId: 'owner-a',
-        petId: 'pet-a',
-        appointmentId: 'appointment-a',
-        hospitalId: 'hospital-a',
-        queueNumber: 1,
-        status: 'waiting',
-        currentServing: 0,
-        position: 1,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }),
-    );
+    const batch = writeBatch(staffDb);
+    const dayKey = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+    const day = Timestamp.fromDate(new Date(dayKey + 'T00:00:00Z'));
+    batch.set(doc(staffDb, `hospitals/hospital-a/queue_days/${dayKey}`), {
+      lastNumber: 1, queueId: 'queue-new-a', day, updatedAt: serverTimestamp(),
+    });
+    batch.set(doc(staffDb, 'queue_records', 'queue-new-a'), {
+      queueId: 'queue-new-a',
+      ownerId: 'owner-a',
+      petId: 'pet-a',
+      appointmentId: 'appointment-a',
+      hospitalId: 'hospital-a',
+      queueNumber: 1,
+      status: 'waiting',
+      currentServing: 0,
+      position: 1,
+      updatedAt: serverTimestamp(), day, dayKey,
+    });
+    batch.update(doc(staffDb, 'appointments', 'appointment-a'), {
+      queueId: 'queue-new-a',
+      updatedAt: serverTimestamp(),
+    });
+    await assertSucceeds(batch.commit());
   });
 
   it('staff cannot create queue records for another hospital', async function () {
@@ -789,7 +811,7 @@ describe('HOSPITAL QUEUE SECURITY', function () {
 
     await assertSucceeds(
       updateDoc(doc(staffDb, 'queue_records', 'queue-update-a'), {
-        status: 'called',
+        status: 'in_consultation',
         updatedAt: serverTimestamp(),
       }),
     );
@@ -804,7 +826,7 @@ describe('HOSPITAL QUEUE SECURITY', function () {
 
     await assertFails(
       updateDoc(doc(staffDb, 'queue_records', 'queue-update-b'), {
-        status: 'called',
+        status: 'in_consultation',
         updatedAt: serverTimestamp(),
       }),
     );
