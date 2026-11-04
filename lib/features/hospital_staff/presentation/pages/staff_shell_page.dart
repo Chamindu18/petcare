@@ -2,25 +2,33 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../appointments/domain/repositories/appointment_repository.dart';
+import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../hospitals/domain/repositories/hospital_repository.dart';
+import '../../../profile/domain/repositories/profile_repository.dart';
 import '../../domain/entities/hospital_staff_assignment.dart';
 import 'staff_appointments_page.dart';
 import 'staff_hospital_overview_page.dart';
+import 'staff_profile_page.dart';
 
 /// Main navigation shell for an authenticated hospital staff member.
 ///
 /// Access to this page must be controlled by HospitalStaffAccessGate.
+/// The hospital ID must originate from the verified staff assignment.
 class StaffShellPage extends StatefulWidget {
   const StaffShellPage({
     super.key,
     required this.assignment,
     this.hospitalRepository,
     this.appointmentRepository,
+    this.profileRepository,
+    this.authRepository,
   });
 
   final HospitalStaffAssignment assignment;
   final HospitalRepository? hospitalRepository;
   final AppointmentRepository? appointmentRepository;
+  final ProfileRepository? profileRepository;
+  final AuthRepository? authRepository;
 
   @override
   State<StaffShellPage> createState() => _StaffShellPageState();
@@ -28,6 +36,11 @@ class StaffShellPage extends StatefulWidget {
 
 class _StaffShellPageState extends State<StaffShellPage> {
   int _currentIndex = 0;
+  int _overviewRevision = 0;
+
+  // Avoid starting profile-related Firebase reads until the Profile tab
+  // has actually been opened. Keep it mounted afterward using IndexedStack.
+  bool _hasOpenedProfile = false;
 
   static const List<_StaffNavItem> _navigationItems = [
     _StaffNavItem(label: 'Overview', icon: Icons.dashboard_rounded),
@@ -38,21 +51,49 @@ class _StaffShellPageState extends State<StaffShellPage> {
   ];
 
   void _onTabSelected(int index) {
+    if (index < 0 || index >= _navigationItems.length) return;
     if (_currentIndex == index) return;
 
     setState(() {
+      // Refresh appointment statistics when returning to Overview.
+      // Other tab states remain preserved by IndexedStack.
+      if (index == 0) {
+        _overviewRevision++;
+      }
+
+      if (index == 4) {
+        _hasOpenedProfile = true;
+      }
+
       _currentIndex = index;
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant StaffShellPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // A changed verified assignment represents a different hospital
+    // workspace. Reset navigation state rather than retaining old tabs.
+    if (oldWidget.assignment.userId != widget.assignment.userId ||
+        oldWidget.assignment.hospitalId != widget.assignment.hospitalId) {
+      _currentIndex = 0;
+      _overviewRevision++;
+      _hasOpenedProfile = false;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final assignment = widget.assignment;
 
-    final pages = [
+    final pages = <Widget>[
       StaffHospitalOverviewPage(
+        key: ValueKey('${assignment.hospitalId}-overview-$_overviewRevision'),
         hospitalId: assignment.hospitalId,
         repository: widget.hospitalRepository,
+        appointmentRepository: widget.appointmentRepository,
+        onOpenAppointments: () => _onTabSelected(1),
       ),
       StaffAppointmentsPage(
         hospitalId: assignment.hospitalId,
@@ -72,7 +113,18 @@ class _StaffShellPageState extends State<StaffShellPage> {
             'Manage patient check-ins, queue numbers, '
             'and consultation progress.',
       ),
-      _StaffProfilePage(hospitalId: assignment.hospitalId),
+      if (_hasOpenedProfile)
+        StaffProfilePage(
+          key: ValueKey(
+            'staff-profile-${assignment.userId}-${assignment.hospitalId}',
+          ),
+          hospitalId: assignment.hospitalId,
+          profileRepository: widget.profileRepository,
+          hospitalRepository: widget.hospitalRepository,
+          authRepository: widget.authRepository,
+        )
+      else
+        const SizedBox.shrink(),
     ];
 
     return Scaffold(
@@ -92,6 +144,7 @@ class _StaffShellPageState extends State<StaffShellPage> {
   }
 }
 
+/// Temporary placeholder for staff workflow sections not yet implemented.
 class _StaffSectionPage extends StatelessWidget {
   const _StaffSectionPage({
     required this.icon,
@@ -142,59 +195,6 @@ class _StaffSectionPage extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StaffProfilePage extends StatelessWidget {
-  const _StaffProfilePage({required this.hospitalId});
-
-  final String hospitalId;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Staff Profile',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.deepBrown,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'View your hospital assignment and account information.',
-              style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(color: AppTheme.deepBrown.withValues(alpha: 0.7)),
-            ),
-            const SizedBox(height: 24),
-            ListTile(
-              contentPadding: const EdgeInsets.all(16),
-              tileColor: AppTheme.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              leading: const Icon(
-                Icons.local_hospital_rounded,
-                color: AppTheme.primary,
-              ),
-              title: const Text('Assigned Hospital'),
-              subtitle: Text(hospitalId),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Account profile settings will be connected in a later task.',
-              style: Theme.of(context).textTheme.bodySmall
-                  ?.copyWith(color: AppTheme.deepBrown.withValues(alpha: 0.7)),
-            ),
-          ],
         ),
       ),
     );

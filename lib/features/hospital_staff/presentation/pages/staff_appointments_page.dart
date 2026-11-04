@@ -4,6 +4,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../appointments/data/repositories/firebase_appointment_repository.dart';
 import '../../../appointments/domain/entities/appointment.dart';
 import '../../../appointments/domain/repositories/appointment_repository.dart';
+import '../../../appointments/domain/utils/appointment_date_classifier.dart';
 import '../providers/staff_appointment_provider.dart';
 
 /// Appointment management screen for an authenticated hospital staff member.
@@ -28,6 +29,7 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
   late final StaffAppointmentProvider _provider;
 
   _AppointmentFilter _selectedFilter = _AppointmentFilter.all;
+  _DateFilter _selectedDateFilter = _DateFilter.all;
 
   @override
   void initState() {
@@ -110,42 +112,56 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
     }
   }
 
-  List<Appointment> _getFilteredAppointments() {
-    final appointments = _provider.appointments;
-
-    if (_selectedFilter == _AppointmentFilter.all) {
-      return appointments;
-    }
-
-    return appointments
-        .where(
-          (appointment) =>
-              appointment.status.toLowerCase() == _selectedFilter.status,
-        )
-        .toList();
-  }
-
-  int _countForFilter(_AppointmentFilter filter) {
-    if (filter == _AppointmentFilter.all) {
-      return _provider.appointments.length;
-    }
-
+  /// Filters status and calendar period independently so staff can combine
+  /// selections, for example Confirmed + Tomorrow.
+  List<Appointment> _getFilteredAppointments(DateTime now) {
     return _provider.appointments
-        .where(
-          (appointment) => appointment.status.toLowerCase() == filter.status,
-        )
-        .length;
+        .where((appointment) {
+          if (!_matchesStatus(appointment, _selectedFilter)) return false;
+          return _matchesDate(appointment, _selectedDateFilter, now);
+        })
+        .toList(growable: false);
   }
 
-  int _countToday() {
-    final now = DateTime.now();
+  bool _matchesStatus(Appointment appointment, _AppointmentFilter filter) {
+    return filter == _AppointmentFilter.all ||
+        appointment.status.trim().toLowerCase() == filter.status;
+  }
 
+  bool _matchesDate(Appointment appointment, _DateFilter filter, DateTime now) {
+    if (filter == _DateFilter.all) return true;
+
+    final category = AppointmentDateClassifier.classify(appointment, now: now);
+
+    // Upcoming includes tomorrow as well as later future dates.
+    if (filter == _DateFilter.upcoming) {
+      return category == AppointmentDateCategory.tomorrow ||
+          category == AppointmentDateCategory.upcoming;
+    }
+
+    return category == filter.category;
+  }
+
+  /// Counts a status within the currently selected calendar period.
+  int _countForFilter(_AppointmentFilter filter, DateTime now) {
     return _provider.appointments.where((appointment) {
-      final date = appointment.dateTime;
+      return _matchesDate(appointment, _selectedDateFilter, now) &&
+          _matchesStatus(appointment, filter);
+    }).length;
+  }
 
-      return date.year == now.year &&
-          date.month == now.month &&
-          date.day == now.day;
+  /// Counts a period within the currently selected status filter.
+  int _countForDateFilter(_DateFilter filter, DateTime now) {
+    return _provider.appointments.where((appointment) {
+      return _matchesStatus(appointment, _selectedFilter) &&
+          _matchesDate(appointment, filter, now);
+    }).length;
+  }
+
+  int _countToday(DateTime now) {
+    return _provider.appointments.where((appointment) {
+      return AppointmentDateClassifier.classify(appointment, now: now) ==
+          AppointmentDateCategory.today;
     }).length;
   }
 
@@ -156,7 +172,8 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
       child: AnimatedBuilder(
         animation: _provider,
         builder: (context, _) {
-          final appointments = _getFilteredAppointments();
+          final now = DateTime.now();
+          final appointments = _getFilteredAppointments(now);
 
           if (_provider.isLoading && _provider.appointments.isEmpty) {
             return const Center(child: CircularProgressIndicator());
@@ -178,11 +195,15 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
               children: [
                 _buildHeading(),
                 const SizedBox(height: 20),
-                _buildSummary(),
+                _buildSummary(now),
                 const SizedBox(height: 26),
                 _buildFilterHeading(),
                 const SizedBox(height: 12),
-                _buildFilters(),
+                _buildFilters(now),
+                const SizedBox(height: 18),
+                _buildDateFilterHeading(),
+                const SizedBox(height: 12),
+                _buildDateFilters(now),
                 if (_provider.isLoading) ...[
                   const SizedBox(height: 12),
                   const LinearProgressIndicator(),
@@ -193,13 +214,20 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
                 ],
                 const SizedBox(height: 20),
                 if (appointments.isEmpty)
-                  _EmptyAppointmentsState(filter: _selectedFilter)
+                  _EmptyAppointmentsState(
+                    filter: _selectedFilter,
+                    dateFilter: _selectedDateFilter,
+                  )
                 else
                   ...appointments.map(
                     (appointment) => Padding(
                       padding: const EdgeInsets.only(bottom: 14),
                       child: _StaffAppointmentCard(
                         appointment: appointment,
+                        category: AppointmentDateClassifier.classify(
+                          appointment,
+                          now: now,
+                        ),
                         isProcessing: _provider.isProcessing(
                           appointment.appointmentId,
                         ),
@@ -259,13 +287,13 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
     );
   }
 
-  Widget _buildSummary() {
+  Widget _buildSummary(DateTime now) {
     return Row(
       children: [
         Expanded(
           child: _SummaryMetric(
             title: 'Today',
-            value: _countToday(),
+            value: _countToday(now),
             icon: Icons.today_outlined,
           ),
         ),
@@ -273,7 +301,7 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
         Expanded(
           child: _SummaryMetric(
             title: 'Pending',
-            value: _countForFilter(_AppointmentFilter.pending),
+            value: _countForFilter(_AppointmentFilter.pending, now),
             icon: Icons.pending_actions_outlined,
           ),
         ),
@@ -281,7 +309,7 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
         Expanded(
           child: _SummaryMetric(
             title: 'Confirmed',
-            value: _countForFilter(_AppointmentFilter.confirmed),
+            value: _countForFilter(_AppointmentFilter.confirmed, now),
             icon: Icons.event_available_outlined,
           ),
         ),
@@ -297,13 +325,13 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
     );
   }
 
-  Widget _buildFilters() {
+  Widget _buildFilters(DateTime now) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: _AppointmentFilter.values.map((filter) {
           final selected = _selectedFilter == filter;
-          final count = _countForFilter(filter);
+          final count = _countForFilter(filter, now);
 
           return Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -336,6 +364,66 @@ class _StaffAppointmentsPageState extends State<StaffAppointmentsPage> {
       ),
     );
   }
+
+  Widget _buildDateFilterHeading() {
+    return Text(
+      'Filter by date',
+      style: Theme.of(context).textTheme.titleMedium
+          ?.copyWith(color: AppTheme.espresso, fontWeight: FontWeight.w800),
+    );
+  }
+
+  Widget _buildDateFilters(DateTime now) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: _DateFilter.values.map((filter) {
+          final selected = _selectedDateFilter == filter;
+          final count = _countForDateFilter(filter, now);
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text('${filter.label} ($count)'),
+              selected: selected,
+              onSelected: (_) {
+                setState(() => _selectedDateFilter = filter);
+              },
+              selectedColor: AppTheme.primary.withValues(alpha: 0.16),
+              backgroundColor: AppTheme.white,
+              labelStyle: TextStyle(
+                color: selected ? AppTheme.primary : AppTheme.deepBrown,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+              ),
+              side: BorderSide(
+                color: selected
+                    ? AppTheme.primary.withValues(alpha: 0.6)
+                    : AppTheme.secondary.withValues(alpha: 0.35),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+              showCheckmark: false,
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+enum _DateFilter {
+  all('All dates', null),
+  overdue('Overdue', AppointmentDateCategory.overdue),
+  today('Today', AppointmentDateCategory.today),
+  tomorrow('Tomorrow', AppointmentDateCategory.tomorrow),
+  upcoming('Upcoming', AppointmentDateCategory.upcoming),
+  history('History', AppointmentDateCategory.history);
+
+  const _DateFilter(this.label, this.category);
+
+  final String label;
+  final AppointmentDateCategory? category;
 }
 
 enum _AppointmentFilter {
@@ -402,19 +490,21 @@ class _SummaryMetric extends StatelessWidget {
 class _StaffAppointmentCard extends StatelessWidget {
   const _StaffAppointmentCard({
     required this.appointment,
+    required this.category,
     required this.isProcessing,
     required this.onConfirm,
     required this.onReject,
   });
 
   final Appointment appointment;
+  final AppointmentDateCategory category;
   final bool isProcessing;
   final VoidCallback onConfirm;
   final VoidCallback onReject;
 
   @override
   Widget build(BuildContext context) {
-    final isPending = appointment.status.toLowerCase() == 'pending';
+    final isPending = appointment.status.trim().toLowerCase() == 'pending';
 
     return Card(
       margin: EdgeInsets.zero,
@@ -443,6 +533,8 @@ class _StaffAppointmentCard extends StatelessWidget {
                 _AppointmentStatusChip(status: appointment.status),
               ],
             ),
+            const SizedBox(height: 10),
+            _AppointmentDateLabel(category: category),
             const SizedBox(height: 16),
             _AppointmentInfoRow(
               icon: Icons.calendar_today_outlined,
@@ -524,18 +616,58 @@ class _StaffAppointmentCard extends StatelessWidget {
   }
 
   String _formatDate(DateTime dateTime) {
-    final day = dateTime.day.toString().padLeft(2, '0');
-    final month = dateTime.month.toString().padLeft(2, '0');
+    final local = dateTime.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
 
-    return '$day/$month/${dateTime.year}';
+    return '$day/$month/${local.year}';
   }
 
   String _formatTime(DateTime dateTime) {
-    final hour = dateTime.hour % 12 == 0 ? 12 : dateTime.hour % 12;
-    final minute = dateTime.minute.toString().padLeft(2, '0');
-    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+    final local = dateTime.toLocal();
+    final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final minute = local.minute.toString().padLeft(2, '0');
+    final period = local.hour >= 12 ? 'PM' : 'AM';
 
     return '$hour:$minute $period';
+  }
+}
+
+/// Visual calendar grouping is separate from the persisted status.
+class _AppointmentDateLabel extends StatelessWidget {
+  const _AppointmentDateLabel({required this.category});
+
+  final AppointmentDateCategory category;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = switch (category) {
+      AppointmentDateCategory.overdue => 'Overdue',
+      AppointmentDateCategory.today => 'Today',
+      AppointmentDateCategory.tomorrow => 'Tomorrow',
+      AppointmentDateCategory.upcoming => 'Upcoming',
+      AppointmentDateCategory.history => 'History',
+    };
+
+    final color = category == AppointmentDateCategory.overdue
+        ? Colors.deepOrange.shade800
+        : AppTheme.primary;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.09),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall
+              ?.copyWith(color: color, fontWeight: FontWeight.w800),
+        ),
+      ),
+    );
   }
 }
 
@@ -609,13 +741,19 @@ class _AppointmentInfoRow extends StatelessWidget {
 }
 
 class _EmptyAppointmentsState extends StatelessWidget {
-  const _EmptyAppointmentsState({required this.filter});
+  const _EmptyAppointmentsState({
+    required this.filter,
+    required this.dateFilter,
+  });
 
   final _AppointmentFilter filter;
+  final _DateFilter dateFilter;
 
   @override
   Widget build(BuildContext context) {
-    final message = filter == _AppointmentFilter.all
+    final message = dateFilter != _DateFilter.all
+        ? 'No appointments match the selected date and status filters.'
+        : filter == _AppointmentFilter.all
         ? 'Appointments for your hospital will appear here.'
         : 'There are no ${filter.label.toLowerCase()} appointments.';
 

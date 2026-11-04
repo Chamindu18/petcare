@@ -77,7 +77,7 @@ service cloud.firestore {
         )
         && get(
           /databases/$(database)/documents/users/$(request.auth.uid)
-        ).data.hospitalId == hospitalId;
+        ).data.get('hospitalId', null) == hospitalId;
     }
 
     // Staff access requires a trusted assignment document keyed by the
@@ -92,13 +92,13 @@ service cloud.firestore {
         )
         && get(
           /databases/$(database)/documents/hospital_staff/$(request.auth.uid)
-        ).data.userId == request.auth.uid
+        ).data.get('userId', '') == request.auth.uid
         && get(
           /databases/$(database)/documents/hospital_staff/$(request.auth.uid)
-        ).data.hospitalId == hospitalId
+        ).data.get('hospitalId', null) == hospitalId
         && get(
           /databases/$(database)/documents/hospital_staff/$(request.auth.uid)
-        ).data.active == true;
+        ).data.get('active', false) == true;
     }
 
     // Shared hospital-scoped access is limited to appointment and queue
@@ -437,9 +437,40 @@ service cloud.firestore {
           'vetId',
           'dateTime',
           'reason',
-          'queueId',
           'updatedAt'
         ]);
+    }
+
+    // Queue linkage requires a newly created, matching queue record
+    // in the same atomic batch or transaction.
+    function veterinaryUserCanLinkQueue(appointmentId) {
+      let queueId = request.resource.data.get('queueId', null);
+      // Let bindings evaluate eagerly; malformed IDs must not form invalid paths.
+      let pathId = queueId is string && queueId.size() > 0
+        ? queueId : '__invalid__';
+      let queuePath =
+        /databases/$(database)/documents/queue_records/$(pathId);
+
+      return isVeterinaryUserForHospital(resource.data.hospitalId)
+        && resource.data.status == 'confirmed'
+        && request.resource.data.status == 'confirmed'
+        && appointmentIdentityIsPreserved()
+        && resource.data.get('queueId', null) == null
+        && queueId is string
+        && queueId.size() > 0
+        && request.resource.data.diff(resource.data)
+          .affectedKeys().hasOnly(['queueId', 'updatedAt'])
+        && request.resource.data.diff(resource.data)
+          .affectedKeys().hasAll(['queueId'])
+        && request.resource.data.updatedAt == request.time
+        && !exists(queuePath)
+        && existsAfter(queuePath)
+        && getAfter(queuePath).data.queueId == queueId
+        && getAfter(queuePath).data.appointmentId == appointmentId
+        && getAfter(queuePath).data.hospitalId
+          == resource.data.hospitalId
+        && getAfter(queuePath).data.ownerId == resource.data.ownerId
+        && getAfter(queuePath).data.petId == resource.data.petId;
     }
 
     match /appointments/{appointmentId} {
@@ -448,8 +479,8 @@ service cloud.firestore {
       // must include a matching hospitalId filter for Firestore to prove scope.
       allow read: if signedIn()
         && (
-          resource.data.ownerId == request.auth.uid
-          || isVeterinaryUserForHospital(resource.data.hospitalId)
+          resource.data.get('ownerId', null) == request.auth.uid
+          || isVeterinaryUserForHospital(resource.data.get('hospitalId', null))
         );
 
       // New appointments must begin in the pending state and belong to the
@@ -461,13 +492,43 @@ service cloud.firestore {
 
       // Keep ordinary edits separate from status transitions. This prevents
       // owners from self-confirming and hospital users from self-cancelling.
+      // Select queue linkage exclusively: a failed linkage must not evaluate
+      // every ordinary-edit authorization branch and exhaust the expression
+      // budget. The selected predicate still enforces the full authorization.
       allow update: if signedIn()
-        && (
-          ownerCanEditPendingAppointment()
-          || ownerCanCancelAppointment()
-          || veterinaryUserCanDecideAppointment()
-          || veterinaryUserCanEditAppointmentDetails()
-        );
+        && (request.resource.data.diff(resource.data)
+          .affectedKeys().hasAny(['queueId'])
+          ? veterinaryUserCanLinkQueue(appointmentId)
+          : (
+              (
+                resource.data.get('ownerId', null) == request.auth.uid
+                && resource.data.status == 'pending'
+                && request.resource.data.status == 'pending'
+                && ownerCanEditPendingAppointment()
+              )
+              || (
+                resource.data.get('ownerId', null) == request.auth.uid
+                && request.resource.data.status == 'cancelled'
+                && ownerCanCancelAppointment()
+              )
+              || (
+                resource.data.status == 'pending'
+                && request.resource.data.status in ['confirmed', 'rejected']
+                && veterinaryUserCanDecideAppointment()
+              )
+              || (
+                resource.data.status in ['pending', 'confirmed']
+                && request.resource.data.status == resource.data.status
+                && request.resource.data.diff(resource.data)
+                  .affectedKeys().hasOnly([
+                    'vetId',
+                    'dateTime',
+                    'reason',
+                    'updatedAt'
+                  ])
+                && veterinaryUserCanEditAppointmentDetails()
+              )
+          ));
 
       // Retain the existing owner deletion policy. Cancellation is preferred
       // for preserving appointment history and associated queue references.
@@ -479,39 +540,191 @@ service cloud.firestore {
     // Queue Records
     // ============================================================
 
-    match /queue_records/{queueId} {
-      // Hospital staff and assigned veterinarians must use a hospitalId-scoped
-      // query when listing queue records.
-      allow read: if signedIn()
-        && (
-          resource.data.ownerId == request.auth.uid
-          || isVeterinaryUserForHospital(resource.data.hospitalId)
-        );
+    // queue_days is an atomic allocation ledger, one document per hospital/day.
+    // day is UTC midnight representing the Asia/Colombo calendar date.
+    function queueDateKey(day) {
+      return string(day.year()) + '-'
+        + (day.month() < 10 ? '0' : '') + string(day.month()) + '-'
+        + (day.day() < 10 ? '0' : '') + string(day.day());
+    }
 
-      // Queue creation is restricted to a veterinary user assigned to the
-      // hospital named on the new queue record.
-      allow create: if isVeterinaryUserForHospital(
-        request.resource.data.hospitalId
-      );
+    function appointmentIsToday(value, day) {
+      let today = queueDateKey(day);
+      let yesterday = queueDateKey(day - duration.value(1, 'd'));
+      // Existing models store either local wall time (no suffix) or UTC Z.
+      return (value is timestamp
+          && (value + duration.value(330, 'm')).date() == day)
+        || (value is string && (
+        value.matches(today + 'T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]+)?')
+        || value.matches(today + 'T(0[0-9]|1[0-7]):[0-5][0-9]:[0-5][0-9](\\.[0-9]+)?Z')
+        || value.matches(today + 'T18:[0-2][0-9]:[0-5][0-9](\\.[0-9]+)?Z')
+        || value.matches(yesterday + 'T(18:[3-5][0-9]|19:[0-5][0-9]|2[0-3]:[0-5][0-9]):[0-5][0-9](\\.[0-9]+)?Z')
+      ));
+    }
 
-      // Immutable relationship fields cannot be reassigned during updates.
-      // Queue state fields remain mutable for the hospital's veterinary users.
-      allow update: if isVeterinaryUserForHospital(resource.data.hospitalId)
-        && request.resource.data.ownerId == resource.data.ownerId
-        && request.resource.data.petId == resource.data.petId
-        && request.resource.data.appointmentId == resource.data.appointmentId
-        && request.resource.data.hospitalId == resource.data.hospitalId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'status',
+    function validQueueAllocation(data) {
+      let key = data.dayKey is string ? data.dayKey : '__invalid__';
+      let counterPath = /databases/$(database)/documents/hospitals/$(data.hospitalId)/queue_days/$(key);
+      return data.day is timestamp
+        && data.day == (request.time + duration.value(330, 'm')).date()
+        && data.dayKey == queueDateKey(data.day)
+        && data.updatedAt == request.time
+        && getAfter(counterPath).data.lastNumber == data.queueNumber
+        && getAfter(counterPath).data.queueId == data.queueId
+        && getAfter(counterPath).data.updatedAt == request.time;
+    }
+
+    function validQueueDay(hospitalId, dayKey) {
+      let data = request.resource.data;
+      let queueId = data.get('queueId', null);
+      let pathId = queueId is string && queueId.size() > 0 ? queueId : '__invalid__';
+      let queuePath = /databases/$(database)/documents/queue_records/$(pathId);
+      return data.keys().hasOnly(['lastNumber', 'queueId', 'day', 'updatedAt'])
+        && data.keys().hasAll(['lastNumber', 'queueId', 'day', 'updatedAt'])
+        && data.lastNumber is int && data.lastNumber > 0
+        && data.queueId is string && data.queueId.size() > 0
+        && data.day is timestamp
+        && data.day == (request.time + duration.value(330, 'm')).date()
+        && dayKey == queueDateKey(data.day)
+        && data.updatedAt == request.time
+        && !exists(queuePath)
+        && existsAfter(queuePath)
+        && getAfter(queuePath).data.hospitalId == hospitalId
+        && getAfter(queuePath).data.dayKey == dayKey
+        && getAfter(queuePath).data.queueNumber == data.lastNumber;
+    }
+
+    match /hospitals/{hospitalId}/queue_days/{dayKey} {
+      allow read: if isVeterinaryUserForHospital(hospitalId);
+      allow create: if isVeterinaryUserForHospital(hospitalId)
+        && validQueueDay(hospitalId, dayKey) && request.resource.data.lastNumber == 1;
+      allow update: if isVeterinaryUserForHospital(hospitalId)
+        && validQueueDay(hospitalId, dayKey)
+        && request.resource.data.lastNumber == resource.data.lastNumber + 1;
+      allow delete: if false;
+    }
+
+    // A queue record must refer to a real, confirmed appointment.
+    // Both identity relationships and hospital membership must match.
+    //
+    // getAfter() requires the appointment to be linked to this queue
+    // in the same atomic batch/transaction.
+    function validQueueCreation(queueId) {
+      let data = request.resource.data;
+      let appointmentId = data.get('appointmentId', null);
+      let pathId = appointmentId is string && appointmentId.size() > 0
+        ? appointmentId : '__invalid__';
+      let appointmentPath =
+        /databases/$(database)/documents/appointments/$(pathId);
+
+      return data.keys().hasAll([
+          'queueId',
+          'appointmentId',
+          'hospitalId',
+          'ownerId',
+          'petId',
           'queueNumber',
           'currentServing',
           'position',
-          'updatedAt'
-        ]);
+          'status',
+          'updatedAt',
+          'day',
+          'dayKey'
+        ])
+        && data.keys().hasOnly(['queueId', 'appointmentId', 'hospitalId', 'ownerId', 'petId', 'queueNumber', 'currentServing', 'position', 'status', 'updatedAt', 'day', 'dayKey'])
+        && validQueueAllocation(data)
+        && data.ownerId is string && data.ownerId.size() > 0
+        && data.petId is string && data.petId.size() > 0
+        && data.queueId == queueId
+        && data.appointmentId is string
+        && data.appointmentId.size() > 0
+        && data.status == 'waiting'
+        && data.queueNumber is int
+        && data.queueNumber > 0
+        && data.currentServing is int
+        && data.currentServing >= 0
+        && data.position is int
+        && data.position >= 0
+        && exists(appointmentPath)
+        && appointmentIsToday(get(appointmentPath).data.dateTime, data.day)
+        && get(appointmentPath).data.vetId is string
+        && get(appointmentPath).data.vetId.size() > 0
+        && get(appointmentPath).data.status == 'confirmed'
+        && get(appointmentPath).data.get('queueId', null) == null
+        && get(appointmentPath).data.hospitalId == data.hospitalId
+        && get(appointmentPath).data.ownerId == data.ownerId
+        && get(appointmentPath).data.petId == data.petId
+        && getAfter(appointmentPath).data.get('queueId', null) == queueId;
+    }
 
-      // Deletes authorize against the existing record. request.resource is
-      // undefined for deletes and must not be used here.
-      allow delete: if isVeterinaryUserForHospital(resource.data.hospitalId);
+    // The queue lifecycle is forward-only.
+    // Completed entries cannot be reopened or mutated.
+    function validQueueTransition() {
+      return (
+          resource.data.status == 'waiting'
+          && request.resource.data.status == 'in_consultation'
+        )
+        || (
+          resource.data.status == 'in_consultation'
+          && request.resource.data.status == 'completed'
+        );
+    }
+
+    match /queue_records/{queueId} {
+      // Owners and appropriately assigned veterinary users retain
+      // hospital-scoped read access.
+      allow read: if signedIn()
+        && (
+          resource.data.get('ownerId', null) == request.auth.uid
+          || isVeterinaryUserForHospital(resource.data.get('hospitalId', null))
+        );
+
+      // A valid appointment and atomic appointment linkage are
+      // mandatory for queue creation.
+      allow create: if isVeterinaryUserForHospital(
+          request.resource.data.get('hospitalId', null)
+        )
+        && validQueueCreation(queueId);
+
+      // Preserve queue identities and assigned queue numbers.
+      // A status change must move exactly one stage forward.
+      allow update: if isVeterinaryUserForHospital(
+          resource.data.hospitalId
+        )
+        && request.resource.data.queueId == resource.data.queueId
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.petId == resource.data.petId
+        && request.resource.data.appointmentId
+          == resource.data.appointmentId
+        && request.resource.data.hospitalId
+          == resource.data.hospitalId
+        && request.resource.data.queueNumber
+          == resource.data.queueNumber
+        && request.resource.data.currentServing is int
+        && request.resource.data.currentServing >= 0
+        && request.resource.data.position is int
+        && request.resource.data.position >= 0
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data)
+          .affectedKeys().hasOnly([
+            'status',
+            'currentServing',
+            'position',
+            'updatedAt'
+          ])
+        && (
+          validQueueTransition()
+          || (
+            resource.data.status in [
+              'waiting',
+              'in_consultation'
+            ]
+            && request.resource.data.status == resource.data.status
+          )
+        );
+
+      // Queue records are retained for audit/history purposes.
+      allow delete: if false;
     }
 
     // ============================================================
