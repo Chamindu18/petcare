@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:petcare/features/queue/domain/entities/queue.dart';
+import 'package:petcare/features/queue/domain/repositories/queue_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:petcare/features/appointments/domain/entities/appointment.dart';
@@ -167,6 +169,16 @@ class _FakeAuthRepository implements AuthRepository {
   }
 }
 
+class _FakeQueueRepository implements StaffQueueCommandRepository {
+  @override
+  Future<List<Queue>> getHospitalQueue({
+    required String hospitalId,
+    required DateTime date,
+  }) async => [];
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _TestRepositories {
   final hospital = _FakeHospitalRepository();
   final appointments = _FakeAppointmentRepository();
@@ -187,6 +199,7 @@ Future<void> _pumpShell(
         appointmentRepository: repositories.appointments,
         profileRepository: repositories.profile,
         authRepository: repositories.auth,
+        queueRepository: _FakeQueueRepository(),
       ),
     ),
   );
@@ -281,7 +294,7 @@ void main() {
       await _selectTab(tester, 'Queue');
 
       expect(find.widgetWithText(AppBar, 'Queue'), findsOneWidget);
-      expect(find.text('Queue Management'), findsOneWidget);
+      expect(find.text("Today's Queue"), findsOneWidget);
 
       // Profile
       await _selectTab(tester, 'Profile');
@@ -307,12 +320,11 @@ void main() {
         'hospital-001',
       ]);
 
-      expect(repositories.appointments.hospitalAppointmentCallCount, 3);
-      expect(repositories.appointments.requestedHospitalIds, [
-        'hospital-001',
-        'hospital-001',
-        'hospital-001',
-      ]);
+      expect(repositories.appointments.hospitalAppointmentCallCount, 4);
+      expect(
+        repositories.appointments.requestedHospitalIds,
+        List.filled(4, 'hospital-001'),
+      );
 
       expect(repositories.profile.watchCount, 1);
       expect(repositories.profile.updateCount, 0);

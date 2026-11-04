@@ -53,6 +53,8 @@ class StaffQueueEligibility {
     required Appointment appointment,
     required String assignedHospitalId,
     DateTime? now,
+    // Use the backend hospital offset when the device timezone may differ.
+    Duration? utcOffset,
   }) {
     final trustedHospitalId = assignedHospitalId.trim();
 
@@ -84,8 +86,12 @@ class StaffQueueEligibility {
       );
     }
 
-    final current = (now ?? DateTime.now()).toLocal();
-    final scheduled = appointment.dateTime.toLocal();
+    final current = utcOffset == null
+        ? (now ?? DateTime.now()).toLocal()
+        : (now ?? DateTime.now()).toUtc().add(utcOffset);
+    final scheduled = utcOffset == null
+        ? appointment.dateTime.toLocal()
+        : appointment.dateTime.toUtc().add(utcOffset);
 
     final isToday =
         current.year == scheduled.year &&
