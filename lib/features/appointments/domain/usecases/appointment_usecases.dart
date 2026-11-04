@@ -75,9 +75,8 @@ class RejectAppointment {
   }
 }
 
-
-
-/// Gets appointments assigned to a veterinarian within a hospital.
+/// Gets appoint
+/// Gets assigned to a veterinarian within a hospital.
 class GetAppointmentsByVeterinarian {
   const GetAppointmentsByVeterinarian(this._repository);
 
