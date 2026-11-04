@@ -30,3 +30,12 @@ abstract interface class AppointmentRepository {
   /// Rejects a pending appointment.
   Future<void> rejectAppointment(String appointmentId);
 }
+
+/// Hospital staff scheduling commands, separate from owner editing.
+abstract interface class AppointmentAssignmentRepository {
+  Future<void> reassignVeterinarian({
+    required String appointmentId,
+    required String hospitalId,
+    required String vetId,
+  });
+}

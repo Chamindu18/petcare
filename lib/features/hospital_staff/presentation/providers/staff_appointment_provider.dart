@@ -92,6 +92,31 @@ class StaffAppointmentProvider extends ChangeNotifier {
     );
   }
 
+  Future<bool> reassignVeterinarian(String appointmentId, String vetId) async {
+    if (_isDisposed || isProcessing(appointmentId)) return false;
+    final repository = _repository;
+    if (repository is! AppointmentAssignmentRepository) return false;
+    _processingAppointmentIds.add(appointmentId);
+    _actionErrorMessage = null;
+    _notifyIfActive();
+    try {
+      await (repository as AppointmentAssignmentRepository)
+          .reassignVeterinarian(
+            appointmentId: appointmentId,
+            hospitalId: _hospitalId,
+            vetId: vetId,
+          );
+      await loadAppointments();
+      return true;
+    } catch (error) {
+      if (!_isDisposed) _actionErrorMessage = 'Unable to reassign: $error';
+      return false;
+    } finally {
+      _processingAppointmentIds.remove(appointmentId);
+      _notifyIfActive();
+    }
+  }
+
   Future<bool> _performDecision({
     required String appointmentId,
     required Future<void> Function(String) action,

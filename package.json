@@ -3,8 +3,9 @@
   "private": true,
   "description": "Firestore Emulator security tests for PetCare+ workflows",
   "scripts": {
-    "test:rules": "firebase emulators:exec --only firestore --project demo-petcare \"node --test --test-concurrency=1 test/firestore/rules.test.mjs test/firestore/recipient_backfill_plan.test.mjs test/firestore/appointment_rules.test.mjs test/firestore/queue_rules.test.mjs\"",
-    "backfill:adoption-request-recipients": "node scripts/backfill-adoption-request-recipients.mjs"
+    "test:rules": "firebase emulators:exec --only firestore --project demo-petcare \"node --test --test-concurrency=1 test/firestore/rules.test.mjs test/firestore/recipient_backfill_plan.test.mjs test/firestore/appointment_rules.test.mjs test/firestore/queue_rules.test.mjs test/firestore/appointment_concurrency.test.mjs functions/test/appointment_concurrency.test.mjs\"",
+    "backfill:adoption-request-recipients": "node scripts/backfill-adoption-request-recipients.mjs",
+    "test:booking": "node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only auth,functions,firestore --project demo-petcare \"node --test functions/test/callable_transport.test.mjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "4.0.1",

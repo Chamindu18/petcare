@@ -23,7 +23,12 @@ class FirebaseVeterinarianRepository implements VeterinarianRepository {
         .get();
 
     return snapshot.docs
-        .map((document) => VeterinarianModel.fromMap(document.data()))
+        .map(
+          (document) => VeterinarianModel.fromMap({
+            ...document.data(),
+            'vetId': document.id,
+          }),
+        )
         .toList();
   }
 
@@ -38,7 +43,12 @@ class FirebaseVeterinarianRepository implements VeterinarianRepository {
         .get();
 
     return snapshot.docs
-        .map((document) => VeterinarianModel.fromMap(document.data()))
+        .map(
+          (document) => VeterinarianModel.fromMap({
+            ...document.data(),
+            'vetId': document.id,
+          }),
+        )
         .toList();
   }
 
@@ -57,6 +67,6 @@ class FirebaseVeterinarianRepository implements VeterinarianRepository {
       return null;
     }
 
-    return VeterinarianModel.fromMap(data);
+    return VeterinarianModel.fromMap({...data, 'vetId': document.id});
   }
 }

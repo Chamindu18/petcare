@@ -58,7 +58,7 @@ async function seedVeterinarian(db, uid, hospitalId, fullName) {
     hospitalId,
     fullName,
     role: 'veterinarian',
-    isActive: true,
+    active: true,
     createdAt: new Date(),
     updatedAt: new Date(),
   });
@@ -468,7 +468,7 @@ describe('PET SECURITY', function () {
 // ================================================================
 
 describe('APPOINTMENT SECURITY', function () {
-  it('owner can create and read their own appointment', async function () {
+  it('owner must use the trusted scheduler and can read the resulting appointment', async function () {
     const ownerContext = testEnv.authenticatedContext('owner-a');
     const ownerDb = ownerContext.firestore();
 
@@ -490,20 +490,26 @@ describe('APPOINTMENT SECURITY', function () {
       'appointment-a',
     );
 
-    await assertSucceeds(
-      setDoc(appointmentRef, {
+    const booking = writeBatch(ownerDb);
+    const dateTime = new Date();
+    booking.set(appointmentRef, {
         ownerId: 'owner-a',
         petId: 'pet-a',
         hospitalId: 'hospital-a',
         serviceId: 'service-a',
-        veterinarianId: 'vet-a',
-        appointmentDate: new Date(),
+        vetId: 'vet-a',
+        dateTime,
         reason: 'Routine checkup',
         status: 'pending',
         createdAt: new Date(),
         updatedAt: new Date(),
-      }),
-    );
+      });
+    booking.set(doc(ownerDb, 'appointment_schedule', 'appointment-a'), {
+      vetId: 'vet-a', hospitalId: 'hospital-a', serviceId: 'service-a',
+      dateTime, status: 'pending',
+    });
+    await assertFails(booking.commit());
+    await seedAppointment('appointment-a');
 
     await assertSucceeds(
       getDoc(appointmentRef),

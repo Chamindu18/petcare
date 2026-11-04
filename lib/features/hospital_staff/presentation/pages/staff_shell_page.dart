@@ -5,10 +5,12 @@ import '../../../appointments/domain/repositories/appointment_repository.dart';
 import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../hospitals/domain/repositories/hospital_repository.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
+import '../../../queue/domain/repositories/queue_repository.dart';
 import '../../domain/entities/hospital_staff_assignment.dart';
 import 'staff_appointments_page.dart';
 import 'staff_hospital_overview_page.dart';
 import 'staff_profile_page.dart';
+import 'staff_queue_page.dart';
 
 /// Main navigation shell for an authenticated hospital staff member.
 ///
@@ -22,6 +24,7 @@ class StaffShellPage extends StatefulWidget {
     this.appointmentRepository,
     this.profileRepository,
     this.authRepository,
+    this.queueRepository,
   });
 
   final HospitalStaffAssignment assignment;
@@ -29,6 +32,7 @@ class StaffShellPage extends StatefulWidget {
   final AppointmentRepository? appointmentRepository;
   final ProfileRepository? profileRepository;
   final AuthRepository? authRepository;
+  final StaffQueueCommandRepository? queueRepository;
 
   @override
   State<StaffShellPage> createState() => _StaffShellPageState();
@@ -37,10 +41,12 @@ class StaffShellPage extends StatefulWidget {
 class _StaffShellPageState extends State<StaffShellPage> {
   int _currentIndex = 0;
   int _overviewRevision = 0;
+  int _appointmentsRevision = 0;
 
   // Avoid starting profile-related Firebase reads until the Profile tab
   // has actually been opened. Keep it mounted afterward using IndexedStack.
   bool _hasOpenedProfile = false;
+  bool _hasOpenedQueue = false;
 
   static const List<_StaffNavItem> _navigationItems = [
     _StaffNavItem(label: 'Overview', icon: Icons.dashboard_rounded),
@@ -61,6 +67,8 @@ class _StaffShellPageState extends State<StaffShellPage> {
         _overviewRevision++;
       }
 
+      if (index == 1) _appointmentsRevision++;
+      if (index == 3) _hasOpenedQueue = true;
       if (index == 4) {
         _hasOpenedProfile = true;
       }
@@ -80,6 +88,7 @@ class _StaffShellPageState extends State<StaffShellPage> {
       _currentIndex = 0;
       _overviewRevision++;
       _hasOpenedProfile = false;
+      _hasOpenedQueue = false;
     }
   }
 
@@ -96,6 +105,9 @@ class _StaffShellPageState extends State<StaffShellPage> {
         onOpenAppointments: () => _onTabSelected(1),
       ),
       StaffAppointmentsPage(
+        key: ValueKey(
+          'staff-appointments-${assignment.hospitalId}-$_appointmentsRevision',
+        ),
         hospitalId: assignment.hospitalId,
         repository: widget.appointmentRepository,
       ),
@@ -106,13 +118,19 @@ class _StaffShellPageState extends State<StaffShellPage> {
             'View the hospital schedule and appointments grouped '
             'by veterinarian and date.',
       ),
-      const _StaffSectionPage(
-        icon: Icons.groups_rounded,
-        title: 'Queue Management',
-        description:
-            'Manage patient check-ins, queue numbers, '
-            'and consultation progress.',
-      ),
+      if (_hasOpenedQueue)
+        StaffQueuePage(
+          key: ValueKey(
+            'staff-queue-${assignment.userId}-${assignment.hospitalId}',
+          ),
+          hospitalId: assignment.hospitalId,
+          appointmentRepository: widget.appointmentRepository,
+          queueRepository: widget.queueRepository,
+          isActive: _currentIndex == 3,
+          onQueueChanged: () => setState(() => _appointmentsRevision++),
+        )
+      else
+        const SizedBox.shrink(),
       if (_hasOpenedProfile)
         StaffProfilePage(
           key: ValueKey(

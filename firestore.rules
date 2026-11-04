@@ -65,19 +65,65 @@ service cloud.firestore {
         ).data.ownerId == request.auth.uid;
     }
 
-    // Veterinarians retain their existing authenticated assignment path.
-    // The veterinarian directory remains separate from staff assignments.
+    // Trusted users.vetId links an account to a directory record. Legacy
+    // UID-keyed records are supported only with a matching userId.
+    function currentVeterinarianId() {
+      let value = get(/databases/$(database)/documents/users/$(request.auth.uid))
+        .data.get('vetId', null);
+      return value is string && value.size() > 0 ? value : request.auth.uid;
+    }
+
     function isVeterinarianForHospital(hospitalId) {
-      return signedIn()
-        && hospitalId is string
+      let vetId = currentVeterinarianId();
+      let directoryPath = /databases/$(database)/documents/veterinarians/$(vetId);
+      return isVeterinarian()
+        && hospitalId is string && hospitalId.size() > 0
         && hospitalId != 'unassigned'
-        && isVeterinarian()
-        && exists(
-          /databases/$(database)/documents/veterinarians/$(request.auth.uid)
-        )
-        && get(
-          /databases/$(database)/documents/users/$(request.auth.uid)
-        ).data.get('hospitalId', null) == hospitalId;
+        && exists(directoryPath)
+        && get(directoryPath).data.get('active', false) == true
+        && get(directoryPath).data.get('userId', '') == request.auth.uid
+        && get(directoryPath).data.get('vetId', vetId) == vetId
+        && validVeterinarianAccount(vetId, hospitalId, request.auth.uid)
+        && get(directoryPath).data.hospitalId == hospitalId
+        && get(/databases/$(database)/documents/users/$(request.auth.uid))
+          .data.get('hospitalId', null) == hospitalId;
+    }
+
+    function assignedVeterinarian(data) {
+      return isVeterinarian()
+        && data.get('vetId', null) == currentVeterinarianId()
+        && isVeterinarianForHospital(data.hospitalId);
+    }
+
+    function appointmentClinician(data) {
+      return isVeterinaryStaffForHospital(data.hospitalId)
+        || assignedVeterinarian(data);
+    }
+
+    function validVeterinarianAccount(vetId, hospitalId, userId) {
+      let pathId = userId is string && userId.size() > 0 ? userId : '__invalid__';
+      let path = /databases/$(database)/documents/users/$(pathId);
+      return userId is string && userId.size() > 0 && exists(path)
+        && get(path).data.get('role', '') == 'veterinarian'
+        && get(path).data.get('hospitalId', null) == hospitalId
+        && (get(path).data.get('vetId', null) == vetId
+          || (get(path).data.get('vetId', null) == null && userId == vetId));
+    }
+
+    // Directory IDs are canonical; only trusted provisioning controls active
+    // membership. Booking requires the matching provisioned doctor account.
+    function validAppointmentVeterinarian(data) {
+      let vetId = data.get('vetId', null);
+      let pathId = vetId is string && vetId.size() > 0 ? vetId : '__invalid__';
+      let path = /databases/$(database)/documents/veterinarians/$(pathId);
+      return vetId is string && vetId.size() > 0
+        && data.hospitalId is string && data.hospitalId.size() > 0
+        && data.hospitalId != 'unassigned'
+        && exists(path)
+        && get(path).data.get('active', false) == true
+        && get(path).data.hospitalId == data.hospitalId
+        && get(path).data.get('vetId', vetId) == vetId
+        && validVeterinarianAccount(vetId, data.hospitalId, get(path).data.get('userId', null));
     }
 
     // Staff access requires a trusted assignment document keyed by the
@@ -355,14 +401,19 @@ service cloud.firestore {
       allow create: if isVeterinarian()
         && veterinarianId == request.auth.uid
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.hospitalId == 'unassigned';
+        && request.resource.data.hospitalId == 'unassigned'
+        && request.resource.data.get('active', false) == false;
 
       // Users cannot alter their identity or hospital assignment themselves.
       allow update: if isVeterinarian()
-        && veterinarianId == request.auth.uid
+        && veterinarianId == currentVeterinarianId()
         && resource.data.userId == request.auth.uid
         && request.resource.data.userId == resource.data.userId
-        && request.resource.data.hospitalId == resource.data.hospitalId;
+        && request.resource.data.hospitalId == resource.data.hospitalId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'fullName', 'profileImageUrl', 'specialty', 'qualifications',
+          'experienceYears', 'bio', 'updatedAt'
+        ]);
 
       allow delete: if isVeterinarian()
         && veterinarianId == request.auth.uid;
@@ -380,19 +431,19 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt;
     }
 
-    // Owners may edit scheduling details only while an appointment is pending.
-    // Status changes are handled by the dedicated transition predicates below.
+    // Owners may edit pending notes directly. Slot changes use the trusted
+    // scheduler; status changes use the dedicated transition predicates below.
     function ownerCanEditPendingAppointment() {
       return isOwner()
         && resource.data.ownerId == request.auth.uid
         && resource.data.status == 'pending'
         && request.resource.data.status == resource.data.status
+        && resource.data.get('queueId', null) == null
+        && validAppointmentVeterinarian(request.resource.data)
+        && request.resource.data.updatedAt == request.time
         && appointmentIdentityIsPreserved()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'dateTime',
           'reason',
-          'vetId',
-          'serviceId',
           'updatedAt'
         ]);
     }
@@ -415,9 +466,11 @@ service cloud.firestore {
     // Assigned staff and veterinarians may confirm or reject pending appointments.
     // A status decision cannot be combined with edits to other appointment fields.
     function veterinaryUserCanDecideAppointment() {
-      return isVeterinaryUserForHospital(resource.data.hospitalId)
+      return appointmentClinician(resource.data)
         && resource.data.status == 'pending'
         && request.resource.data.status in ['confirmed', 'rejected']
+        && (request.resource.data.status == 'rejected'
+          || validAppointmentVeterinarian(request.resource.data))
         && appointmentIdentityIsPreserved()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status',
@@ -426,16 +479,19 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
     }
 
-    // Preserve the existing hospital-side scheduling fields, but do not permit
-    // these edits to change the appointment status or immutable relationships.
+    // Hospital users may edit notes without changing status or relationships.
+    // All scheduling mutations must use the trusted transaction service.
     function veterinaryUserCanEditAppointmentDetails() {
-      return isVeterinaryUserForHospital(resource.data.hospitalId)
+      return appointmentClinician(resource.data)
+        && (request.resource.data.vetId == resource.data.vetId
+          || isVeterinaryStaffForHospital(resource.data.hospitalId))
         && resource.data.status in ['pending', 'confirmed']
         && request.resource.data.status == resource.data.status
+        && resource.data.get('queueId', null) == null
+        && validAppointmentVeterinarian(request.resource.data)
+        && request.resource.data.updatedAt == request.time
         && appointmentIdentityIsPreserved()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'vetId',
-          'dateTime',
           'reason',
           'updatedAt'
         ]);
@@ -451,7 +507,7 @@ service cloud.firestore {
       let queuePath =
         /databases/$(database)/documents/queue_records/$(pathId);
 
-      return isVeterinaryUserForHospital(resource.data.hospitalId)
+      return appointmentClinician(resource.data)
         && resource.data.status == 'confirmed'
         && request.resource.data.status == 'confirmed'
         && appointmentIdentityIsPreserved()
@@ -473,6 +529,44 @@ service cloud.firestore {
         && getAfter(queuePath).data.petId == resource.data.petId;
     }
 
+    // Privacy-preserving availability projection. No owner, pet or reason.
+    function scheduleMatchesAppointment(appointmentId, data) {
+      let appointment = getAfter(/databases/$(database)/documents/appointments/$(appointmentId)).data;
+      return data.keys().hasOnly(['vetId', 'hospitalId', 'serviceId', 'dateTime', 'status', 'durationMinutes'])
+        && data.get('durationMinutes', null) == appointment.get('durationMinutes', null)
+        && data.vetId == appointment.vetId
+        && data.hospitalId == appointment.hospitalId
+        && data.serviceId == appointment.serviceId
+        && data.dateTime == appointment.dateTime
+        && data.status == appointment.status;
+    }
+
+    function appointmentScheduleIsConsistent(appointmentId) {
+      let path = /databases/$(database)/documents/appointment_schedule/$(appointmentId);
+      // Legacy appointments remain operable until their first projected update.
+      return !exists(path)
+        || (existsAfter(path)
+          && scheduleMatchesAppointment(appointmentId, getAfter(path).data));
+    }
+
+    match /appointment_schedule/{appointmentId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && scheduleMatchesAppointment(appointmentId, request.resource.data)
+        && (getAfter(/databases/$(database)/documents/appointments/$(appointmentId))
+              .data.ownerId == request.auth.uid
+          || appointmentClinician(getAfter(/databases/$(database)/documents/appointments/$(appointmentId)).data));
+      allow delete: if signedIn()
+        && get(/databases/$(database)/documents/appointments/$(appointmentId)).data.ownerId == request.auth.uid
+        && !existsAfter(/databases/$(database)/documents/appointments/$(appointmentId));
+    }
+
+    // Server-only mutex, one per canonical veterinarian ID. No PII or client
+    // reads/writes; Admin transactions use it to serialize schedule mutations.
+    match /appointment_booking_locks/{vetId} {
+      allow read, write: if false;
+    }
+
     match /appointments/{appointmentId} {
       // Owners can read their own appointments. Active staff and assigned
       // veterinarians can read appointments in their hospital. List queries
@@ -480,15 +574,14 @@ service cloud.firestore {
       allow read: if signedIn()
         && (
           resource.data.get('ownerId', null) == request.auth.uid
-          || isVeterinaryUserForHospital(resource.data.get('hospitalId', null))
+          || isVeterinaryStaffForHospital(resource.data.get('hospitalId', null))
+          || assignedVeterinarian(resource.data)
         );
 
-      // New appointments must begin in the pending state and belong to the
-      // authenticated owner, who must own the referenced pet.
-      allow create: if isOwner()
-        && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.status == 'pending'
-        && ownsPet(request.resource.data.petId);
+      // Scheduling is trusted-server-only: client batches/transactions cannot
+      // prove absence of overlapping query results. The callable verifies the
+      // same owner, staff and directory relationships inside its transaction.
+      allow create: if false;
 
       // Keep ordinary edits separate from status transitions. This prevents
       // owners from self-confirming and hospital users from self-cancelling.
@@ -496,6 +589,7 @@ service cloud.firestore {
       // every ordinary-edit authorization branch and exhaust the expression
       // budget. The selected predicate still enforces the full authorization.
       allow update: if signedIn()
+        && appointmentScheduleIsConsistent(appointmentId)
         && (request.resource.data.diff(resource.data)
           .affectedKeys().hasAny(['queueId'])
           ? veterinaryUserCanLinkQueue(appointmentId)
@@ -533,7 +627,9 @@ service cloud.firestore {
       // Retain the existing owner deletion policy. Cancellation is preferred
       // for preserving appointment history and associated queue references.
       allow delete: if isOwner()
-        && resource.data.ownerId == request.auth.uid;
+        && resource.data.ownerId == request.auth.uid
+        && resource.data.get('queueId', null) == null
+        && !existsAfter(/databases/$(database)/documents/appointment_schedule/$(appointmentId));
     }
 
     // ============================================================
