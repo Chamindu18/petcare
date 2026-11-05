@@ -6,9 +6,8 @@ import '../models/hospital_model.dart';
 
 /// Firebase implementation of the hospital repository.
 class FirebaseHospitalRepository implements HospitalRepository {
-  FirebaseHospitalRepository({
-    FirebaseFirestore? firestore,
-  }) : _firestore = firestore ?? FirebaseFirestore.instance;
+  FirebaseHospitalRepository({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -41,6 +40,6 @@ class FirebaseHospitalRepository implements HospitalRepository {
       return null;
     }
 
-    return HospitalModel.fromMap(data);
+    return HospitalModel.fromMap({...data, 'hospitalId': document.id});
   }
 }

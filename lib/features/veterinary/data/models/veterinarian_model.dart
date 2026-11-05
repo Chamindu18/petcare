@@ -19,14 +19,29 @@ class VeterinarianModel extends Veterinarian {
     return VeterinarianModel(
       vetId: map['vetId'] as String,
       hospitalId: map['hospitalId'] as String,
-      name: map['name'] as String,
-      profileImageUrl: map['profileImageUrl'] as String?,
-      specialty: map['specialty'] as String?,
-      qualifications: map['qualifications'] as String?,
-      experienceYears: (map['experienceYears'] as num?)?.toInt(),
-      bio: map['bio'] as String?,
+      name: map['name'] is String ? map['name'] as String : 'Veterinarian',
+      profileImageUrl: map['profileImageUrl'] is String
+          ? map['profileImageUrl'] as String
+          : null,
+      specialty: map['specialty'] is String ? map['specialty'] as String : null,
+      qualifications: map['qualifications'] is String
+          ? map['qualifications'] as String
+          : null,
+      experienceYears: _experienceYears(map['experienceYears']),
+      bio: map['bio'] is String ? map['bio'] as String : null,
       active: map['active'] as bool,
     );
+  }
+
+  static int? _experienceYears(Object? value) {
+    final number = value is num
+        ? value
+        : value is String
+        ? num.tryParse(value)
+        : null;
+    return number != null && number.isFinite && number >= 0
+        ? number.toInt()
+        : null;
   }
 
   /// Converts the model into Firestore-compatible data.

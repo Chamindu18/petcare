@@ -43,6 +43,9 @@ export async function reserveAppointment(db, uid, input) {
     const hospitalId = id(action === 'create' ? input.hospitalId : existing.hospitalId);
     if (hospitalId === 'unassigned') fail('failed-precondition', 'A hospital assignment is required.');
     if (input.hospitalId !== undefined && input.hospitalId !== hospitalId) fail('permission-denied', 'Hospital assignment does not match.');
+    if ((await tx.get(db.collection('hospitals').doc(hospitalId))).data()?.active !== true) {
+      fail('failed-precondition', 'Select an active hospital.');
+    }
     if (action === 'reassign') {
       const staff = (await tx.get(db.collection('hospital_staff').doc(uid))).data();
       if (user?.role !== 'veterinary_staff' || staff?.userId !== uid ||

@@ -1,0 +1,5 @@
+{
+  "score": 5,
+  "summary": "Scoped post-fix assessment of the tested appointment/staff/doctor/queue contracts in local repository rules and emulator execution only. Trusted identity authority, immutable relationships, atomic schedule/queue linkage, forged writes and transition bypasses were tested. The confirmed server hospital-validation defect was fixed. This is not a global security certification or an assessment of the different deployed rules.",
+  "findings": []
+}

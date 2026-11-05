@@ -40,6 +40,7 @@ after(async () => { await env?.cleanup(); if (app) await deleteApp(app); });
 beforeEach(async () => {
   await env.clearFirestore();
   const entries = {
+    'hospitals/hospital-a': {active: true}, 'hospitals/hospital-b': {active: true},
     'users/owner-a': {role: 'owner'}, 'users/owner-b': {role: 'owner'},
     'users/staff-a': {role: 'veterinary_staff'}, 'users/staff-b': {role: 'veterinary_staff'},
     'hospital_staff/staff-a': {userId: 'staff-a', hospitalId: 'hospital-a', active: true},
@@ -63,6 +64,21 @@ test('six simultaneous requests for one interval have one winner and no orphan d
   assert.equal((await db.collection('appointment_booking_locks').get()).size, 1);
   const winner = (await db.collection('appointments').get()).docs[0];
   assert.equal((await db.doc(`appointment_schedule/${winner.id}`).get()).data().durationMinutes, 30);
+});
+
+test('missing and inactive hospitals cannot accept bookings or reassignment', async () => {
+  await book('existing');
+  for (const hospital of [null, {active: false}]) {
+    if (hospital) await db.doc('hospitals/hospital-a').set(hospital);
+    else await db.doc('hospitals/hospital-a').delete();
+    await assert.rejects(book('blocked', {dateTime: '2026-11-10T10:00:00Z'}),
+      error => error instanceof BookingError && error.code === 'failed-precondition');
+    await assert.rejects(reassign('existing', 'vet-b'),
+      error => error instanceof BookingError && error.code === 'failed-precondition');
+    await counts(1);
+    assert.equal((await db.doc('appointments/existing').get()).data().vetId, 'vet-a');
+    assert.equal((await db.doc('appointment_booking_locks/vet-a').get()).data().revision, 1);
+  }
 });
 
 test('partially overlapping intervals with different service lengths cannot both reserve', async () => {

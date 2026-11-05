@@ -7,6 +7,52 @@ import 'package:http/testing.dart';
 import 'package:petcare/features/appointments/data/datasources/appointment_scheduling_datasource.dart';
 
 void main() {
+  test(
+    'network failures surface without reporting a successful booking',
+    () async {
+      final source = FirebaseAppointmentSchedulingDataSource(
+        auth: MockFirebaseAuth(
+          mockUser: MockUser(uid: 'owner'),
+          signedIn: true,
+        ),
+        endpoint: Uri.parse('https://example.test/reserveAppointmentSlot'),
+        client: MockClient((_) async => throw http.ClientException('offline')),
+      );
+      await expectLater(
+        source.reserve({'action': 'create'}),
+        throwsA(isA<http.ClientException>()),
+      );
+    },
+  );
+
+  test('permission denials preserve the server error message', () async {
+    final source = FirebaseAppointmentSchedulingDataSource(
+      auth: MockFirebaseAuth(mockUser: MockUser(uid: 'owner'), signedIn: true),
+      endpoint: Uri.parse('https://example.test/reserveAppointmentSlot'),
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'error': {
+              'status': 'PERMISSION_DENIED',
+              'message': 'Hospital access denied.',
+            },
+          }),
+          403,
+        ),
+      ),
+    );
+    await expectLater(
+      source.reserve({'action': 'reassign'}),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          'Hospital access denied.',
+        ),
+      ),
+    );
+  });
+
   test('authenticated scheduling follows the callable protocol', () async {
     final source = FirebaseAppointmentSchedulingDataSource(
       auth: MockFirebaseAuth(mockUser: MockUser(uid: 'owner'), signedIn: true),
