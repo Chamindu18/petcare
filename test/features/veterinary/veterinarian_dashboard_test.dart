@@ -1,5 +1,14 @@
 import 'dart:async';
 
+import 'package:petcare/features/auth/domain/repositories/auth_repository.dart';
+import 'package:petcare/features/services/domain/entities/service.dart';
+import 'package:petcare/features/services/domain/repositories/service_repository.dart';
+import 'package:petcare/features/services/domain/usecases/service_usecases.dart';
+import 'package:petcare/features/veterinary/domain/repositories/veterinarian_repository.dart';
+import 'package:petcare/features/veterinary/domain/repositories/veterinarian_image_repository.dart';
+import 'package:petcare/features/veterinary/domain/usecases/veterinarian_usecases.dart';
+import 'package:petcare/features/veterinary/presentation/providers/veterinarian_workspace_controller.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
@@ -86,6 +95,28 @@ class Scheduler implements AppointmentSchedulingDataSource {
       throw UnimplementedError();
 }
 
+class Services implements ServiceRepository {
+  @override
+  Future<List<Service>> getServicesByHospital(String id) async => [];
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class Profiles implements VeterinarianRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class Images implements VeterinarianImageRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class Authentication implements AuthRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   late MockFirebaseAuth auth;
   late Assignments assignments;
@@ -97,15 +128,29 @@ void main() {
     hospitals = Hospitals();
     appointments = Appointments();
   });
+  VeterinarianWorkspaceController controller() {
+    final value = VeterinarianWorkspaceController(
+      getAssignment: GetCurrentVeterinarianAssignment(assignments),
+      getHospital: GetHospitalById(hospitals),
+      getAppointments: GetAppointmentsByVeterinarian(appointments),
+      getServices: GetServicesByHospital(Services()),
+      confirmAppointment: ConfirmAppointment(appointments),
+      rejectAppointment: RejectAppointment(appointments),
+      updateVeterinarianProfile: UpdateVeterinarianProfile(Profiles()),
+      imageRepository: Images(),
+      auth: auth,
+    );
+    addTearDown(value.dispose);
+    return value;
+  }
+
   Future<void> mount(WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: VeterinarianDashboardPage(
           profile: profile('uid'),
-          auth: auth,
-          getAssignment: GetCurrentVeterinarianAssignment(assignments),
-          getHospital: GetHospitalById(hospitals),
-          getAppointments: GetAppointmentsByVeterinarian(appointments),
+          controller: controller(),
+          authRepository: Authentication(),
         ),
       ),
     );
@@ -172,7 +217,7 @@ void main() {
       expect(find.text('Appointment overview'), findsOneWidget);
       expect(find.textContaining('Hospital details could not'), findsOneWidget);
       hospitals.error = null;
-      await tester.tap(find.byTooltip('Refresh dashboard'));
+      await tester.tap(find.byTooltip('Refresh'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Hospital details could not'), findsNothing);
     },
@@ -194,10 +239,8 @@ void main() {
       MaterialApp(
         home: VeterinarianDashboardPage(
           profile: profile('uid'),
-          auth: auth,
-          getAssignment: GetCurrentVeterinarianAssignment(assignments),
-          getHospital: GetHospitalById(hospitals),
-          getAppointments: GetAppointmentsByVeterinarian(appointments),
+          controller: controller(),
+          authRepository: Authentication(),
         ),
       ),
     );
@@ -228,10 +271,8 @@ void main() {
       MaterialApp(
         home: VeterinarianDashboardPage(
           profile: profile(uid),
-          auth: auth,
-          getAssignment: GetCurrentVeterinarianAssignment(assignments),
-          getHospital: GetHospitalById(hospitals),
-          getAppointments: GetAppointmentsByVeterinarian(appointments),
+          controller: controller(),
+          authRepository: Authentication(),
         ),
       ),
     );

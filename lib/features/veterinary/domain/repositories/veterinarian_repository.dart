@@ -10,4 +10,14 @@ abstract interface class VeterinarianRepository {
 
   /// Gets one active veterinarian by ID.
   Future<Veterinarian?> getVeterinarianById(String vetId);
+
+  Future<void> updateVeterinarianProfile({
+    required String vetId,
+    required String name,
+    String? profileImageUrl,
+    String? specialty,
+    String? qualifications,
+    int? experienceYears,
+    String? bio,
+  });
 }

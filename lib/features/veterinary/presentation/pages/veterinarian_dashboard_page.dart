@@ -1,35 +1,28 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
-import '../../../appointments/data/repositories/firebase_appointment_repository.dart';
 import '../../../appointments/domain/entities/appointment.dart';
-import '../../../appointments/domain/usecases/appointment_usecases.dart';
-import '../../../hospitals/data/repositories/firebase_hospital_repository.dart';
-import '../../../hospitals/domain/entities/hospital.dart';
-import '../../../hospitals/domain/usecases/hospital_usecases.dart';
+import '../../../appointments/presentation/pages/veterinarian_appointment_details_page.dart';
+import '../../../appointments/presentation/pages/veterinarian_appointments_page.dart';
+import '../../../appointments/presentation/widgets/veterinarian_appointment_card.dart';
+import '../../../auth/data/repositories/firebase_auth_repository.dart';
+import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../profile/domain/entities/user_profile.dart';
-import '../../data/repositories/firebase_veterinarian_assignment_repository.dart';
-import '../../domain/entities/veterinarian.dart';
-import '../../domain/usecases/get_current_veterinarian_assignment.dart';
+import '../providers/veterinarian_workspace_controller.dart';
+import 'veterinarian_self_profile_page.dart';
 
 class VeterinarianDashboardPage extends StatefulWidget {
   const VeterinarianDashboardPage({
     super.key,
     required this.profile,
-    this.getAssignment,
-    this.getHospital,
-    this.getAppointments,
-    this.auth,
+    this.controller,
+    this.authRepository,
   });
 
   final UserProfile profile;
-  final FirebaseAuth? auth;
-  final GetCurrentVeterinarianAssignment? getAssignment;
-  final GetHospitalById? getHospital;
-  final GetAppointmentsByVeterinarian? getAppointments;
+  final VeterinarianWorkspaceController? controller;
+  final AuthRepository? authRepository;
 
   @override
   State<VeterinarianDashboardPage> createState() =>
@@ -37,367 +30,266 @@ class VeterinarianDashboardPage extends StatefulWidget {
 }
 
 class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
-  late final GetAppointmentsByVeterinarian _getAppointments;
-  late final GetCurrentVeterinarianAssignment _getAssignment;
-  late final GetHospitalById _getHospital;
+  late final VeterinarianWorkspaceController _controller;
+  late final AuthRepository _authRepository;
+  late final bool _ownsController;
 
-  List<Appointment> _appointments = [];
-  Veterinarian? _veterinarian;
-  Hospital? _hospital;
-
-  bool _isLoading = true;
-  String? _errorMessage;
-  String? _hospitalWarning;
-  int _loadGeneration = 0;
-  StreamSubscription<User?>? _authSubscription;
-  FirebaseAuth get _auth => widget.auth ?? FirebaseAuth.instance;
+  int _selectedIndex = 0;
+  bool _isSigningOut = false;
 
   @override
   void initState() {
     super.initState();
 
-    _getAppointments =
-        widget.getAppointments ??
-        GetAppointmentsByVeterinarian(FirebaseAppointmentRepository());
+    _ownsController = widget.controller == null;
+    _controller =
+        widget.controller ?? VeterinarianWorkspaceController.production();
+    _authRepository = widget.authRepository ?? FirebaseAuthRepository();
 
-    _getAssignment =
-        widget.getAssignment ??
-        GetCurrentVeterinarianAssignment(
-          FirebaseVeterinarianAssignmentRepository(),
-        );
-
-    _getHospital =
-        widget.getHospital ?? GetHospitalById(FirebaseHospitalRepository());
-
-    _authSubscription = _auth.authStateChanges().listen((user) {
-      if (user?.uid != widget.profile.uid && mounted) {
-        _loadGeneration++;
-        setState(() {
-          _appointments = [];
-          _veterinarian = null;
-          _hospital = null;
-          _isLoading = false;
-          _errorMessage = 'Your session changed. Please sign in again.';
-        });
-      }
-    });
-    _loadDashboard();
+    _controller.bindSession(widget.profile.uid);
+    _controller.load();
   }
 
   @override
   void didUpdateWidget(covariant VeterinarianDashboardPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.profile.uid != widget.profile.uid) _loadDashboard();
+    if (oldWidget.profile.uid != widget.profile.uid) {
+      _controller.bindSession(widget.profile.uid);
+      _controller.load();
+    }
   }
 
   @override
   void dispose() {
-    _loadGeneration++;
-    _authSubscription?.cancel();
+    if (_ownsController) {
+      _controller.dispose();
+    }
+
     super.dispose();
   }
 
-  Future<void> _loadDashboard() async {
-    final generation = ++_loadGeneration;
-    final uid = widget.profile.uid;
-    bool current() =>
-        mounted &&
-        generation == _loadGeneration &&
-        _auth.currentUser?.uid == uid;
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-      _hospitalWarning = null;
-      _appointments = [];
-      _veterinarian = null;
-      _hospital = null;
-    });
-    var operation = 'assignment';
-    try {
-      if (_auth.currentUser?.uid != uid) {
-        throw StateError('session-changed');
-      }
-      final assignment = await _getAssignment();
-      if (!current()) return;
-      if (assignment == null) throw StateError('assignment-unverified');
-      operation = 'appointments';
-      final appointments = await _getAppointments(
-        vetId: assignment.vetId,
-        hospitalId: assignment.hospitalId,
-      );
-      if (!current()) return;
-      appointments.sort((a, b) => a.dateTime.compareTo(b.dateTime));
-      operation = 'hospital';
-      Hospital? hospital;
-      try {
-        hospital = await _getHospital(assignment.hospitalId);
-        if (hospital == null) {
-          _hospitalWarning =
-              'Hospital details are unavailable. Contact your hospital.';
-        }
-      } catch (error) {
-        _diagnose(operation, error);
-        // Authorization failures must remain visible and block sensitive content.
-        if (error is FirebaseException &&
-            {'permission-denied', 'unauthenticated'}.contains(error.code)) {
-          rethrow;
-        }
-        _hospitalWarning =
-            'Hospital details could not be loaded. Pull down to retry.';
-      }
-      if (!current()) return;
-      setState(() {
-        _veterinarian = assignment;
-        _hospital = hospital;
-        _appointments = appointments;
-        _isLoading = false;
-      });
-    } catch (error) {
-      _diagnose(operation, error);
-      if (!mounted || generation != _loadGeneration) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = _message(error);
-      });
-    }
-  }
-
-  void _diagnose(String operation, Object error) {
-    // Never print exception messages: SDK messages can include document paths.
-    final code = error is FirebaseException
-        ? error.code
-        : error is StateError
-        ? 'assignment-or-session-invalid'
-        : error is FormatException || error is TypeError
-        ? 'data-integrity'
-        : error.runtimeType.toString();
-    debugPrint('V01 dashboard operation=$operation code=$code');
-  }
-
-  String _message(Object error) {
-    if (error is StateError) {
-      return 'Your veterinarian assignment could not be verified. Contact your hospital to confirm your account assignment.';
-    }
-    if (error is FirebaseException) {
-      switch (error.code) {
-        case 'permission-denied':
-        case 'unauthenticated':
-          return 'Dashboard access could not be authorized. Contact your hospital.';
-        case 'failed-precondition':
-          return 'The dashboard service needs configuration. Contact support.';
-        case 'unavailable':
-        case 'deadline-exceeded':
-          return 'Unable to connect. Please check your connection and try again.';
-      }
-    }
-    return 'Dashboard information could not be loaded. Please retry or contact your hospital.';
-  }
-
-  // The hospital schedule uses Sri Lanka time regardless of device timezone.
-  DateTime _sriLanka(DateTime instant) =>
-      instant.toUtc().add(const Duration(hours: 5, minutes: 30));
-
-  bool _sameDay(DateTime a, DateTime b) {
-    a = _sriLanka(a);
-    b = _sriLanka(b);
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-
-  bool _isTerminal(String status) {
-    final normalized = status.toLowerCase();
-
-    return normalized == 'cancelled' || normalized == 'rejected';
-  }
-
-  List<Appointment> get _todayAppointments {
-    final now = DateTime.now();
-
-    return _appointments.where((appointment) {
-      return _sameDay(appointment.dateTime, now) &&
-          !_isTerminal(appointment.status);
-    }).toList();
-  }
-
-  List<Appointment> get _upcomingAppointments {
-    final now = DateTime.now();
-
-    return _appointments.where((appointment) {
-      return appointment.dateTime.isAfter(now) &&
-          !_sameDay(appointment.dateTime, now) &&
-          !_isTerminal(appointment.status);
-    }).toList();
-  }
-
-  int get _pendingCount {
-    return _appointments
-        .where((a) => a.status.toLowerCase() == 'pending')
-        .length;
-  }
-
-  String get _displayName {
-    final fullName = widget.profile.fullName.trim();
-    final vetName = _veterinarian?.name.trim() ?? '';
-    final displayName = widget.profile.displayName.trim();
-
-    if (fullName.isNotEmpty) return fullName;
-    if (vetName.isNotEmpty) return vetName;
-    if (displayName.isNotEmpty) return displayName;
-
-    return 'Veterinarian';
-  }
-
-  String get _greeting {
-    final hour = _sriLanka(DateTime.now()).hour;
-
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-
-    return 'Good evening';
+  String get _appBarTitle {
+    return switch (_selectedIndex) {
+      0 => 'Dashboard',
+      1 => 'Appointments',
+      2 => 'Queue',
+      _ => 'My Profile',
+    };
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: Text(
-          'Dashboard',
-          style: Theme.of(context).textTheme.titleLarge
-              ?.copyWith(color: AppTheme.espresso, fontWeight: FontWeight.w800),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh dashboard',
-            onPressed: _isLoading ? null : _loadDashboard,
-            icon: const Icon(Icons.refresh_rounded, color: AppTheme.deepBrown),
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, _) {
+        return PopScope(
+          canPop: _selectedIndex == 0,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop && _selectedIndex != 0) {
+              setState(() => _selectedIndex = 0);
+            }
+          },
+          child: Scaffold(
+            backgroundColor: AppTheme.background,
+            appBar: AppBar(
+              automaticallyImplyLeading: false,
+              title: Text(
+                _appBarTitle,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: AppTheme.espresso,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              actions: [
+                if (_selectedIndex == 0 || _selectedIndex == 1)
+                  IconButton(
+                    tooltip: 'Refresh',
+                    onPressed: _controller.isLoading
+                        ? null
+                        : _controller.refresh,
+                    icon: const Icon(
+                      Icons.refresh_rounded,
+                      color: AppTheme.deepBrown,
+                    ),
+                  ),
+                const SizedBox(width: 8),
+              ],
+            ),
+            body: _buildBody(context),
+            bottomNavigationBar: NavigationBar(
+              height: 68,
+              backgroundColor: AppTheme.white,
+              indicatorColor: AppTheme.secondary.withValues(alpha: 0.42),
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: (index) {
+                setState(() => _selectedIndex = index);
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.dashboard_outlined),
+                  selectedIcon: Icon(Icons.dashboard_rounded),
+                  label: 'Home',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.calendar_month_outlined),
+                  selectedIcon: Icon(Icons.calendar_month_rounded),
+                  label: 'Appointments',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.groups_outlined),
+                  selectedIcon: Icon(Icons.groups_rounded),
+                  label: 'Queue',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline_rounded),
+                  selectedIcon: Icon(Icons.person_rounded),
+                  label: 'Profile',
+                ),
+              ],
+            ),
           ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: RefreshIndicator(
-        color: AppTheme.primary,
-        onRefresh: _loadDashboard,
-        child: _buildBody(),
-      ),
-      bottomNavigationBar: _buildBottomNavigationPreview(),
+        );
+      },
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
-          SizedBox(
-            height: 520,
-            child: Center(
-              child: CircularProgressIndicator(color: AppTheme.primary),
-            ),
-          ),
-        ],
+  Widget _buildBody(BuildContext context) {
+    if (_controller.isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppTheme.primary),
       );
     }
 
-    if (_errorMessage != null) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(24),
-        children: [
-          const SizedBox(height: 100),
-          const Icon(
-            Icons.cloud_off_rounded,
-            size: 48,
-            color: AppTheme.deepBrown,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _errorMessage!,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: AppTheme.espresso),
-          ),
-          const SizedBox(height: 18),
-          Center(
-            child: ElevatedButton.icon(
-              onPressed: _loadDashboard,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Try again'),
-            ),
-          ),
-        ],
-      );
+    if (_controller.loadErrorMessage != null) {
+      return _buildLoadError();
     }
 
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+    return Column(
       children: [
-        _buildWelcomeHeader(),
-        if (_hospitalWarning != null)
+        if (_controller.hospitalWarning != null)
           Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Text(_hospitalWarning!),
+            padding: const EdgeInsets.all(12),
+            child: Text(_controller.hospitalWarning!),
           ),
-        const SizedBox(height: 22),
-
-        _sectionTitle(
-          'Appointment overview',
-          subtitle: 'Your schedule at a glance',
+        Expanded(
+          child: IndexedStack(
+            index: _selectedIndex,
+            children: [
+              _buildHomeTab(context),
+              VeterinarianAppointmentsPage(
+                appointments: _controller.appointments,
+                serviceNameFor: _controller.serviceNameFor,
+                isLoading: _controller.isLoading,
+                onRefresh: _controller.refresh,
+                errorMessage: _controller.loadErrorMessage,
+                actionErrorMessage: _controller.actionErrorMessage,
+                onOpenDetails: _openDetails,
+                embedded: true,
+              ),
+              _buildQueueTab(context),
+              VeterinarianSelfProfilePage(
+                controller: _controller,
+                profile: widget.profile,
+                authRepository: _authRepository,
+                embedded: true,
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        _buildOverviewCards(),
-
-        const SizedBox(height: 24),
-
-        _sectionTitle('Quick actions', subtitle: 'Common tasks'),
-        const SizedBox(height: 12),
-        _buildQuickActions(),
-
-        const SizedBox(height: 24),
-
-        _sectionTitle(
-          "Today's appointments",
-          count: _todayAppointments.length,
-          subtitle: 'Your appointments scheduled for today',
-        ),
-        const SizedBox(height: 12),
-
-        if (_todayAppointments.isEmpty)
-          _emptyState(
-            'No appointments scheduled for today.',
-            Icons.event_available_outlined,
-          )
-        else
-          ..._todayAppointments.take(4).map(_buildAppointmentCard),
-
-        const SizedBox(height: 24),
-
-        _sectionTitle('Queue overview', subtitle: 'Hospital queue snapshot'),
-        const SizedBox(height: 12),
-        _buildQueuePreview(),
-
-        const SizedBox(height: 24),
-
-        _sectionTitle(
-          'Upcoming appointments',
-          count: _upcomingAppointments.length,
-          subtitle: 'Your next scheduled visits',
-        ),
-        const SizedBox(height: 12),
-
-        if (_upcomingAppointments.isEmpty)
-          _emptyState(
-            'No upcoming appointments.',
-            Icons.calendar_month_outlined,
-          )
-        else
-          ..._upcomingAppointments.take(4).map(_buildAppointmentCard),
       ],
     );
   }
 
-  Widget _buildWelcomeHeader() {
-    final imageUrl = _veterinarian?.profileImageUrl ?? widget.profile.photoUrl;
+  Widget _buildLoadError() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(24),
+      children: [
+        const SizedBox(height: 100),
+        const Icon(
+          Icons.cloud_off_rounded,
+          size: 48,
+          color: AppTheme.deepBrown,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          _controller.loadErrorMessage!,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: AppTheme.espresso),
+        ),
+        const SizedBox(height: 18),
+        Center(
+          child: ElevatedButton.icon(
+            onPressed: _controller.load,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Try again'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHomeTab(BuildContext context) {
+    return RefreshIndicator(
+      color: AppTheme.primary,
+      onRefresh: _controller.refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+        children: [
+          _buildWelcomeHeader(context),
+          const SizedBox(height: 22),
+          _sectionTitle(
+            'Appointment overview',
+            subtitle: 'Your schedule at a glance',
+          ),
+          const SizedBox(height: 12),
+          _buildOverviewCards(),
+          const SizedBox(height: 24),
+          _sectionTitle('Quick actions', subtitle: 'Common tasks'),
+          const SizedBox(height: 12),
+          _buildQuickActions(),
+          const SizedBox(height: 24),
+          _sectionTitle(
+            "Today's appointments",
+            count: _controller.todayCount,
+            subtitle: 'Your appointments scheduled for today',
+          ),
+          const SizedBox(height: 12),
+          if (_controller.todayAppointments.isEmpty)
+            _emptyState(
+              'No appointments scheduled for today.',
+              Icons.event_available_outlined,
+            )
+          else
+            ..._controller.todayAppointments.take(4).map(_buildAppointmentCard),
+          const SizedBox(height: 24),
+          _sectionTitle('Queue overview', subtitle: 'Hospital queue snapshot'),
+          const SizedBox(height: 12),
+          _buildQueuePreview(),
+          const SizedBox(height: 24),
+          _sectionTitle(
+            'Upcoming appointments',
+            count: _controller.upcomingCount,
+            subtitle: 'Your next scheduled visits',
+          ),
+          const SizedBox(height: 12),
+          if (_controller.upcomingAppointments.isEmpty)
+            _emptyState(
+              'No upcoming appointments.',
+              Icons.calendar_month_outlined,
+            )
+          else
+            ..._controller.upcomingAppointments
+                .take(4)
+                .map(_buildAppointmentCard),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWelcomeHeader(BuildContext context) {
+    final imageUrl = _imageUrl;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -411,10 +303,8 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
           CircleAvatar(
             radius: 29,
             backgroundColor: AppTheme.white,
-            backgroundImage: imageUrl != null && imageUrl.isNotEmpty
-                ? NetworkImage(imageUrl)
-                : null,
-            child: imageUrl == null || imageUrl.isEmpty
+            backgroundImage: imageUrl == null ? null : NetworkImage(imageUrl),
+            child: imageUrl == null
                 ? const Icon(
                     Icons.person_rounded,
                     size: 31,
@@ -453,7 +343,9 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
                     const SizedBox(width: 5),
                     Expanded(
                       child: Text(
-                        _hospital?.name ?? 'Veterinarian',
+                        _controller.veterinarian == null
+                            ? 'Veterinarian'
+                            : _controller.hospitalName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall
@@ -466,17 +358,29 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
             ),
           ),
           const SizedBox(width: 6),
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppTheme.white.withValues(alpha: 0.8),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.notifications_none_rounded,
-              color: AppTheme.deepBrown,
-              size: 21,
+          Tooltip(
+            message: 'Log out',
+            child: InkWell(
+              onTap: _isSigningOut ? null : _confirmLogout,
+              borderRadius: BorderRadius.circular(19),
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppTheme.white.withValues(alpha: 0.8),
+                  shape: BoxShape.circle,
+                ),
+                child: _isSigningOut
+                    ? const Padding(
+                        padding: EdgeInsets.all(10),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(
+                        Icons.logout_rounded,
+                        color: AppTheme.deepBrown,
+                        size: 20,
+                      ),
+              ),
             ),
           ),
         ],
@@ -535,7 +439,7 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
         Expanded(
           child: _OverviewCard(
             label: 'Today',
-            value: '${_todayAppointments.length}',
+            value: '${_controller.todayCount}',
             icon: Icons.today_rounded,
             accent: AppTheme.primary,
           ),
@@ -544,7 +448,7 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
         Expanded(
           child: _OverviewCard(
             label: 'Pending',
-            value: '$_pendingCount',
+            value: '${_controller.pendingCount}',
             icon: Icons.hourglass_top_rounded,
             accent: AppTheme.warning,
           ),
@@ -553,7 +457,7 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
         Expanded(
           child: _OverviewCard(
             label: 'Upcoming',
-            value: '${_upcomingAppointments.length}',
+            value: '${_controller.upcomingCount}',
             icon: Icons.event_available_rounded,
             accent: AppTheme.success,
           ),
@@ -563,134 +467,145 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
   }
 
   Widget _buildQuickActions() {
-    return GridView.count(
-      crossAxisCount: 4,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 9,
-      mainAxisSpacing: 10,
-      childAspectRatio: 0.82,
-      children: const [
-        _QuickAction(icon: Icons.qr_code_scanner_rounded, label: 'Scan Pet QR'),
-        _QuickAction(icon: Icons.calendar_month_rounded, label: 'Appointments'),
-        _QuickAction(icon: Icons.groups_rounded, label: 'Manage Queue'),
-        _QuickAction(icon: Icons.person_outline_rounded, label: 'My Profile'),
-      ],
+    final actions = <Widget>[
+      _QuickAction(
+        icon: Icons.qr_code_scanner_rounded,
+        label: 'Scan Pet QR',
+        onTap: _showQrNotAvailable,
+      ),
+      _QuickAction(
+        icon: Icons.calendar_month_rounded,
+        label: 'Appointments',
+        onTap: () => _selectTab(1),
+      ),
+      _QuickAction(
+        icon: Icons.groups_rounded,
+        label: 'Manage Queue',
+        onTap: () => _selectTab(2),
+      ),
+      _QuickAction(
+        icon: Icons.person_outline_rounded,
+        label: 'My Profile',
+        onTap: () => _selectTab(3),
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 480 ? 4 : 2;
+        const spacing = 10.0;
+        final itemWidth =
+            (constraints.maxWidth - spacing * (columns - 1)) / columns;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final action in actions)
+              SizedBox(width: itemWidth, child: action),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildAppointmentCard(Appointment appointment) {
-    final isToday = _sameDay(appointment.dateTime, DateTime.now());
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.28)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 45,
-            height: 45,
-            decoration: BoxDecoration(
-              color: AppTheme.background,
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: const Icon(
-              Icons.pets_rounded,
-              color: AppTheme.primary,
-              size: 23,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isToday
-                      ? 'Today · ${_formatTime(appointment.dateTime)}'
-                      : _formatDate(appointment.dateTime),
-                  style: const TextStyle(
-                    color: AppTheme.espresso,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'Pet appointment',
-                  style: TextStyle(
-                    color: AppTheme.deepBrown.withValues(alpha: 0.85),
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  'Appointment #${_shortId(appointment.appointmentId)}',
-                  style: TextStyle(
-                    color: AppTheme.deepBrown.withValues(alpha: 0.7),
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          _AppointmentStatus(status: appointment.status),
-        ],
-      ),
+    return VeterinarianAppointmentCard(
+      appointment: appointment,
+      serviceName: _controller.serviceNameFor(appointment.serviceId),
+      onTap: () => _openDetails(appointment),
     );
   }
 
   Widget _buildQueuePreview() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _selectTab(2),
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppTheme.background,
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: const Icon(
-              Icons.people_alt_outlined,
-              color: AppTheme.primary,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.white,
+            borderRadius: BorderRadius.circular(17),
+            border: Border.all(
+              color: AppTheme.secondary.withValues(alpha: 0.35),
             ),
           ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Queue management',
-                  style: TextStyle(
-                    color: AppTheme.espresso,
-                    fontWeight: FontWeight.w700,
-                  ),
+          child: const Row(
+            children: [
+              _QueueIcon(),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Queue management',
+                      style: TextStyle(
+                        color: AppTheme.espresso,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Queue information will be available here.',
+                      style: TextStyle(color: AppTheme.deepBrown, fontSize: 12),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 4),
-                Text(
-                  'Queue information will be available here.',
-                  style: TextStyle(color: AppTheme.deepBrown, fontSize: 12),
-                ),
-              ],
+              ),
+              Icon(Icons.chevron_right_rounded, color: AppTheme.deepBrown),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQueueTab(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(18, 28, 18, 32),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: AppTheme.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: AppTheme.secondary.withValues(alpha: 0.35),
             ),
           ),
-          const Icon(Icons.chevron_right_rounded, color: AppTheme.deepBrown),
-        ],
-      ),
+          child: Column(
+            children: [
+              const Icon(
+                Icons.groups_rounded,
+                size: 46,
+                color: AppTheme.primary,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Queue management',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppTheme.espresso,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Live queue management is not available in this phase. '
+                'Your appointment list and decisions remain available.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppTheme.deepBrown,
+                  fontSize: 12,
+                  height: 1.45,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -716,52 +631,146 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
     );
   }
 
-  Widget _buildBottomNavigationPreview() {
-    return NavigationBar(
-      height: 68,
-      backgroundColor: AppTheme.white,
-      indicatorColor: AppTheme.secondary.withValues(alpha: 0.42),
-      selectedIndex: 0,
-      onDestinationSelected: (_) {},
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.dashboard_outlined),
-          selectedIcon: Icon(Icons.dashboard_rounded),
-          label: 'Home',
+  void _selectTab(int index) {
+    setState(() => _selectedIndex = index);
+  }
+
+  void _openDetails(Appointment appointment) {
+    final sessionRevision = _controller.sessionRevision;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ListenableBuilder(
+          listenable: _controller,
+          builder: (context, _) {
+            if (sessionRevision != _controller.sessionRevision ||
+                _controller.appointmentById(appointment.appointmentId) ==
+                    null ||
+                _controller.loadErrorMessage != null) {
+              return Scaffold(
+                appBar: AppBar(),
+                body: const Center(
+                  child: Text('Appointment access is no longer available.'),
+                ),
+              );
+            }
+            return VeterinarianAppointmentDetailsPage(
+              appointment: appointment,
+              serviceName: _controller.serviceNameFor(appointment.serviceId),
+              hospitalName: _controller.hospital?.name,
+              onConfirm: _controller.confirmAppointment,
+              onReject: _controller.rejectAppointment,
+              actionErrorProvider: () => _controller.actionErrorMessage,
+            );
+          },
         ),
-        NavigationDestination(
-          icon: Icon(Icons.calendar_month_outlined),
-          label: 'Appointments',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.groups_outlined),
-          label: 'Queue',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.person_outline_rounded),
-          label: 'Profile',
-        ),
-      ],
+      ),
     );
   }
 
-  String _formatTime(DateTime dateTime) {
-    dateTime = _sriLanka(dateTime);
-    final hour = dateTime.hour % 12 == 0 ? 12 : dateTime.hour % 12;
-
-    return '$hour:${dateTime.minute.toString().padLeft(2, '0')} '
-        '${dateTime.hour >= 12 ? 'PM' : 'AM'}';
+  void _showQrNotAvailable() {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('QR scanning unavailable'),
+          content: const Text(
+            'Appointment-linked QR scanning is not available in this phase. '
+            'No health information can be accessed until the authorized '
+            'health-passport flow is implemented.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
-  String _formatDate(DateTime dateTime) {
-    final clock = _sriLanka(dateTime);
-    return '${clock.day.toString().padLeft(2, '0')}/'
-        '${clock.month.toString().padLeft(2, '0')}/'
-        '${clock.year} · ${_formatTime(dateTime)}';
+  Future<void> _confirmLogout() async {
+    if (_isSigningOut) return;
+
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Log out?'),
+          content: const Text(
+            'Are you sure you want to log out of your PetCare+ account?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Log out'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout != true || !mounted || _isSigningOut) return;
+
+    setState(() => _isSigningOut = true);
+
+    try {
+      await _authRepository.signOut();
+
+      if (!mounted) return;
+
+      Navigator.of(context)
+          .pushNamedAndRemoveUntil(AppRouter.login, (route) => false);
+    } catch (error) {
+      debugPrint('Veterinarian logout failed: ${error.runtimeType}');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to log out. Please try again.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSigningOut = false);
+      }
+    }
   }
 
-  String _shortId(String id) {
-    return id.length <= 7 ? id : id.substring(0, 7).toUpperCase();
+  String get _displayName {
+    final vetName = _controller.veterinarian?.name.trim() ?? '';
+
+    if (vetName.isNotEmpty) return vetName;
+
+    final fullName = widget.profile.fullName.trim();
+    if (fullName.isNotEmpty) return fullName;
+
+    final displayName = widget.profile.displayName.trim();
+    return displayName.isNotEmpty ? displayName : 'Veterinarian';
+  }
+
+  String? get _imageUrl {
+    final vetImage = _controller.veterinarian?.profileImageUrl?.trim();
+
+    if (vetImage != null && vetImage.isNotEmpty) return vetImage;
+
+    final accountImage = widget.profile.photoUrl?.trim();
+    return accountImage == null || accountImage.isEmpty ? null : accountImage;
+  }
+
+  String get _greeting {
+    final hour = DateTime.now()
+        .toUtc()
+        .add(const Duration(hours: 5, minutes: 30))
+        .hour;
+
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+
+    return 'Good evening';
   }
 }
 
@@ -818,81 +827,71 @@ class _OverviewCard extends StatelessWidget {
 }
 
 class _QuickAction extends StatelessWidget {
-  const _QuickAction({required this.icon, required this.label});
+  const _QuickAction({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppTheme.background,
-              borderRadius: BorderRadius.circular(12),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(15),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 112),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppTheme.white,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppTheme.background,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(icon, color: AppTheme.primary, size: 22),
             ),
-            child: Icon(icon, color: AppTheme.primary, size: 20),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppTheme.espresso,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            const SizedBox(height: 9),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppTheme.espresso,
+                fontSize: 12,
+                height: 1.2,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _AppointmentStatus extends StatelessWidget {
-  const _AppointmentStatus({required this.status});
-
-  final String status;
+class _QueueIcon extends StatelessWidget {
+  const _QueueIcon();
 
   @override
   Widget build(BuildContext context) {
-    final normalized = status.toLowerCase();
-
-    final color = normalized == 'confirmed' || normalized == 'completed'
-        ? AppTheme.success
-        : normalized == 'pending'
-        ? AppTheme.warning
-        : normalized == 'cancelled' || normalized == 'rejected'
-        ? AppTheme.error
-        : AppTheme.information;
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
+        color: AppTheme.background,
+        borderRadius: BorderRadius.circular(13),
       ),
-      child: Text(
-        status.replaceAll('_', ' ').toUpperCase(),
-        style: TextStyle(
-          color: color,
-          fontSize: 9,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
+      child: const Icon(Icons.people_alt_outlined, color: AppTheme.primary),
     );
   }
 }

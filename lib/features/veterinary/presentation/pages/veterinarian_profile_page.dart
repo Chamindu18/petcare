@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../shared/widgets/petcare_secondary_app_bar.dart';
 import '../../../hospitals/domain/entities/hospital.dart';
 import '../../domain/entities/veterinarian.dart';
 
@@ -30,7 +31,7 @@ class VeterinarianProfilePage extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Veterinarian Profile')),
+      appBar: const PetCareSecondaryAppBar(title: 'Veterinarian Profile'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         child: Column(
