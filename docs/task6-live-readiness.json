@@ -1,6 +1,235 @@
 {
   "project": "petcare-d4413",
-  "checkedAt": "2026-11-04T17:17:55.026Z",
-  "checks": {},
-  "authenticationError": "EPERM: operation not permitted, open 'C:\\Users\\HP\\.config\\configstore\\firebase-tools.json'"
+  "checkedAt": "2026-11-05T13:34:04.627Z",
+  "checks": {
+    "database": {
+      "status": "verified",
+      "result": {
+        "location": "asia-south2",
+        "edition": "STANDARD",
+        "type": "FIRESTORE_NATIVE"
+      }
+    },
+    "functions": {
+      "status": "verified",
+      "result": []
+    },
+    "rules": {
+      "status": "verified",
+      "result": {
+        "releaseUpdatedAt": "2026-11-02T15:27:48.859892Z",
+        "ruleset": "projects/petcare-d4413/rulesets/8b53a302-689f-4b57-8b94-e44a924e57a9",
+        "localHash": "c97b729189ac450c50aa13e3a7a2fc141bb2700ed3e62bf5371ffa97bcc26a33",
+        "deployedHash": "2a05ad9ba461abb8d9a042d0af5784f0ac9438b36d5c6466499078cba56146d2",
+        "matchesLocal": false
+      }
+    },
+    "indexes": {
+      "status": "verified",
+      "result": {
+        "deployedCount": 8,
+        "expected": [
+          {
+            "collectionGroup": "notifications",
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "recipientUserId",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "createdAt",
+                "order": "DESCENDING"
+              }
+            ],
+            "ready": true
+          },
+          {
+            "collectionGroup": "adoption_listings",
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "listingOwnerId",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "createdAt",
+                "order": "DESCENDING"
+              }
+            ],
+            "ready": true
+          },
+          {
+            "collectionGroup": "adoption_listings",
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "status",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "createdAt",
+                "order": "DESCENDING"
+              }
+            ],
+            "ready": true
+          },
+          {
+            "collectionGroup": "adoption_requests",
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "requesterId",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "submittedAt",
+                "order": "DESCENDING"
+              }
+            ],
+            "ready": true
+          },
+          {
+            "collectionGroup": "adoption_requests",
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "recipientId",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "submittedAt",
+                "order": "DESCENDING"
+              }
+            ],
+            "ready": true
+          },
+          {
+            "collectionGroup": "adoption_requests",
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "providerId",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "submittedAt",
+                "order": "DESCENDING"
+              }
+            ],
+            "ready": true
+          },
+          {
+            "collectionGroup": "adoption_requests",
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "recipientId",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "recipientType",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "submittedAt",
+                "order": "DESCENDING"
+              }
+            ],
+            "ready": true
+          },
+          {
+            "collectionGroup": "appointments",
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "hospitalId",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "vetId",
+                "order": "ASCENDING"
+              }
+            ],
+            "ready": false
+          }
+        ]
+      }
+    },
+    "users": {
+      "status": "verified",
+      "result": {
+        "count": 10
+      }
+    },
+    "hospital_staff": {
+      "status": "verified",
+      "result": {
+        "count": 1
+      }
+    },
+    "veterinarians": {
+      "status": "verified",
+      "result": {
+        "count": 55
+      }
+    },
+    "hospitals": {
+      "status": "verified",
+      "result": {
+        "count": 32
+      }
+    },
+    "services": {
+      "status": "verified",
+      "result": {
+        "count": 160
+      }
+    },
+    "pets": {
+      "status": "verified",
+      "result": {
+        "count": 10
+      }
+    },
+    "appointments": {
+      "status": "verified",
+      "result": {
+        "count": 4
+      }
+    },
+    "appointment_schedule": {
+      "status": "verified",
+      "result": {
+        "count": 0
+      }
+    },
+    "queue_records": {
+      "status": "verified",
+      "result": {
+        "count": 0
+      }
+    },
+    "authIdentities": {
+      "status": "verified",
+      "result": {
+        "accountCount": 10
+      }
+    }
+  },
+  "relationships": {
+    "activeDirectoryRecords": 55,
+    "directoryRecordsMissingUserId": 54,
+    "directoryRecordsMissingActiveFlag": 0,
+    "veterinarianUserAccounts": 1,
+    "activeStaffAssignments": 1,
+    "ineligibleDirectoryRecords": 54,
+    "invalidActiveStaffAssignments": 0,
+    "appointmentsMissingSchedule": 4,
+    "appointmentsMissingDuration": 4,
+    "appointmentsWithMissingReferences": 0,
+    "appointmentsWithInvalidPetOwnership": 0,
+    "brokenAppointmentQueueLinks": 0,
+    "mismatchedScheduleRecords": 0
+  }
 }

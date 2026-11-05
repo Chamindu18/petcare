@@ -1,0 +1,63 @@
+{
+  "project": "petcare-d4413",
+  "checkedAt": "2026-11-05T13:35:25.235Z",
+  "checks": {
+    "functionsApi": {
+      "ok": true,
+      "result": {
+        "state": "ENABLED"
+      }
+    },
+    "billing": {
+      "ok": true,
+      "result": {
+        "billingEnabled": false
+      }
+    },
+    "functions": {
+      "ok": true,
+      "result": []
+    },
+    "legacyAppointments": {
+      "ok": true,
+      "result": [
+        {
+          "record": 1,
+          "status": "rejected",
+          "dateParses": true,
+          "hasDurationSnapshot": false,
+          "currentServiceDuration": 30,
+          "serviceHospitalMatches": true,
+          "hasQueueLink": false
+        },
+        {
+          "record": 2,
+          "status": "confirmed",
+          "dateParses": true,
+          "hasDurationSnapshot": false,
+          "currentServiceDuration": 30,
+          "serviceHospitalMatches": true,
+          "hasQueueLink": false
+        },
+        {
+          "record": 3,
+          "status": "confirmed",
+          "dateParses": true,
+          "hasDurationSnapshot": false,
+          "currentServiceDuration": 30,
+          "serviceHospitalMatches": true,
+          "hasQueueLink": false
+        },
+        {
+          "record": 4,
+          "status": "confirmed",
+          "dateParses": true,
+          "hasDurationSnapshot": false,
+          "currentServiceDuration": 60,
+          "serviceHospitalMatches": true,
+          "hasQueueLink": false
+        }
+      ]
+    }
+  }
+}
