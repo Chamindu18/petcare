@@ -106,6 +106,17 @@ class _FakeVeterinarianRepository implements VeterinarianRepository {
 
   @override
   Future<Veterinarian?> getVeterinarianById(String vetId) async => null;
+
+  @override
+  Future<void> updateVeterinarianProfile({
+    required String vetId,
+    required String name,
+    String? profileImageUrl,
+    String? specialty,
+    String? qualifications,
+    int? experienceYears,
+    String? bio,
+  }) async {}
 }
 
 class _FakePetImageRepository implements PetImageRepository {
