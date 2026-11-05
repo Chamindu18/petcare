@@ -236,3 +236,7 @@ firestore-export-*/
 *.rej
 *.class
 *.pid
+
+# Local verification and generated cloud reports
+/.verification/
+/docs/p0-cloud-readiness.json
