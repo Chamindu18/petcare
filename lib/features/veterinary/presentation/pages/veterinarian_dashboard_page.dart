@@ -11,6 +11,7 @@ import '../../../profile/domain/entities/user_profile.dart';
 import '../../data/repositories/firebase_veterinarian_assignment_repository.dart';
 import '../../domain/entities/veterinarian.dart';
 import '../../domain/usecases/get_current_veterinarian_assignment.dart';
+import '../../../appointments/presentation/pages/veterinarian_appointments_page.dart';
 
 class VeterinarianDashboardPage extends StatefulWidget {
   const VeterinarianDashboardPage({super.key, required this.profile});
@@ -466,11 +467,32 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
       crossAxisSpacing: 9,
       mainAxisSpacing: 10,
       childAspectRatio: 0.82,
-      children: const [
-        _QuickAction(icon: Icons.qr_code_scanner_rounded, label: 'Scan Pet QR'),
-        _QuickAction(icon: Icons.calendar_month_rounded, label: 'Appointments'),
-        _QuickAction(icon: Icons.groups_rounded, label: 'Manage Queue'),
-        _QuickAction(icon: Icons.person_outline_rounded, label: 'My Profile'),
+      children: [
+        const _QuickAction(
+          icon: Icons.qr_code_scanner_rounded,
+          label: 'Scan Pet QR',
+        ),
+        _QuickAction(
+          icon: Icons.calendar_month_rounded,
+          label: 'Appointments',
+          onTap: () {
+            if (_veterinarian == null || _hospital == null) return;
+
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => VeterinarianAppointmentsPage(
+                  vetId: _veterinarian!.vetId,
+                  hospitalId: _hospital!.hospitalId,
+                ),
+              ),
+            );
+          },
+        ),
+        const _QuickAction(icon: Icons.groups_rounded, label: 'Manage Queue'),
+        const _QuickAction(
+          icon: Icons.person_outline_rounded,
+          label: 'My Profile',
+        ),
       ],
     );
   }
@@ -712,45 +734,50 @@ class _OverviewCard extends StatelessWidget {
 }
 
 class _QuickAction extends StatelessWidget {
-  const _QuickAction({required this.icon, required this.label});
+  const _QuickAction({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppTheme.background,
-              borderRadius: BorderRadius.circular(12),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(15),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppTheme.white,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: AppTheme.background,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: AppTheme.primary, size: 20),
             ),
-            child: Icon(icon, color: AppTheme.primary, size: 20),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppTheme.espresso,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            const SizedBox(height: 7),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppTheme.espresso,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
