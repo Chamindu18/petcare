@@ -1,0 +1,39 @@
+diff --git a/firestore.rules b/firestore.rules
+index 9361c1a..6408115 100644
+--- a/firestore.rules
++++ b/firestore.rules
+@@ -442,14 +442,32 @@ service cloud.firestore {
+         ]);
+     }
+ 
++    // V01 read compatibility: trusted profile + active directory back-reference.
++    // This helper grants no hospital/service/queue write privileges.
++    function dashboardAssignedVeterinarian(data) {
++      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
++      let vetId = profile.get('vetId', request.auth.uid);
++      let directory = get(/databases/$(database)/documents/veterinarians/$(vetId)).data;
++      return isVeterinarian()
++        && vetId is string && vetId.size() > 0
++        && data.vetId == vetId
++        && data.hospitalId is string && data.hospitalId != 'unassigned'
++        && profile.get('hospitalId', null) == data.hospitalId
++        && directory.get('userId', null) == request.auth.uid
++        && directory.get('active', false) == true
++        && directory.get('vetId', vetId) == vetId
++        && directory.hospitalId == data.hospitalId;
++    }
++
+     match /appointments/{appointmentId} {
+       // Owners can read their own appointments. Active staff and assigned
+-      // veterinarians can read appointments in their hospital. List queries
++      // veterinarians can read only their assigned appointments. List queries
+       // must include a matching hospitalId filter for Firestore to prove scope.
+       allow read: if signedIn()
+         && (
+           resource.data.ownerId == request.auth.uid
+-          || isVeterinaryUserForHospital(resource.data.hospitalId)
++          || isVeterinaryStaffForHospital(resource.data.hospitalId)
++          || dashboardAssignedVeterinarian(resource.data)
+         );
+ 
+       // New appointments must begin in the pending state and belong to the

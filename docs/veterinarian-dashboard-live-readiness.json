@@ -1,0 +1,371 @@
+{
+  "project": "petcare-d4413",
+  "checkedAt": "2026-11-05T01:30:30.487Z",
+  "checks": {
+    "database": {
+      "status": "verified",
+      "result": {
+        "location": "asia-south2",
+        "edition": "STANDARD",
+        "type": "FIRESTORE_NATIVE"
+      }
+    },
+    "functions": {
+      "status": "unverified",
+      "error": "Request to https://cloudfunctions.googleapis.com/v2/projects/petcare-d4413/locations/-/functions had HTTP Error: 403, Cloud Functions API has not been used in project petcare-d4413 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudfunctions.googleapis.com/overview?project=petcare-d4413 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."
+    },
+    "rules": {
+      "status": "verified",
+      "result": {
+        "releaseUpdatedAt": "2026-11-02T15:27:48.859892Z",
+        "ruleset": "projects/petcare-d4413/rulesets/8b53a302-689f-4b57-8b94-e44a924e57a9",
+        "localHash": "c97b729189ac450c50aa13e3a7a2fc141bb2700ed3e62bf5371ffa97bcc26a33",
+        "deployedHash": "2a05ad9ba461abb8d9a042d0af5784f0ac9438b36d5c6466499078cba56146d2",
+        "veterinarianAuthorization": [
+          "        ).data.role == 'veterinarian';\r",
+          "    // The veterinarian directory remains separate from staff assignments.\r",
+          "    function isVeterinarianForHospital(hospitalId) {\r",
+          "        && hospitalId is string\r",
+          "        && hospitalId != 'unassigned'\r",
+          "          /databases/$(database)/documents/veterinarians/$(request.auth.uid)\r",
+          "        ).data.hospitalId == hospitalId;\r",
+          "    function isVeterinaryStaffForHospital(hospitalId) {\r",
+          "        && hospitalId is string\r",
+          "        && hospitalId != 'unassigned'\r",
+          "        ).data.hospitalId == hospitalId\r",
+          "    // workflows. Other resources use the narrower veterinarian predicate.\r",
+          "    function isVeterinaryUserForHospital(hospitalId) {\r",
+          "      return isVeterinarianForHospital(hospitalId)\r",
+          "        || isVeterinaryStaffForHospital(hospitalId);\r",
+          "      allow read: if isCurrentUser(uid);\r",
+          "      allow read: if signedIn()\r",
+          "      allow read: if ownsPet(resource.data.petId);\r",
+          "      allow read: if ownsPet(resource.data.petId);\r",
+          "      allow read: if ownsPet(resource.data.petId);\r",
+          "      allow read: if ownsPet(resource.data.petId);\r",
+          "    match /hospitals/{hospitalId} {\r",
+          "      allow read: if signedIn();\r",
+          "      // Hospital configuration is veterinarian-managed, not staff-managed.\r",
+          "      allow update, delete: if isVeterinarianForHospital(hospitalId);\r",
+          "      allow read: if signedIn();\r",
+          "      // Service documents must contain a hospitalId field. Until the app's\r",
+          "      allow create: if request.resource.data.hospitalId is string\r",
+          "        && isVeterinarianForHospital(request.resource.data.hospitalId);\r",
+          "      allow update: if resource.data.hospitalId is string\r",
+          "        && isVeterinarianForHospital(resource.data.hospitalId)\r",
+          "        && request.resource.data.hospitalId == resource.data.hospitalId;\r",
+          "      allow delete: if resource.data.hospitalId is string\r",
+          "        && isVeterinarianForHospital(resource.data.hospitalId);\r",
+          "      allow list, create, update, delete: if false;\r",
+          "    match /veterinarians/{veterinarianId} {\r",
+          "      allow read: if signedIn();\r",
+          "      // A veterinarian may create only their own initially unassigned\r",
+          "        && veterinarianId == request.auth.uid\r",
+          "        && request.resource.data.hospitalId == 'unassigned';\r",
+          "        && veterinarianId == request.auth.uid\r",
+          "        && request.resource.data.hospitalId == resource.data.hospitalId;\r",
+          "        && veterinarianId == request.auth.uid;\r",
+          "        && request.resource.data.hospitalId == resource.data.hospitalId\r",
+          "          'vetId',\r",
+          "    // Assigned staff and veterinarians may confirm or reject pending appointments.\r",
+          "      return isVeterinaryUserForHospital(resource.data.hospitalId)\r",
+          "      return isVeterinaryUserForHospital(resource.data.hospitalId)\r",
+          "          'vetId',\r",
+          "      // veterinarians can read appointments in their hospital. List queries\r",
+          "      // must include a matching hospitalId filter for Firestore to prove scope.\r",
+          "      allow read: if signedIn()\r",
+          "          || isVeterinaryUserForHospital(resource.data.hospitalId)\r",
+          "      // Hospital staff and assigned veterinarians must use a hospitalId-scoped\r",
+          "      allow read: if signedIn()\r",
+          "          || isVeterinaryUserForHospital(resource.data.hospitalId)\r",
+          "        request.resource.data.hospitalId\r",
+          "      allow update: if isVeterinaryUserForHospital(resource.data.hospitalId)\r",
+          "        && request.resource.data.hospitalId == resource.data.hospitalId\r",
+          "      allow delete: if isVeterinaryUserForHospital(resource.data.hospitalId);\r",
+          "      allow read: if signedIn()\r",
+          "      allow read: if signedIn()\r",
+          "      allow list: if signedIn()\r",
+          "      allow read, write: if false;\r"
+        ],
+        "matchesLocal": false
+      }
+    },
+    "indexes": {
+      "status": "verified",
+      "result": {
+        "deployedCount": 8,
+        "expected": [
+          {
+            "collectionGroup": "notifications",
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "recipientUserId",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "createdAt",
+                "order": "DESCENDING"
+              }
+            ],
+            "ready": true
+          },
+          {
+            "collectionGroup": "adoption_listings",
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "listingOwnerId",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "createdAt",
+                "order": "DESCENDING"
+              }
+            ],
+            "ready": true
+          },
+          {
+            "collectionGroup": "adoption_listings",
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "status",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "createdAt",
+                "order": "DESCENDING"
+              }
+            ],
+            "ready": true
+          },
+          {
+            "collectionGroup": "adoption_requests",
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "requesterId",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "submittedAt",
+                "order": "DESCENDING"
+              }
+            ],
+            "ready": true
+          },
+          {
+            "collectionGroup": "adoption_requests",
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "recipientId",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "submittedAt",
+                "order": "DESCENDING"
+              }
+            ],
+            "ready": true
+          },
+          {
+            "collectionGroup": "adoption_requests",
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "providerId",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "submittedAt",
+                "order": "DESCENDING"
+              }
+            ],
+            "ready": true
+          },
+          {
+            "collectionGroup": "adoption_requests",
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "recipientId",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "recipientType",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "submittedAt",
+                "order": "DESCENDING"
+              }
+            ],
+            "ready": true
+          },
+          {
+            "collectionGroup": "appointments",
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "hospitalId",
+                "order": "ASCENDING"
+              },
+              {
+                "fieldPath": "vetId",
+                "order": "ASCENDING"
+              }
+            ],
+            "ready": false
+          }
+        ]
+      }
+    },
+    "users": {
+      "status": "verified",
+      "result": {
+        "count": 10
+      }
+    },
+    "hospital_staff": {
+      "status": "verified",
+      "result": {
+        "count": 1
+      }
+    },
+    "veterinarians": {
+      "status": "verified",
+      "result": {
+        "count": 55
+      }
+    },
+    "hospitals": {
+      "status": "verified",
+      "result": {
+        "count": 32
+      }
+    },
+    "services": {
+      "status": "verified",
+      "result": {
+        "count": 160
+      }
+    },
+    "pets": {
+      "status": "verified",
+      "result": {
+        "count": 10
+      }
+    },
+    "appointments": {
+      "status": "verified",
+      "result": {
+        "count": 4
+      }
+    },
+    "appointment_schedule": {
+      "status": "verified",
+      "result": {
+        "count": 0
+      }
+    },
+    "queue_records": {
+      "status": "verified",
+      "result": {
+        "count": 0
+      }
+    },
+    "authIdentities": {
+      "status": "verified",
+      "result": {
+        "accountCount": 10
+      }
+    },
+    "doctorAppointmentQueryIam": {
+      "status": "verified",
+      "result": {
+        "authorization": "CLI IAM; does not test mobile security rules",
+        "results": [
+          {
+            "queryExecuted": true,
+            "returnedAny": true
+          }
+        ]
+      }
+    }
+  },
+  "relationships": {
+    "doctorAssignmentChecks": [
+      {
+        "authExists": true,
+        "explicitVetId": true,
+        "directoryExists": true,
+        "directoryIdEqualsAuthUid": false,
+        "directoryCanonicalIdMatches": true,
+        "userIdMatches": true,
+        "active": true,
+        "hospitalMatches": true,
+        "hospitalExists": true,
+        "hospitalActive": true
+      }
+    ],
+    "activeDirectoryRecords": 55,
+    "directorySchema": {
+      "name": {
+        "string": 55,
+        "number": 0,
+        "boolean": 0,
+        "object": 0,
+        "undefined": 0
+      },
+      "profileImageUrl": {
+        "string": 55,
+        "number": 0,
+        "boolean": 0,
+        "object": 0,
+        "undefined": 0
+      },
+      "specialty": {
+        "string": 55,
+        "number": 0,
+        "boolean": 0,
+        "object": 0,
+        "undefined": 0
+      },
+      "qualifications": {
+        "string": 55,
+        "number": 0,
+        "boolean": 0,
+        "object": 0,
+        "undefined": 0
+      },
+      "experienceYears": {
+        "string": 55,
+        "number": 0,
+        "boolean": 0,
+        "object": 0,
+        "undefined": 0
+      },
+      "bio": {
+        "string": 55,
+        "number": 0,
+        "boolean": 0,
+        "object": 0,
+        "undefined": 0
+      }
+    },
+    "directoryRecordsMissingUserId": 54,
+    "directoryRecordsMissingActiveFlag": 0,
+    "veterinarianUserAccounts": 1,
+    "activeStaffAssignments": 1,
+    "ineligibleDirectoryRecords": 54,
+    "invalidActiveStaffAssignments": 0,
+    "appointmentsMissingSchedule": 4,
+    "appointmentsMissingDuration": 4,
+    "appointmentsWithMissingReferences": 0,
+    "appointmentsWithInvalidPetOwnership": 0,
+    "brokenAppointmentQueueLinks": 0,
+    "mismatchedScheduleRecords": 0
+  }
+}

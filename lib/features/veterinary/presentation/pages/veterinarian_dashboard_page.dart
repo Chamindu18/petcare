@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../appointments/data/repositories/firebase_appointment_repository.dart';
@@ -13,9 +16,20 @@ import '../../domain/entities/veterinarian.dart';
 import '../../domain/usecases/get_current_veterinarian_assignment.dart';
 
 class VeterinarianDashboardPage extends StatefulWidget {
-  const VeterinarianDashboardPage({super.key, required this.profile});
+  const VeterinarianDashboardPage({
+    super.key,
+    required this.profile,
+    this.getAssignment,
+    this.getHospital,
+    this.getAppointments,
+    this.auth,
+  });
 
   final UserProfile profile;
+  final FirebaseAuth? auth;
+  final GetCurrentVeterinarianAssignment? getAssignment;
+  final GetHospitalById? getHospital;
+  final GetAppointmentsByVeterinarian? getAppointments;
 
   @override
   State<VeterinarianDashboardPage> createState() =>
@@ -33,74 +47,159 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
 
   bool _isLoading = true;
   String? _errorMessage;
+  String? _hospitalWarning;
+  int _loadGeneration = 0;
+  StreamSubscription<User?>? _authSubscription;
+  FirebaseAuth get _auth => widget.auth ?? FirebaseAuth.instance;
 
   @override
   void initState() {
     super.initState();
 
-    _getAppointments = GetAppointmentsByVeterinarian(
-      FirebaseAppointmentRepository(),
-    );
+    _getAppointments =
+        widget.getAppointments ??
+        GetAppointmentsByVeterinarian(FirebaseAppointmentRepository());
 
-    _getAssignment = GetCurrentVeterinarianAssignment(
-      FirebaseVeterinarianAssignmentRepository(),
-    );
+    _getAssignment =
+        widget.getAssignment ??
+        GetCurrentVeterinarianAssignment(
+          FirebaseVeterinarianAssignmentRepository(),
+        );
 
-    _getHospital = GetHospitalById(FirebaseHospitalRepository());
+    _getHospital =
+        widget.getHospital ?? GetHospitalById(FirebaseHospitalRepository());
 
+    _authSubscription = _auth.authStateChanges().listen((user) {
+      if (user?.uid != widget.profile.uid && mounted) {
+        _loadGeneration++;
+        setState(() {
+          _appointments = [];
+          _veterinarian = null;
+          _hospital = null;
+          _isLoading = false;
+          _errorMessage = 'Your session changed. Please sign in again.';
+        });
+      }
+    });
     _loadDashboard();
   }
 
+  @override
+  void didUpdateWidget(covariant VeterinarianDashboardPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.profile.uid != widget.profile.uid) _loadDashboard();
+  }
+
+  @override
+  void dispose() {
+    _loadGeneration++;
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadDashboard() async {
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
-    }
-
+    final generation = ++_loadGeneration;
+    final uid = widget.profile.uid;
+    bool current() =>
+        mounted &&
+        generation == _loadGeneration &&
+        _auth.currentUser?.uid == uid;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _hospitalWarning = null;
+      _appointments = [];
+      _veterinarian = null;
+      _hospital = null;
+    });
+    var operation = 'assignment';
     try {
-      final assignment = await _getAssignment();
-      if (assignment == null) {
-        throw StateError(
-          'Your active veterinarian assignment could not be verified.',
-        );
+      if (_auth.currentUser?.uid != uid) {
+        throw StateError('session-changed');
       }
-      final vetId = assignment.vetId;
-      final hospitalId = assignment.hospitalId;
-      final results = await Future.wait([
-        Future.value(assignment),
-        _getHospital(hospitalId),
-        _getAppointments(vetId: vetId, hospitalId: hospitalId),
-      ]);
-
-      final veterinarian = results[0] as Veterinarian?;
-      final hospital = results[1] as Hospital?;
-      final appointments = results[2] as List<Appointment>;
-
+      final assignment = await _getAssignment();
+      if (!current()) return;
+      if (assignment == null) throw StateError('assignment-unverified');
+      operation = 'appointments';
+      final appointments = await _getAppointments(
+        vetId: assignment.vetId,
+        hospitalId: assignment.hospitalId,
+      );
+      if (!current()) return;
       appointments.sort((a, b) => a.dateTime.compareTo(b.dateTime));
-
-      if (!mounted) return;
-
+      operation = 'hospital';
+      Hospital? hospital;
+      try {
+        hospital = await _getHospital(assignment.hospitalId);
+        if (hospital == null) {
+          _hospitalWarning =
+              'Hospital details are unavailable. Contact your hospital.';
+        }
+      } catch (error) {
+        _diagnose(operation, error);
+        // Authorization failures must remain visible and block sensitive content.
+        if (error is FirebaseException &&
+            {'permission-denied', 'unauthenticated'}.contains(error.code)) {
+          rethrow;
+        }
+        _hospitalWarning =
+            'Hospital details could not be loaded. Pull down to retry.';
+      }
+      if (!current()) return;
       setState(() {
-        _veterinarian = veterinarian;
+        _veterinarian = assignment;
         _hospital = hospital;
         _appointments = appointments;
         _isLoading = false;
       });
     } catch (error) {
-      if (!mounted) return;
-
+      _diagnose(operation, error);
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Unable to load dashboard information. Please check your connection and try again.';
+        _errorMessage = _message(error);
       });
-
-      debugPrint('Veterinarian dashboard error: $error');
     }
   }
 
+  void _diagnose(String operation, Object error) {
+    // Never print exception messages: SDK messages can include document paths.
+    final code = error is FirebaseException
+        ? error.code
+        : error is StateError
+        ? 'assignment-or-session-invalid'
+        : error is FormatException || error is TypeError
+        ? 'data-integrity'
+        : error.runtimeType.toString();
+    debugPrint('V01 dashboard operation=$operation code=$code');
+  }
+
+  String _message(Object error) {
+    if (error is StateError) {
+      return 'Your veterinarian assignment could not be verified. Contact your hospital to confirm your account assignment.';
+    }
+    if (error is FirebaseException) {
+      switch (error.code) {
+        case 'permission-denied':
+        case 'unauthenticated':
+          return 'Dashboard access could not be authorized. Contact your hospital.';
+        case 'failed-precondition':
+          return 'The dashboard service needs configuration. Contact support.';
+        case 'unavailable':
+        case 'deadline-exceeded':
+          return 'Unable to connect. Please check your connection and try again.';
+      }
+    }
+    return 'Dashboard information could not be loaded. Please retry or contact your hospital.';
+  }
+
+  // The hospital schedule uses Sri Lanka time regardless of device timezone.
+  DateTime _sriLanka(DateTime instant) =>
+      instant.toUtc().add(const Duration(hours: 5, minutes: 30));
+
   bool _sameDay(DateTime a, DateTime b) {
+    a = _sriLanka(a);
+    b = _sriLanka(b);
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
@@ -148,7 +247,7 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
   }
 
   String get _greeting {
-    final hour = DateTime.now().hour;
+    final hour = _sriLanka(DateTime.now()).hour;
 
     if (hour < 12) return 'Good morning';
     if (hour < 17) return 'Good afternoon';
@@ -234,6 +333,11 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
       padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
       children: [
         _buildWelcomeHeader(),
+        if (_hospitalWarning != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(_hospitalWarning!),
+          ),
         const SizedBox(height: 22),
 
         _sectionTitle(
@@ -642,6 +746,7 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
   }
 
   String _formatTime(DateTime dateTime) {
+    dateTime = _sriLanka(dateTime);
     final hour = dateTime.hour % 12 == 0 ? 12 : dateTime.hour % 12;
 
     return '$hour:${dateTime.minute.toString().padLeft(2, '0')} '
@@ -649,9 +754,10 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
   }
 
   String _formatDate(DateTime dateTime) {
-    return '${dateTime.day.toString().padLeft(2, '0')}/'
-        '${dateTime.month.toString().padLeft(2, '0')}/'
-        '${dateTime.year} · ${_formatTime(dateTime)}';
+    final clock = _sriLanka(dateTime);
+    return '${clock.day.toString().padLeft(2, '0')}/'
+        '${clock.month.toString().padLeft(2, '0')}/'
+        '${clock.year} · ${_formatTime(dateTime)}';
   }
 
   String _shortId(String id) {
