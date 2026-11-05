@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../../core/config/firebase_emulator_config.dart';
+
 /// The server is the only scheduling writer; availability reads are advisory.
 abstract interface class AppointmentSchedulingDataSource {
   Future<Map<String, dynamic>> reserve(Map<String, dynamic> request);
@@ -27,12 +29,15 @@ class FirebaseAppointmentSchedulingDataSource
     if (token == null) {
       throw StateError('Your session has expired. Sign in again.');
     }
-    final target =
-        endpoint ??
-        Uri.https(
-          'asia-south2-${_auth.app.options.projectId}.cloudfunctions.net',
-          '/reserveAppointmentSlot',
-        );
+    final target = endpoint ??
+        (FirebaseEmulatorConfig.enabled
+            ? FirebaseEmulatorConfig.functionEndpoint(
+                'reserveAppointmentSlot',
+              )
+            : Uri.https(
+                'asia-south2-${_auth.app.options.projectId}.cloudfunctions.net',
+                '/reserveAppointmentSlot',
+              ));
     // Follow the Firebase callable protocol using the existing HTTP dependency.
     final headers = {
       'Content-Type': 'application/json',
