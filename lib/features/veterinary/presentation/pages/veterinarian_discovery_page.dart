@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../shared/widgets/petcare_secondary_app_bar.dart';
 import '../../../hospitals/domain/entities/hospital.dart';
 import '../../domain/entities/veterinarian.dart';
 import '../providers/veterinarian_provider.dart';
@@ -86,7 +87,7 @@ class _VeterinarianDiscoveryPageState extends State<VeterinarianDiscoveryPage> {
         final veterinarians = _filteredVeterinarians();
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Find Veterinarians')),
+          appBar: const PetCareSecondaryAppBar(title: 'Find Veterinarians'),
           body: RefreshIndicator(
             onRefresh: _refresh,
             child: CustomScrollView(
