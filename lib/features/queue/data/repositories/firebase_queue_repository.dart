@@ -173,12 +173,14 @@ class FirebaseQueueRepository
         'hospitalId': hospitalId,
         'ownerId': appointment.ownerId,
         'petId': appointment.petId,
+        'veterinarianId': appointment.vetId,
         'queueNumber': number,
         'currentServing': 0,
         'position': number,
         'status': 'waiting',
         'day': Timestamp.fromDate(day),
         'dayKey': key,
+        'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
       tx.update(appointmentRef, {
@@ -215,12 +217,21 @@ class FirebaseQueueRepository
     required StaffQueueStatus expectedStatus,
     required StaffQueueStatus nextStatus,
   }) async {
-    if (!((expectedStatus == StaffQueueStatus.waiting &&
-            nextStatus == StaffQueueStatus.inConsultation) ||
-        (expectedStatus == StaffQueueStatus.inConsultation &&
-            nextStatus == StaffQueueStatus.completed))) {
+    if (!expectedStatus.canTransitionTo(nextStatus)) {
       throw StateError('Invalid queue status transition.');
     }
+
+    final timestampField = switch (nextStatus) {
+      QueueStatus.called => 'calledAt',
+      QueueStatus.inConsultation => 'consultationStartedAt',
+      QueueStatus.completed => 'completedAt',
+      QueueStatus.skipped => 'skippedAt',
+      QueueStatus.cancelled => 'cancelledAt',
+      QueueStatus.waiting => throw StateError(
+        'Queue cannot transition back to waiting.',
+      ),
+    };
+
     final ref = _queueCollection.doc(queueId);
     await _firestore.runTransaction((tx) async {
       await _verifyStaff(tx, hospitalId);
@@ -236,6 +247,7 @@ class FirebaseQueueRepository
       tx.update(ref, {
         'status': nextStatus.value,
         'position': 0,
+        timestampField: FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });
