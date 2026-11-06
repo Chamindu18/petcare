@@ -58,6 +58,38 @@ void main() {
       expect(StaffQueueStatus.inConsultation.isInProgress, isTrue);
     });
 
+    test('allows only the forward lifecycle and terminal exits', () {
+      final expected = {
+        StaffQueueStatus.waiting: {
+          StaffQueueStatus.called,
+          StaffQueueStatus.skipped,
+          StaffQueueStatus.cancelled,
+        },
+        StaffQueueStatus.called: {
+          StaffQueueStatus.inConsultation,
+          StaffQueueStatus.skipped,
+          StaffQueueStatus.cancelled,
+        },
+        StaffQueueStatus.inConsultation: {
+          StaffQueueStatus.completed,
+          StaffQueueStatus.cancelled,
+        },
+        StaffQueueStatus.completed: <StaffQueueStatus>{},
+        StaffQueueStatus.skipped: <StaffQueueStatus>{},
+        StaffQueueStatus.cancelled: <StaffQueueStatus>{},
+      };
+
+      for (final status in StaffQueueStatus.values) {
+        for (final next in StaffQueueStatus.values) {
+          expect(
+            status.canTransitionTo(next),
+            expected[status]!.contains(next),
+            reason: '${status.value} -> ${next.value}',
+          );
+        }
+      }
+    });
+
     test('returns null when an optional status cannot be parsed', () {
       expect(StaffQueueStatus.tryParse(null), isNull);
       expect(StaffQueueStatus.tryParse('unknown'), isNull);

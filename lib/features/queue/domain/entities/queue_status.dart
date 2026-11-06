@@ -56,4 +56,35 @@ enum QueueStatus {
   /// Whether the patient has been called or is in consultation.
   bool get isInProgress =>
       this == QueueStatus.called || this == QueueStatus.inConsultation;
+
+  /// Whether this status may move directly to [next].
+  ///
+  /// The main lifecycle is waiting -> called -> in_consultation -> completed.
+  /// Active entries may also become skipped or cancelled. Terminal entries
+  /// cannot be reopened.
+  bool canTransitionTo(QueueStatus next) {
+    if (isTerminal || this == next) return false;
+
+    return switch (this) {
+      QueueStatus.waiting => switch (next) {
+        QueueStatus.called ||
+        QueueStatus.skipped ||
+        QueueStatus.cancelled => true,
+        _ => false,
+      },
+      QueueStatus.called => switch (next) {
+        QueueStatus.inConsultation ||
+        QueueStatus.skipped ||
+        QueueStatus.cancelled => true,
+        _ => false,
+      },
+      QueueStatus.inConsultation => switch (next) {
+        QueueStatus.completed || QueueStatus.cancelled => true,
+        _ => false,
+      },
+      QueueStatus.completed ||
+      QueueStatus.skipped ||
+      QueueStatus.cancelled => false,
+    };
+  }
 }

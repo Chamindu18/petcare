@@ -60,13 +60,15 @@ abstract interface class StaffQueueCommandRepository {
   /// Performs one valid operational queue status transition.
   ///
   /// Allowed transitions:
-  /// waiting -> in_consultation -> completed
+  /// waiting -> called -> in_consultation -> completed
+  ///
+  /// Waiting and called entries may also be skipped or cancelled, and an
+  /// in-consultation entry may be cancelled. Terminal entries cannot be
+  /// reopened or changed through this workflow.
   ///
   /// The expected status provides optimistic concurrency protection:
   /// a transaction must reject the operation if the persisted status
   /// has changed since it was read.
-  ///
-  /// Completed entries cannot be reopened through this workflow.
   Future<Queue> transitionStatus({
     required String queueId,
     required String hospitalId,
