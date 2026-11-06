@@ -20,6 +20,8 @@ class AppointmentSlotGenerator {
   /// [existingAppointments] contains appointments that may occupy slots.
   /// [appointmentDurations] maps appointment IDs to their actual service
   /// durations.
+  /// [now] excludes slots that have already started. It is optional so
+  /// callers can generate a full day for display or testing.
   ///
   /// Rejected and cancelled appointments do not reserve slots.
   /// Pending and confirmed appointments remain reserved.
@@ -31,6 +33,7 @@ class AppointmentSlotGenerator {
     required String veterinarianId,
     required List<Appointment> existingAppointments,
     required Map<String, Duration> appointmentDurations,
+    DateTime? now,
   }) {
     if (serviceDurationMinutes <= 0) {
       throw ArgumentError.value(
@@ -63,6 +66,13 @@ class AppointmentSlotGenerator {
 
     while (!slotStart.add(requestedDuration).isAfter(dayEnd)) {
       final slotEnd = slotStart.add(requestedDuration);
+
+      // A slot that has already started cannot be booked, even when its
+      // remaining time has not fully elapsed.
+      if (now != null && !slotStart.isAfter(now)) {
+        slotStart = slotEnd;
+        continue;
+      }
 
       final overlapsExistingAppointment = existingAppointments.any((
         appointment,

@@ -248,6 +248,42 @@ void main() {
       );
     });
 
+    test('excludes slots that have already started', () {
+      final slots = AppointmentSlotGenerator.generate(
+        date: DateTime(2026, 11, 1),
+        operatingHours: _operatingHours,
+        serviceDurationMinutes: 30,
+        veterinarianId: _veterinarianId,
+        existingAppointments: const [],
+        appointmentDurations: const {},
+        now: DateTime(2026, 11, 1, 10, 15),
+      );
+
+      expect(slots.map((slot) => slot.startTime), [
+        DateTime(2026, 11, 1, 10, 30),
+        DateTime(2026, 11, 1, 11),
+        DateTime(2026, 11, 1, 11, 30),
+      ]);
+    });
+
+    test(
+      'does not filter future slots when now is before the selected day',
+      () {
+        final slots = AppointmentSlotGenerator.generate(
+          date: DateTime(2026, 11, 2),
+          operatingHours: _operatingHours,
+          serviceDurationMinutes: 30,
+          veterinarianId: _veterinarianId,
+          existingAppointments: const [],
+          appointmentDurations: const {},
+          now: DateTime(2026, 11, 1, 23, 59),
+        );
+
+        expect(slots, hasLength(8));
+        expect(slots.first.startTime, DateTime(2026, 11, 2, 8));
+      },
+    );
+
     test('throws when requested service duration is zero', () {
       expect(
         () => AppointmentSlotGenerator.generate(
