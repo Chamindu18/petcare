@@ -107,6 +107,7 @@ async function seedQueueRecord(
     petId = 'pet-a',
     appointmentId = 'appointment-a',
     hospitalId = 'hospital-a',
+    veterinarianId = 'vet-a',
     queueNumber = 1,
     status = 'waiting',
   } = {},
@@ -120,6 +121,7 @@ async function seedQueueRecord(
       petId,
       appointmentId,
       hospitalId,
+      veterinarianId,
       queueNumber,
       status,
       currentServing: 0,
@@ -778,10 +780,12 @@ describe('HOSPITAL QUEUE SECURITY', function () {
       petId: 'pet-a',
       appointmentId: 'appointment-a',
       hospitalId: 'hospital-a',
+      veterinarianId: 'vet-a',
       queueNumber: 1,
       status: 'waiting',
       currentServing: 0,
       position: 1,
+      createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(), day, dayKey,
     });
     batch.update(doc(staffDb, 'appointments', 'appointment-a'), {
@@ -800,12 +804,13 @@ describe('HOSPITAL QUEUE SECURITY', function () {
         petId: 'pet-a',
         appointmentId: 'appointment-a',
         hospitalId: 'hospital-b',
+        veterinarianId: 'vet-a',
         queueNumber: 1,
         status: 'waiting',
         currentServing: 0,
         position: 1,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       }),
     );
   });
@@ -817,7 +822,8 @@ describe('HOSPITAL QUEUE SECURITY', function () {
 
     await assertSucceeds(
       updateDoc(doc(staffDb, 'queue_records', 'queue-update-a'), {
-        status: 'in_consultation',
+        status: 'called',
+        calledAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       }),
     );
@@ -832,7 +838,8 @@ describe('HOSPITAL QUEUE SECURITY', function () {
 
     await assertFails(
       updateDoc(doc(staffDb, 'queue_records', 'queue-update-b'), {
-        status: 'in_consultation',
+        status: 'called',
+        calledAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       }),
     );

@@ -128,10 +128,12 @@ function queueData(overrides = {}) {
     hospitalId: 'hospital-a',
     ownerId: 'owner-1',
     petId: 'pet-1',
+    veterinarianId: 'vet-a',
     queueNumber: 1,
     currentServing: 0,
     position: 1,
     status: 'waiting',
+    createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     day, dayKey: localDay,
     ...overrides,
@@ -225,6 +227,7 @@ test('queue status cannot skip directly to completed', async () => {
   await assertFails(
     updateDoc(doc(db, 'queue_records/queue-1'), {
       status: 'completed',
+      completedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }),
   );
@@ -290,6 +293,8 @@ test('atomic check-in rejects each forged relationship and mixed appointment edi
     { hospitalId: 'hospital-b' }, { appointmentId: 'missing' },
     { queueId: 'different-id' }, { status: 'completed' },
     { queueNumber: 0 }, { position: -1 }, { currentServing: 'zero' },
+    { veterinarianId: 'forged' },
+    { createdAt: Timestamp.fromMillis(0) },
   ]) {
     await assertFails(checkIn(db, patch));
     await env.withSecurityRulesDisabled(async context => {
@@ -324,13 +329,150 @@ test('staff lifecycle succeeds forward and rejects reverse or terminal edits', a
   const db = authenticatedDb('staff-a');
   await assertSucceeds(checkIn(db));
   const ref = doc(db, 'queue_records/queue-1');
-  await assertSucceeds(updateDoc(ref, { position: 0, updatedAt: serverTimestamp() }));
-  await assertSucceeds(updateDoc(ref, { status: 'in_consultation', updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(ref, { position: 0, updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(ref, {
+    currentServing: 1,
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(ref, {
+    status: 'in_consultation',
+    consultationStartedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(ref, {
+    status: 'called',
+    updatedAt: serverTimestamp(),
+  }));
+  await assertSucceeds(updateDoc(ref, {
+    status: 'called',
+    calledAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
+  await assertSucceeds(updateDoc(ref, {
+    status: 'in_consultation',
+    consultationStartedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
   await assertFails(updateDoc(ref, { status: 'waiting', updatedAt: serverTimestamp() }));
   await assertFails(updateDoc(ref, { ownerId: 'forged', updatedAt: serverTimestamp() }));
   await assertFails(updateDoc(ref, { queueNumber: 2, updatedAt: serverTimestamp() }));
-  await assertSucceeds(updateDoc(ref, { status: 'completed', updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(ref, {
+    status: 'completed',
+    updatedAt: serverTimestamp(),
+  }));
+  await assertSucceeds(updateDoc(ref, {
+    status: 'completed',
+    completedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
   await assertFails(updateDoc(ref, { position: 1, updatedAt: serverTimestamp() }));
+});
+
+test('same-status updates cannot change queue ordering fields', async () => {
+  const db = authenticatedDb('staff-a');
+  await assertSucceeds(checkIn(db));
+  const ref = doc(db, 'queue_records/queue-1');
+
+  await assertFails(updateDoc(ref, { position: 0, updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(ref, { currentServing: 1, updatedAt: serverTimestamp() }));
+
+  await assertSucceeds(updateDoc(ref, {
+    status: 'called',
+    calledAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(ref, { position: 0, updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(ref, { currentServing: 1, updatedAt: serverTimestamp() }));
+
+  await assertSucceeds(updateDoc(ref, {
+    status: 'in_consultation',
+    consultationStartedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(ref, { position: 0, updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(ref, { currentServing: 1, updatedAt: serverTimestamp() }));
+});
+
+test('called and in-consultation entries can be skipped or cancelled', async () => {
+  const db = authenticatedDb('staff-a');
+  for (const [id, status, timestamps, next, timestampField] of [
+    ['queue-called-skipped', 'called', { calledAt: Timestamp.now() }, 'skipped', 'skippedAt'],
+    ['queue-called-cancelled', 'called', { calledAt: Timestamp.now() }, 'cancelled', 'cancelledAt'],
+    ['queue-consultation-cancelled', 'in_consultation', { calledAt: Timestamp.now(), consultationStartedAt: Timestamp.now() }, 'cancelled', 'cancelledAt'],
+  ]) {
+    await seedQueue(id, { status, ...timestamps });
+    await assertSucceeds(updateDoc(doc(db, `queue_records/${id}`), {
+      status: next,
+      [timestampField]: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }));
+  }
+});
+
+test('active queue entries can be skipped or cancelled but not reopened', async () => {
+  const db = authenticatedDb('staff-a');
+  await assertSucceeds(checkIn(db));
+  const ref = doc(db, 'queue_records/queue-1');
+  await assertFails(updateDoc(ref, {
+    status: 'cancelled',
+    updatedAt: serverTimestamp(),
+  }));
+  await assertSucceeds(updateDoc(ref, {
+    status: 'cancelled',
+    cancelledAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(ref, {
+    status: 'called',
+    calledAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(ref, {
+    status: 'waiting',
+    updatedAt: serverTimestamp(),
+  }));
+
+  await env.withSecurityRulesDisabled(async context => {
+    const adminDb = context.firestore();
+    await updateDoc(doc(adminDb, 'appointments/appointment-1'), {
+      queueId: deleteField(),
+    });
+    await deleteDoc(doc(adminDb, 'queue_records/queue-1'));
+    await deleteDoc(doc(adminDb, `hospitals/hospital-a/queue_days/${localDay}`));
+  });
+  await assertSucceeds(checkIn(db));
+  await assertSucceeds(updateDoc(ref, {
+    status: 'skipped',
+    skippedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(ref, {
+    status: 'called',
+    calledAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
+});
+
+test('queue transitions reject forged or extra lifecycle timestamps', async () => {
+  const db = authenticatedDb('staff-a');
+  await assertSucceeds(checkIn(db));
+  const ref = doc(db, 'queue_records/queue-1');
+  await assertFails(updateDoc(ref, {
+    status: 'called',
+    calledAt: Timestamp.fromMillis(0),
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(ref, {
+    status: 'called',
+    calledAt: serverTimestamp(),
+    completedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
+  await assertSucceeds(updateDoc(ref, {
+    status: 'called',
+    calledAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
 });
 
 test('owners and hospital users retain scoped reads and cannot cross hospitals', async () => {
@@ -347,7 +489,7 @@ test('owners and hospital users retain scoped reads and cannot cross hospitals',
   await assertFails(getDoc(doc(db, 'appointments/appointment-1')));
   await assertFails(getDocs(collection(authenticatedDb('staff-a'), 'queue_records')));
   await assertFails(updateDoc(doc(db, 'queue_records/queue-1'), {
-    status: 'in_consultation', updatedAt: serverTimestamp(),
+    status: 'called', calledAt: serverTimestamp(), updatedAt: serverTimestamp(),
   }));
   await assertFails(checkIn(authenticatedDb('owner-1'), {}, {}, 'queue-owner'));
 });
@@ -373,7 +515,7 @@ test('malformed queue identifiers and missing fields deny without runtime limits
       queueId, updatedAt: serverTimestamp(),
     }));
   }
-  for (const field of ['appointmentId', 'hospitalId', 'ownerId', 'status', 'queueNumber']) {
+  for (const field of ['appointmentId', 'hospitalId', 'ownerId', 'veterinarianId', 'status', 'queueNumber', 'createdAt']) {
     const data = queueData();
     delete data[field];
     await assertFails(setDoc(doc(db, 'queue_records/queue-1'), data));

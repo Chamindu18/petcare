@@ -110,7 +110,7 @@ class StaffQueueProvider extends ChangeNotifier {
     }
     final expected = StaffQueueStatus.fromValue(entry.status);
     final next = switch (expected) {
-      StaffQueueStatus.waiting ||
+      StaffQueueStatus.waiting => StaffQueueStatus.called,
       StaffQueueStatus.called => StaffQueueStatus.inConsultation,
       StaffQueueStatus.inConsultation => StaffQueueStatus.completed,
       StaffQueueStatus.completed ||
