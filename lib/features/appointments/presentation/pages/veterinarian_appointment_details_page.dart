@@ -14,6 +14,7 @@ class VeterinarianAppointmentDetailsPage extends StatefulWidget {
     required this.onReject,
     this.hospitalName,
     this.actionErrorProvider,
+    this.onManageQueue,
   });
 
   final Appointment appointment;
@@ -22,6 +23,7 @@ class VeterinarianAppointmentDetailsPage extends StatefulWidget {
   final Future<bool> Function(String appointmentId) onConfirm;
   final Future<bool> Function(String appointmentId) onReject;
   final String? Function()? actionErrorProvider;
+  final VoidCallback? onManageQueue;
 
   @override
   State<VeterinarianAppointmentDetailsPage> createState() =>
@@ -307,10 +309,7 @@ class _VeterinarianAppointmentDetailsPageState
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => _showNotAvailable(
-                'Queue management',
-                'Live queue management is not available in this phase.',
-              ),
+              onPressed: _openQueue,
               icon: const Icon(Icons.groups_outlined),
               label: const Text('Manage queue'),
             ),
@@ -443,6 +442,25 @@ class _VeterinarianAppointmentDetailsPageState
         );
       },
     );
+  }
+
+  void _openQueue() {
+    if (widget.onManageQueue == null) {
+      _showNotAvailable(
+        'Queue management',
+        'Live queue management is not available in this phase.',
+      );
+      return;
+    }
+    if (_appointment.queueId?.trim().isEmpty ?? true) {
+      _showNotAvailable(
+        'Queue management',
+        'This appointment has not been checked in to the queue yet. '
+            'Hospital staff must check in the patient first.',
+      );
+      return;
+    }
+    widget.onManageQueue!();
   }
 
   void _showNotAvailable(String title, String message) {
