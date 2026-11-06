@@ -5,6 +5,7 @@ import '../../domain/entities/appointment.dart';
 import '../../domain/repositories/appointment_repository.dart';
 import '../models/appointment_model.dart';
 import '../datasources/appointment_scheduling_datasource.dart';
+import '../../../notifications/data/notification_event.dart';
 
 class FirebaseAppointmentRepository
     implements AppointmentRepository, AppointmentAssignmentRepository {
@@ -242,6 +243,20 @@ class FirebaseAppointmentRepository
         'status': nextStatus,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+      if (nextStatus == 'confirmed' || nextStatus == 'rejected') {
+        NotificationEvent.create(
+          transaction,
+          _firestore,
+          recipientId: data['ownerId'] as String,
+          type: 'appointment_$nextStatus',
+          message: nextStatus == 'confirmed'
+              ? 'Your appointment was confirmed.'
+              : 'Your appointment was rejected.',
+          targetType: 'appointment',
+          targetId: appointmentId,
+          details: {'appointmentTime': data['dateTime']},
+        );
+      }
     });
   }
 }

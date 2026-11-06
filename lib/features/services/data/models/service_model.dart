@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 import '../../domain/entities/service.dart';
 
 /// Converts Firestore service data into a domain Service.
@@ -23,8 +21,6 @@ class ServiceModel extends Service {
       normalizedMap[entry.key.trim()] = entry.value;
     }
 
-    debugPrint('SERVICE NORMALIZED MAP: $normalizedMap');
-
     final serviceId = normalizedMap['serviceId'];
     final hospitalId = normalizedMap['hospitalId'];
     final name = normalizedMap['name'];
@@ -32,24 +28,12 @@ class ServiceModel extends Service {
     final duration = normalizedMap['duration'];
     final active = normalizedMap['active'];
 
-    debugPrint(
-      'SERVICE NORMALIZED VALUES: '
-      'serviceId=$serviceId '
-      'hospitalId=$hospitalId '
-      'name=$name '
-      'description=$description '
-      'duration=$duration '
-      'active=$active',
-    );
-
     if (serviceId is! String ||
         hospitalId is! String ||
         name is! String ||
         description is! String ||
         active is! bool) {
-      throw FormatException(
-        'Invalid service data: $normalizedMap',
-      );
+      throw FormatException('Invalid service data: $normalizedMap');
     }
 
     return ServiceModel(

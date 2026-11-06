@@ -47,23 +47,11 @@ class _AdoptionRequestPageState extends State<AdoptionRequestPage> {
   }
 
   Future<void> _submitRequest() async {
-    debugPrint('========== SUBMIT BUTTON PRESSED ==========');
-
     if (!_formKey.currentState!.validate()) {
-      debugPrint('ADOPTION REQUEST: FORM VALIDATION FAILED');
       return;
     }
 
-    debugPrint('ADOPTION REQUEST: FORM VALIDATION PASSED');
-
     FocusScope.of(context).unfocus();
-
-    debugPrint('ADOPTION REQUEST: CALLING PROVIDER');
-    debugPrint('listingId: ${widget.listing.listingId}');
-    debugPrint('providerId: ${widget.listing.providerId}');
-    debugPrint('recipientId: ${widget.listing.effectiveListingOwnerId}');
-    debugPrint('recipientType: ${widget.listing.listingOwnerType}');
-    debugPrint('messageLength: ${_messageController.text.trim().length}');
 
     await _provider.submitRequest(
       listingId: widget.listing.listingId,
@@ -73,21 +61,12 @@ class _AdoptionRequestPageState extends State<AdoptionRequestPage> {
       message: _messageController.text.trim(),
     );
 
-    debugPrint('ADOPTION REQUEST: RETURNED FROM PROVIDER');
-    debugPrint('isSubmitted: ${_provider.isSubmitted}');
-    debugPrint('isSubmitting: ${_provider.isSubmitting}');
-    debugPrint('errorMessage: ${_provider.errorMessage}');
-
     if (!mounted) {
-      debugPrint('ADOPTION REQUEST: PAGE NO LONGER MOUNTED');
       return;
     }
 
     if (_provider.isSubmitted) {
-      debugPrint('========== ADOPTION REQUEST SUCCESS ==========');
       Navigator.of(context).pop(true);
-    } else {
-      debugPrint('========== ADOPTION REQUEST FAILED ==========');
     }
   }
 

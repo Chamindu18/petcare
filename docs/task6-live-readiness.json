@@ -1,6 +1,0 @@
-{
-  "project": "petcare-d4413",
-  "checkedAt": "2026-11-04T17:17:55.026Z",
-  "checks": {},
-  "authenticationError": "EPERM: operation not permitted, open 'C:\\Users\\HP\\.config\\configstore\\firebase-tools.json'"
-}

@@ -7,6 +7,7 @@ import '../../../hospital_staff/domain/utils/staff_queue_eligibility.dart';
 import '../../domain/entities/queue.dart';
 import '../../domain/repositories/queue_repository.dart';
 import '../models/queue_model.dart';
+import '../../../notifications/data/notification_event.dart';
 
 /// Authorized queue reads and atomic staff queue commands.
 class FirebaseQueueRepository
@@ -187,6 +188,16 @@ class FirebaseQueueRepository
         'queueId': queueRef.id,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+      NotificationEvent.create(
+        tx,
+        _firestore,
+        recipientId: appointment.ownerId,
+        type: 'queue_checked_in',
+        message: 'Your pet was checked in to the queue.',
+        targetType: 'queue',
+        targetId: queueRef.id,
+        details: {'queueNumber': number},
+      );
     });
     return (await getQueueById(queueRef.id))!;
   }
@@ -250,6 +261,20 @@ class FirebaseQueueRepository
         timestampField: FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
+      NotificationEvent.create(
+        tx,
+        _firestore,
+        recipientId: data['ownerId'] as String,
+        type: nextStatus == StaffQueueStatus.inConsultation
+            ? 'queue_in_consultation'
+            : 'queue_completed',
+        message: nextStatus == StaffQueueStatus.inConsultation
+            ? "Your pet's consultation has begun."
+            : "Your pet's consultation is complete.",
+        targetType: 'queue',
+        targetId: queueId,
+        details: {'queueNumber': data['queueNumber']},
+      );
     });
     return (await getQueueById(queueId))!;
   }

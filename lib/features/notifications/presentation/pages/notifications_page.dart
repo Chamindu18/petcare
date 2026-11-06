@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../app/router/app_router.dart';
 import '../../data/repositories/firebase_notification_repository.dart';
 import '../../domain/entities/notification.dart' as notification_entity;
 import '../providers/notification_provider.dart';
@@ -83,6 +84,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 notification: notification,
                 onTap: () {
                   _notificationProvider.markAsRead(notification.notificationId);
+                  final route = switch (notification.targetType) {
+                    'appointment' || 'queue' => AppRouter.myAppointments,
+                    'adoption_request' => AppRouter.myAdoptionRequests,
+                    _ => null,
+                  };
+                  if (route != null) Navigator.of(context).pushNamed(route);
                 },
               );
             },
@@ -130,6 +137,16 @@ class _NotificationCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
+                      _titleFor(notification.type),
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: AppTheme.espresso,
+                        fontWeight: notification.read
+                            ? FontWeight.w500
+                            : FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
                       notification.message,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppTheme.espresso,
@@ -138,6 +155,22 @@ class _NotificationCard extends StatelessWidget {
                             : FontWeight.w600,
                       ),
                     ),
+                    if (notification.appointmentTime case final time?) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Scheduled: ${time.toLocal().day}/${time.toLocal().month}/${time.toLocal().year} '
+                        '${time.toLocal().hour.toString().padLeft(2, '0')}:'
+                        '${time.toLocal().minute.toString().padLeft(2, '0')}',
+                      ),
+                    ],
+                    if (notification.queueNumber case final number?) ...[
+                      const SizedBox(height: 4),
+                      Text('Queue number: $number'),
+                    ],
+                    if (notification.listingName case final name?) ...[
+                      const SizedBox(height: 4),
+                      Text('Listing: $name'),
+                    ],
                     const SizedBox(height: 6),
                     Text(
                       _formatDate(notification.createdAt),
@@ -165,6 +198,17 @@ class _NotificationCard extends StatelessWidget {
       ),
     );
   }
+
+  String _titleFor(String type) => switch (type) {
+    'appointment_confirmed' => 'Appointment confirmed',
+    'appointment_rejected' => 'Appointment rejected',
+    'queue_checked_in' => 'Queue check-in',
+    'queue_in_consultation' => 'Consultation started',
+    'queue_completed' => 'Consultation completed',
+    'adoption_accepted' => 'Adoption request accepted',
+    'adoption_rejected' => 'Adoption request rejected',
+    _ => 'Notification',
+  };
 
   String _formatDate(DateTime dateTime) {
     final now = DateTime.now();

@@ -75,5 +75,59 @@ void main() {
       );
       expect(find.text('Mark all read'), findsOneWidget);
     });
+
+    testWidgets('shows event titles and verified details', (tester) async {
+      final notifications = [
+        notification_entity.Notification(
+          notificationId: 'appointment-confirmed',
+          recipientUserId: 'owner-1',
+          type: 'appointment_confirmed',
+          message: 'Your appointment was confirmed.',
+          read: false,
+          targetType: 'appointment',
+          targetId: 'appointment-1',
+          createdAt: DateTime(2026, 11, 6),
+          appointmentTime: DateTime(2026, 11, 10, 14, 30),
+        ),
+        notification_entity.Notification(
+          notificationId: 'queue-checked-in',
+          recipientUserId: 'owner-1',
+          type: 'queue_checked_in',
+          message: 'Your pet was checked in to the queue.',
+          read: true,
+          targetType: 'queue',
+          targetId: 'queue-1',
+          createdAt: DateTime(2026, 11, 6),
+          queueNumber: 4,
+        ),
+        notification_entity.Notification(
+          notificationId: 'adoption-accepted',
+          recipientUserId: 'owner-1',
+          type: 'adoption_accepted',
+          message: 'Your adoption request was accepted.',
+          read: false,
+          targetType: 'adoption_request',
+          targetId: 'request-1',
+          createdAt: DateTime(2026, 11, 6),
+          listingName: 'Buddy',
+        ),
+      ];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotificationsPage(
+            notificationRepository: _FakeNotificationRepository(
+              notifications: notifications,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('Appointment confirmed'), findsOneWidget);
+      expect(find.textContaining('Scheduled: 10/11/2026'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Queue number: 4'), 100);
+      expect(find.text('Queue number: 4'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Listing: Buddy'), 100);
+      expect(find.text('Listing: Buddy'), findsOneWidget);
+    });
   });
 }

@@ -289,6 +289,9 @@ void main() {
 
       expect(find.widgetWithText(AppBar, 'Schedule'), findsOneWidget);
       expect(find.text('Daily Schedule'), findsOneWidget);
+      await tester.tap(find.text('Open appointments'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(AppBar, 'Appointments'), findsOneWidget);
 
       // Queue
       await _selectTab(tester, 'Queue');
@@ -320,10 +323,10 @@ void main() {
         'hospital-001',
       ]);
 
-      expect(repositories.appointments.hospitalAppointmentCallCount, 5);
+      expect(repositories.appointments.hospitalAppointmentCallCount, 6);
       expect(
         repositories.appointments.requestedHospitalIds,
-        List.filled(5, 'hospital-001'),
+        List.filled(6, 'hospital-001'),
       );
 
       expect(repositories.profile.watchCount, 1);

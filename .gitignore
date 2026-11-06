@@ -240,3 +240,5 @@ firestore-export-*/
 # Local verification and generated cloud reports
 /.verification/
 /docs/p0-cloud-readiness.json
+/docs/task6-live-readiness.json
+/docs/veterinarian-dashboard-live-readiness.json
