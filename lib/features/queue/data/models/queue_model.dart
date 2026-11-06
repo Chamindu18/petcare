@@ -19,6 +19,14 @@ class QueueModel extends Queue {
     required super.hospitalId,
     required super.ownerId,
     required super.petId,
+    super.veterinarianId = '',
+    super.queueSequence = '',
+    super.createdAt,
+    super.calledAt,
+    super.consultationStartedAt,
+    super.completedAt,
+    super.skippedAt,
+    super.cancelledAt,
   });
 
   /// Converts an existing Firestore document into a queue model.
@@ -43,6 +51,14 @@ class QueueModel extends Queue {
       hospitalId: _optionalRelationship(map, 'hospitalId'),
       ownerId: _optionalRelationship(map, 'ownerId'),
       petId: _optionalRelationship(map, 'petId'),
+      veterinarianId: _optionalRelationship(map, 'veterinarianId'),
+      queueSequence: _optionalRelationship(map, 'queueSequence'),
+      createdAt: _optionalTimestamp(map, 'createdAt'),
+      calledAt: _optionalTimestamp(map, 'calledAt'),
+      consultationStartedAt: _optionalTimestamp(map, 'consultationStartedAt'),
+      completedAt: _optionalTimestamp(map, 'completedAt'),
+      skippedAt: _optionalTimestamp(map, 'skippedAt'),
+      cancelledAt: _optionalTimestamp(map, 'cancelledAt'),
     );
   }
 
@@ -59,6 +75,14 @@ class QueueModel extends Queue {
       hospitalId: queue.hospitalId,
       ownerId: queue.ownerId,
       petId: queue.petId,
+      veterinarianId: queue.veterinarianId,
+      queueSequence: queue.queueSequence,
+      createdAt: queue.createdAt,
+      calledAt: queue.calledAt,
+      consultationStartedAt: queue.consultationStartedAt,
+      completedAt: queue.completedAt,
+      skippedAt: queue.skippedAt,
+      cancelledAt: queue.cancelledAt,
     );
   }
 
@@ -84,7 +108,7 @@ class QueueModel extends Queue {
       throw StateError('Queue record status cannot be empty.');
     }
 
-    return {
+    final map = <String, dynamic>{
       'queueId': queueId,
       'appointmentId': appointmentId,
       'hospitalId': hospitalId,
@@ -96,6 +120,61 @@ class QueueModel extends Queue {
       'status': status,
       'updatedAt': updatedAt.toUtc().toIso8601String(),
     };
+
+    if (veterinarianId.trim().isNotEmpty) {
+      map['veterinarianId'] = veterinarianId;
+    }
+
+    if (queueSequence.trim().isNotEmpty) {
+      map['queueSequence'] = queueSequence;
+    }
+
+    _putTimestamp(map, 'createdAt', createdAt);
+    _putTimestamp(map, 'calledAt', calledAt);
+    _putTimestamp(map, 'consultationStartedAt', consultationStartedAt);
+    _putTimestamp(map, 'completedAt', completedAt);
+    _putTimestamp(map, 'skippedAt', skippedAt);
+    _putTimestamp(map, 'cancelledAt', cancelledAt);
+
+    return map;
+  }
+
+  static void _putTimestamp(
+    Map<String, dynamic> map,
+    String field,
+    DateTime? value,
+  ) {
+    if (value != null) {
+      map[field] = value.toUtc().toIso8601String();
+    }
+  }
+
+  static DateTime? _optionalTimestamp(Map<String, dynamic> map, String field) {
+    final value = map[field];
+
+    if (value == null) {
+      return null;
+    }
+
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+
+      if (parsed == null) {
+        throw FormatException(
+          'Queue timestamp field "$field" must be a valid date.',
+        );
+      }
+
+      return parsed;
+    }
+
+    throw FormatException(
+      'Queue timestamp field "$field" must be a timestamp or string.',
+    );
   }
 
   /// Preserves readability of legacy documents with absent

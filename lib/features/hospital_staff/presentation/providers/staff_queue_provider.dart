@@ -110,10 +110,13 @@ class StaffQueueProvider extends ChangeNotifier {
     }
     final expected = StaffQueueStatus.fromValue(entry.status);
     final next = switch (expected) {
-      StaffQueueStatus.waiting => StaffQueueStatus.inConsultation,
+      StaffQueueStatus.waiting ||
+      StaffQueueStatus.called => StaffQueueStatus.inConsultation,
       StaffQueueStatus.inConsultation => StaffQueueStatus.completed,
-      StaffQueueStatus.completed => throw StateError(
-        'Queue already completed.',
+      StaffQueueStatus.completed ||
+      StaffQueueStatus.skipped ||
+      StaffQueueStatus.cancelled => throw StateError(
+        'Queue is no longer active.',
       ),
     };
     await _queue.transitionStatus(
