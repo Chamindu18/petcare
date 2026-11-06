@@ -143,10 +143,7 @@ class _HomePageState extends State<HomePage> {
                           onAddPetTap: widget.onAddPetTap,
                         ),
                         const SizedBox(height: 24),
-                        const _SectionHeader(
-                          title: 'Quick Actions',
-                          actionLabel: 'See All',
-                        ),
+                        const _SectionHeader(title: 'Quick Actions'),
                         const SizedBox(height: 10),
                         _QuickActions(
                           onNotificationsTap: _openNotifications,
@@ -157,12 +154,12 @@ class _HomePageState extends State<HomePage> {
                         ),
 
                         const SizedBox(height: 24),
-                        const _SectionHeader(
-                          title: 'Upcoming Appointment',
+                        _SectionHeader(
+                          title: 'Appointments',
                           actionLabel: 'See All',
+                          onActionTap: widget.onAppointmentsTap,
                         ),
                         const SizedBox(height: 10),
-                        const _EmptyAppointmentCard(),
                         const SizedBox(height: 24),
                         const _SectionHeader(title: 'More for Your Pets'),
                         const SizedBox(height: 10),
@@ -990,90 +987,6 @@ class _QuickActionCard extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// -----------------------------------------------------------------------------
-// Appointment
-// -----------------------------------------------------------------------------
-
-class _EmptyAppointmentCard extends StatelessWidget {
-  const _EmptyAppointmentCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.24)),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.deepBrown.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 55,
-            height: 55,
-            decoration: BoxDecoration(
-              color: AppTheme.secondary.withValues(alpha: 0.18),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.calendar_month_rounded,
-              color: AppTheme.deepBrown,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'No appointments yet',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppTheme.espresso,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Your upcoming appointments will appear here.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.deepBrown,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: AppTheme.background,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.arrow_forward_rounded,
-              color: AppTheme.deepBrown,
-              size: 18,
-            ),
-          ),
-        ],
       ),
     );
   }
