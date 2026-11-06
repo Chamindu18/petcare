@@ -9,7 +9,9 @@ import '../../../appointments/presentation/widgets/veterinarian_appointment_card
 import '../../../auth/data/repositories/firebase_auth_repository.dart';
 import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../profile/domain/entities/user_profile.dart';
+import '../../../queue/domain/repositories/queue_repository.dart';
 import '../providers/veterinarian_workspace_controller.dart';
+import 'veterinarian_queue_page.dart';
 import 'veterinarian_self_profile_page.dart';
 
 class VeterinarianDashboardPage extends StatefulWidget {
@@ -18,11 +20,13 @@ class VeterinarianDashboardPage extends StatefulWidget {
     required this.profile,
     this.controller,
     this.authRepository,
+    this.queueRepository,
   });
 
   final UserProfile profile;
   final VeterinarianWorkspaceController? controller;
   final AuthRepository? authRepository;
+  final VeterinarianQueueRepository? queueRepository;
 
   @override
   State<VeterinarianDashboardPage> createState() =>
@@ -544,7 +548,7 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'Queue information will be available here.',
+                      'View and manage your assigned patients.',
                       style: TextStyle(color: AppTheme.deepBrown, fontSize: 12),
                     ),
                   ],
@@ -559,48 +563,17 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
   }
 
   Widget _buildQueueTab(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(18, 28, 18, 32),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: AppTheme.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: AppTheme.secondary.withValues(alpha: 0.35),
-            ),
-          ),
-          child: Column(
-            children: [
-              const Icon(
-                Icons.groups_rounded,
-                size: 46,
-                color: AppTheme.primary,
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Queue management',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppTheme.espresso,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Live queue management is not available in this phase. '
-                'Your appointment list and decisions remain available.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppTheme.deepBrown,
-                  fontSize: 12,
-                  height: 1.45,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+    final veterinarian = _controller.veterinarian;
+    if (veterinarian == null) {
+      return const Center(
+        child: Text('Veterinarian assignment is unavailable.'),
+      );
+    }
+    return VeterinarianQueuePage(
+      hospitalId: veterinarian.hospitalId,
+      veterinarianId: veterinarian.vetId,
+      isActive: _selectedIndex == 2,
+      queueRepository: widget.queueRepository,
     );
   }
 
@@ -654,6 +627,10 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
               hospitalName: _controller.hospital?.name,
               onConfirm: _controller.confirmAppointment,
               onReject: _controller.rejectAppointment,
+              onManageQueue: () {
+                Navigator.of(context).pop();
+                _selectTab(2);
+              },
               actionErrorProvider: () => _controller.actionErrorMessage,
             );
           },
