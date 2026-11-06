@@ -10,6 +10,7 @@ import 'app/theme/app_theme.dart';
 import 'core/config/firebase_emulator_config.dart';
 import 'core/services/deep_link_service.dart';
 import 'features/auth/presentation/pages/splash_page.dart';
+import 'features/notifications/data/owner_reminder_service.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -35,6 +36,11 @@ Future<void> main() async {
     );
   }
 
+  unawaited(
+    OwnerReminderService().start().catchError((Object error) {
+      debugPrint('Unable to initialize owner reminders: $error');
+    }),
+  );
   runApp(const PetCareApp());
 }
 
