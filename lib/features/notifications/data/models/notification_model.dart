@@ -12,6 +12,9 @@ class NotificationModel extends Notification {
     required super.targetType,
     required super.targetId,
     required super.createdAt,
+    super.appointmentTime,
+    super.queueNumber,
+    super.listingName,
   });
 
   factory NotificationModel.fromFirestore(
@@ -38,6 +41,17 @@ class NotificationModel extends Notification {
       targetType: data['targetType'] as String,
       targetId: data['targetId'] as String,
       createdAt: createdAt.toDate(),
+      appointmentTime: switch (data['appointmentTime']) {
+        Timestamp value => value.toDate(),
+        String value => DateTime.tryParse(value),
+        _ => null,
+      },
+      queueNumber: data['queueNumber'] is int
+          ? data['queueNumber'] as int
+          : null,
+      listingName: data['listingName'] is String
+          ? data['listingName'] as String
+          : null,
     );
   }
 }

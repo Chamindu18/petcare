@@ -827,6 +827,97 @@ service cloud.firestore {
     // Notifications
     // ============================================================
 
+    function validOwnerNotification(data) {
+      return data.keys().hasAll(['recipientUserId', 'type', 'message', 'read', 'targetType', 'targetId', 'createdAt'])
+        && data.keys().hasOnly(['recipientUserId', 'type', 'message', 'read', 'targetType', 'targetId', 'createdAt', 'appointmentTime', 'queueNumber', 'listingName'])
+        && data.recipientUserId is string
+        && data.type is string
+        && data.message is string
+        && data.targetType is string
+        && data.targetId is string
+        && data.read == false
+        && data.createdAt == request.time;
+    }
+
+    function validAppointmentNotification(data, notificationId) {
+      let path = /databases/$(database)/documents/appointments/$(data.targetId);
+      let before = get(path).data;
+      let after = getAfter(path).data;
+      return data.targetType == 'appointment'
+        && data.type in ['appointment_confirmed', 'appointment_rejected']
+        && notificationId == data.type + '_' + data.targetId
+        && data.recipientUserId == before.ownerId
+        && data.keys().hasAll(['appointmentTime'])
+        && !data.keys().hasAny(['queueNumber', 'listingName'])
+        && data.appointmentTime == before.dateTime
+        && before.ownerId == after.ownerId
+        && before.petId == after.petId
+        && before.hospitalId == after.hospitalId
+        && before.createdAt == after.createdAt
+        && appointmentClinician(before)
+        && before.status == 'pending'
+        && after.status == (data.type == 'appointment_confirmed' ? 'confirmed' : 'rejected')
+        && after.updatedAt == request.time
+        && data.message == (data.type == 'appointment_confirmed'
+          ? 'Your appointment was confirmed.' : 'Your appointment was rejected.');
+    }
+
+    function validQueueNotification(data, notificationId) {
+      let path = /databases/$(database)/documents/queue_records/$(data.targetId);
+      let beforeExists = exists(path);
+      let after = getAfter(path).data;
+      return data.targetType == 'queue'
+        && data.type in ['queue_checked_in', 'queue_in_consultation', 'queue_completed']
+        && notificationId == data.type + '_' + data.targetId
+        && isVeterinaryUserForHospital(after.hospitalId)
+        && data.recipientUserId == after.ownerId
+        && data.keys().hasAll(['queueNumber'])
+        && !data.keys().hasAny(['appointmentTime', 'listingName'])
+        && data.queueNumber == after.queueNumber
+        && after.updatedAt == request.time
+        && (data.type == 'queue_checked_in'
+          ? (!beforeExists
+            && after.status == 'waiting'
+            && getAfter(/databases/$(database)/documents/appointments/$(after.appointmentId)).data.queueId == data.targetId)
+          : (beforeExists
+            && get(path).data.ownerId == after.ownerId
+            && get(path).data.petId == after.petId
+            && get(path).data.appointmentId == after.appointmentId
+            && get(path).data.hospitalId == after.hospitalId
+            && get(path).data.queueNumber == after.queueNumber
+            && (data.type == 'queue_in_consultation'
+              ? (get(path).data.status == 'waiting' && after.status == 'in_consultation')
+              : (get(path).data.status == 'in_consultation' && after.status == 'completed'))))
+        && data.message == (data.type == 'queue_checked_in'
+          ? 'Your pet was checked in to the queue.'
+          : (data.type == 'queue_in_consultation'
+            ? 'Your pet\'s consultation has begun.' : 'Your pet\'s consultation is complete.'));
+    }
+
+    function validAdoptionNotification(data, notificationId) {
+      let path = /databases/$(database)/documents/adoption_requests/$(data.targetId);
+      let before = get(path).data;
+      let after = getAfter(path).data;
+      return data.targetType == 'adoption_request'
+        && data.type in ['adoption_accepted', 'adoption_rejected']
+        && notificationId == data.type + '_' + data.targetId
+        && authorizedRequestRecipient(before)
+        && data.recipientUserId == before.requesterId
+        && !data.keys().hasAny(['appointmentTime', 'queueNumber'])
+        && data.keys().hasAll(['listingName'])
+        && data.listingName is string
+        && data.listingName == get(/databases/$(database)/documents/adoption_listings/$(before.listingId)).data.petName
+        && before.requesterId == after.requesterId
+        && before.listingId == after.listingId
+        && before.recipientId == after.recipientId
+        && before.recipientType == after.recipientType
+        && before.status == 'pending'
+        && after.status == (data.type == 'adoption_accepted' ? 'accepted' : 'rejected')
+        && after.updatedAt == request.time
+        && data.message == (data.type == 'adoption_accepted'
+          ? 'Your adoption request was accepted.' : 'Your adoption request was rejected.');
+    }
+
     match /notifications/{notificationId} {
       allow read: if signedIn()
         && resource.data.recipientUserId == request.auth.uid;
@@ -841,8 +932,15 @@ service cloud.firestore {
           'read'
         ]);
 
-      // Notifications are created/deleted by trusted backend logic only.
-      allow create, delete: if false;
+      allow create: if signedIn()
+        && validOwnerNotification(request.resource.data)
+        && (request.resource.data.targetType == 'appointment'
+          ? validAppointmentNotification(request.resource.data, notificationId)
+          : (request.resource.data.targetType == 'queue'
+            ? validQueueNotification(request.resource.data, notificationId)
+            : (request.resource.data.targetType == 'adoption_request'
+              && validAdoptionNotification(request.resource.data, notificationId))));
+      allow delete: if false;
     }
 
     // ============================================================

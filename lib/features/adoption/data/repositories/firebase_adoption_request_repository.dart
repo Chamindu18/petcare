@@ -6,6 +6,7 @@ import '../../domain/repositories/adoption_request_decision_repository.dart';
 import '../../domain/repositories/adoption_request_repository.dart';
 import '../../domain/repositories/adoption_request_withdrawal_repository.dart';
 import '../models/adoption_request_model.dart';
+import '../../../notifications/data/notification_event.dart';
 
 class FirebaseAdoptionRequestRepository
     implements
@@ -346,6 +347,18 @@ class FirebaseAdoptionRequestRepository
       }
 
       transaction.update(requestReference, updates);
+      NotificationEvent.create(
+        transaction,
+        _firestore,
+        recipientId: data['requesterId'] as String,
+        type: 'adoption_$decision',
+        message: decision == 'accepted'
+            ? 'Your adoption request was accepted.'
+            : 'Your adoption request was rejected.',
+        targetType: 'adoption_request',
+        targetId: requestId,
+        details: {'listingName': listing['petName']},
+      );
     });
   }
 
