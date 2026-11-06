@@ -124,23 +124,6 @@ class _SearchAndFilterSection extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 10),
-          SizedBox(
-            height: 52,
-            width: 52,
-            child: OutlinedButton(
-              onPressed: () {},
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.deepBrown,
-                side: const BorderSide(color: AppTheme.secondary),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                padding: EdgeInsets.zero,
-              ),
-              child: const Icon(Icons.tune_rounded),
-            ),
-          ),
         ],
       ),
     );

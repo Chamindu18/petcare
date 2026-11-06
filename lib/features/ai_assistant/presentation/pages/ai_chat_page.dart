@@ -62,7 +62,7 @@ Please select a pet first.
 
     if (q.contains('summary')) {
       return '''
-        📄 Spiderman Health Summary
+        📄 ${contextData.pet.name} Health Summary
 
         📋 Conditions: ${contextData.conditions.length}
 
@@ -266,13 +266,20 @@ Please select a pet first.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('PetCare AI')),
+      appBar: AppBar(title: const Text('Pet Care Guide')),
       body: Stack(
         children: [
           const Positioned.fill(child: PetCareBackground()),
 
           Column(
             children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Text(
+                  'Built-in guidance based on recorded pet data; responses are not live AI advice.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
               if (_activeContext != null)
                 Container(
                   width: double.infinity,

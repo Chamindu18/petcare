@@ -215,7 +215,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('Scan Pet QR'), findsOneWidget);
+        expect(find.text('Scan Pet QR'), findsNothing);
         expect(find.text('Appointments'), findsWidgets);
         expect(find.text('Manage Queue'), findsOneWidget);
         expect(find.text('My Profile'), findsWidgets);

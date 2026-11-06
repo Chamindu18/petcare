@@ -2,7 +2,7 @@
 
 **Smart Pet Health, Veterinary Care & Pet Adoption Mobile Application**
 
-A Flutter-based mobile application that helps pet owners manage health records, book veterinary appointments, track live queues, share health data securely via QR, and discover pet adoption options.
+A Flutter-based mobile application for pet records, veterinary appointment workflows, and adoption discovery. The supported academic booking demonstration uses local Firebase emulators.
 
 ---
 
@@ -11,10 +11,10 @@ A Flutter-based mobile application that helps pet owners manage health records, 
 PetCare+ connects three user roles in one platform:
 
 - **Pet Owners** — Manage pets, health records, appointments, and adoption requests
-- **Veterinary Staff** — View appointments, scan QR health passports, manage queue workflow
+- **Veterinary Staff** — View assigned appointments; hospital staff manage the appointment queue
 - **Adoption Providers** — Create listings, review requests, manage adoption status
 
-**Core Journey:** Manage Pet → Monitor Health → Get Reminders → Find Hospital → Book Appointment → Track Queue → Share Health Securely → Get AI Guidance → Discover Adoption
+**Demonstrated Journey:** Manage Pet → Monitor Health → Find Hospital → Book Appointment in local emulators → Staff confirmation and queue updates → Discover Adoption
 
 ---
 
@@ -24,12 +24,12 @@ PetCare+ connects three user roles in one platform:
 |---------|-------------|
 | **Pet Management** | Multiple pet profiles with species, breed, age, weight, and health info |
 | **Health Records** | Medical conditions, vaccinations, treatments, measurements, and trends |
-| **Preventive Care** | Automated reminders and notifications for vaccinations and appointments |
-| **Multi-Hospital Support** | Discover hospitals, view services, select vets, and book appointments |
-| **Live Queue** | Real-time queue position, estimated wait time, and status updates |
-| **QR Health Passport** | Secure appointment-linked QR for authorized health data sharing |
-| **AI Pet-Care Assistant** | General guidance, health summaries, and vet visit preparation |
-| **Adoption & Rehoming** | Browse listings, submit requests, and communicate after acceptance |
+| **Notifications** | In-app notification list and read state; automated reminders are incomplete |
+| **Multi-Hospital Support** | Discover hospitals, view services, select vets, and book through the local emulator demo |
+| **Staff Queue** | Hospital staff check-in and queue state changes; owner live queue and veterinarian queue controls are incomplete |
+| **QR Health Passport** | Planned; scanning and authorized passport access are incomplete |
+| **Care Guidance** | Deterministic pet-context responses and summaries; live AI integration is incomplete |
+| **Adoption** | Browse listings, submit requests, and manage provider listings and requests; owner rehoming is incomplete |
 
 ---
 
@@ -40,9 +40,7 @@ PetCare+ connects three user roles in one platform:
 | Flutter & Dart | Cross-platform mobile application |
 | Firebase Authentication | User registration and authentication |
 | Cloud Firestore | Primary cloud database |
-| Firebase Cloud Messaging | Push notifications and reminders |
-| Firebase Cloud Functions | Protected backend operations |
-| External AI/LLM API | AI-assisted pet-care guidance |
+| Firebase Cloud Functions | Appointment callable in the local Firebase Emulator Suite |
 
 ---
 
@@ -112,8 +110,7 @@ git clone <repository-url>
 # Install dependencies
 flutter pub get
 
-# Run the app
-flutter run
+# For the supported Spark emulator demonstration, follow docs/SPARK_EMULATOR_DEMO.md
 ```
 
 ### Before Committing
@@ -130,9 +127,7 @@ flutter test
 
 - Firebase Authentication handles user identity
 - Firestore Security Rules enforce access control
-- QR codes contain secure tokens, not embedded medical data
 - Queue state controlled by backend logic only
-- AI API credentials never stored in client
 - Never commit secrets, passwords, or service-account credentials
 
 ---
@@ -194,7 +189,7 @@ fix(auth): handle invalid login credentials
 
 - **Unit Tests** — Business logic, validation, calculations
 - **Widget Tests** — Form validation, UI states, interactions
-- **Integration Tests** — End-to-end flows (registration → booking → queue)
+- **Integration Tests** — Emulator-backed callable, cross-role booking, and queue workflows
 
 ---
 
@@ -245,16 +240,7 @@ A feature is complete when:
 
 ## 📌 Project Status
 
-**Under Active Development**
-
-- ✅ Flutter project created
-- ✅ Firebase configured
-- ✅ Firestore database created
-- ✅ Feature-first structure established
-- ✅ Android build verified
-- ⏳ Authentication implementation
-- ⏳ Core features implementation
-- ⏳ Integration and testing
+**Academic submission preparation.** The debug APK builds and the analyzer passes on the current feature branch. Existing automated Flutter, Firestore rules, and cross-role emulator tests are documented in `docs/SPARK_EMULATOR_DEMO.md` and `docs/PETCARE_POST_MERGE_VERIFICATION.md`. Shared Spark Firebase does not host the booking callable. QR Health Passport, owner live queue, live AI integration, automated reminders, owner rehoming, and complete veterinarian consultation/queue management remain incomplete. See `docs/SUBMISSION_CHECKLIST.md` for deliverables and remaining evidence.
 
 ---
 
@@ -282,4 +268,4 @@ Before modifying shared models, enums, routes, or contracts, search for all usag
 
 ## 🐾 PetCare+
 
-**Manage Pet. Monitor Health. Get Reminders. Book Vet. Track Queue. Get AI Guidance.**
+**Manage Pet. Monitor Health. Explore Veterinary Care and Adoption.**

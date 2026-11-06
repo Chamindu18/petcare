@@ -469,11 +469,6 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
   Widget _buildQuickActions() {
     final actions = <Widget>[
       _QuickAction(
-        icon: Icons.qr_code_scanner_rounded,
-        label: 'Scan Pet QR',
-        onTap: _showQrNotAvailable,
-      ),
-      _QuickAction(
         icon: Icons.calendar_month_rounded,
         label: 'Appointments',
         onTap: () => _selectTab(1),
@@ -664,28 +659,6 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
           },
         ),
       ),
-    );
-  }
-
-  void _showQrNotAvailable() {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('QR scanning unavailable'),
-          content: const Text(
-            'Appointment-linked QR scanning is not available in this phase. '
-            'No health information can be accessed until the authorized '
-            'health-passport flow is implemented.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
     );
   }
 

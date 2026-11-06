@@ -111,12 +111,12 @@ class _StaffShellPageState extends State<StaffShellPage> {
         hospitalId: assignment.hospitalId,
         repository: widget.appointmentRepository,
       ),
-      const _StaffSectionPage(
+      _StaffSectionPage(
         icon: Icons.event_note_rounded,
         title: 'Daily Schedule',
         description:
-            'View the hospital schedule and appointments grouped '
-            'by veterinarian and date.',
+            'Use the appointment date filter to view the hospital schedule.',
+        onOpenAppointments: () => _onTabSelected(1),
       ),
       if (_hasOpenedQueue)
         StaffQueuePage(
@@ -162,17 +162,18 @@ class _StaffShellPageState extends State<StaffShellPage> {
   }
 }
 
-/// Temporary placeholder for staff workflow sections not yet implemented.
 class _StaffSectionPage extends StatelessWidget {
   const _StaffSectionPage({
     required this.icon,
     required this.title,
     required this.description,
+    required this.onOpenAppointments,
   });
 
   final IconData icon;
   final String title;
   final String description;
+  final VoidCallback onOpenAppointments;
 
   @override
   Widget build(BuildContext context) {
@@ -203,13 +204,9 @@ class _StaffSectionPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(
-                'This section is under development.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppTheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
+              FilledButton(
+                onPressed: onOpenAppointments,
+                child: const Text('Open appointments'),
               ),
             ],
           ),
