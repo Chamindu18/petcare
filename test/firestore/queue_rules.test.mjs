@@ -542,6 +542,33 @@ test('assigned veterinarian can atomically check in without gaining cross-hospit
   await assertSucceeds(checkIn(authenticatedDb('vet-a')));
 });
 
+test('assigned veterinarian can read and update only their own queue records', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    const db = context.firestore();
+    await setDoc(doc(db, 'users/vet-a'), { role: 'veterinarian', hospitalId: 'hospital-a' });
+    await setDoc(doc(db, 'users/vet-b'), { role: 'veterinarian', hospitalId: 'hospital-a' });
+    await setDoc(doc(db, 'veterinarians/vet-a'), { userId: 'vet-a', hospitalId: 'hospital-a', active: true });
+    await setDoc(doc(db, 'veterinarians/vet-b'), { userId: 'vet-b', hospitalId: 'hospital-a', active: true });
+    await setDoc(doc(db, 'queue_records/queue-vet-a'), queueData({
+      queueId: 'queue-vet-a', veterinarianId: 'vet-a',
+    }));
+    await setDoc(doc(db, 'queue_records/queue-vet-b'), queueData({
+      queueId: 'queue-vet-b', appointmentId: 'appointment-vet-b', veterinarianId: 'vet-b',
+    }));
+  });
+  const db = authenticatedDb('vet-a');
+  await assertSucceeds(getDoc(doc(db, 'queue_records/queue-vet-a')));
+  await assertFails(getDoc(doc(db, 'queue_records/queue-vet-b')));
+  await assertSucceeds(getDocs(query(collection(db, 'queue_records'),
+    where('hospitalId', '==', 'hospital-a'), where('veterinarianId', '==', 'vet-a'))));
+  await assertSucceeds(updateDoc(doc(db, 'queue_records/queue-vet-a'), {
+    status: 'called', calledAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(doc(db, 'queue_records/queue-vet-b'), {
+    status: 'called', calledAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  }));
+});
+
 async function transactionCheckIn(db, appointmentId) {
   const ref = doc(collection(db, 'queue_records'));
   const counterRef = doc(db, `hospitals/hospital-a/queue_days/${localDay}`);

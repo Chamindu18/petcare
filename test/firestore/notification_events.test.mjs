@@ -131,7 +131,7 @@ test('provider acceptance notifies only the applicant', async () => {
   assert.equal((await getDoc(doc(dbFor('owner-1'), 'notifications/adoption_accepted_request-1'))).data()?.recipientUserId, 'owner-1');
 });
 
-test('queue transition notifies only its owner', async () => {
+test('queue transitions notify only their owner at each lifecycle step', async () => {
   await env.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), 'queue_records/queue-1'), {
       queueId: 'queue-1', appointmentId: 'appointment-1', hospitalId: 'hospital-a',
@@ -141,22 +141,66 @@ test('queue transition notifies only its owner', async () => {
     });
   });
   const db = dbFor('staff-a');
-  const batch = writeBatch(db);
-  batch.update(doc(db, 'queue_records/queue-1'), {
-    status: 'in_consultation', position: 0, updatedAt: serverTimestamp(),
+  const called = writeBatch(db);
+  called.update(doc(db, 'queue_records/queue-1'), {
+    status: 'called', calledAt: serverTimestamp(), position: 0, updatedAt: serverTimestamp(),
   });
-  batch.set(doc(db, 'notifications/queue_in_consultation_queue-1'),
+  called.set(doc(db, 'notifications/queue_called_queue-1'),
+    notification('queue_called', 'owner-1', 'queue', 'queue-1',
+      'Your pet has been called to the consultation room.'));
+  await assertSucceeds(called.commit());
+  assert.equal((await getDoc(doc(dbFor('owner-1'), 'notifications/queue_called_queue-1'))).data()?.recipientUserId, 'owner-1');
+  await assertFails(getDoc(doc(dbFor('owner-2'), 'notifications/queue_called_queue-1')));
+
+  const start = writeBatch(db);
+  start.update(doc(db, 'queue_records/queue-1'), {
+    status: 'in_consultation', consultationStartedAt: serverTimestamp(),
+    position: 0, updatedAt: serverTimestamp(),
+  });
+  start.set(doc(db, 'notifications/queue_in_consultation_queue-1'),
     notification('queue_in_consultation', 'owner-1', 'queue', 'queue-1', "Your pet's consultation has begun."));
-  await assertSucceeds(batch.commit());
-  assert.equal((await getDoc(doc(dbFor('owner-1'), 'notifications/queue_in_consultation_queue-1'))).data()?.recipientUserId, 'owner-1');
-  await assertFails(getDoc(doc(dbFor('owner-2'), 'notifications/queue_in_consultation_queue-1')));
+  await assertSucceeds(start.commit());
+
   const complete = writeBatch(db);
   complete.update(doc(db, 'queue_records/queue-1'), {
-    status: 'completed', position: 0, updatedAt: serverTimestamp(),
+    status: 'completed', completedAt: serverTimestamp(),
+    position: 0, updatedAt: serverTimestamp(),
   });
   complete.set(doc(db, 'notifications/queue_completed_queue-1'),
     notification('queue_completed', 'owner-1', 'queue', 'queue-1', "Your pet's consultation is complete."));
   await assertSucceeds(complete.commit());
+});
+
+test('queue skip and cancel notifications match their transitions', async () => {
+  await env.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    for (const id of ['queue-skip', 'queue-cancel']) {
+      await setDoc(doc(db, `queue_records/${id}`), {
+        queueId: id, appointmentId: 'appointment-1', hospitalId: 'hospital-a',
+        ownerId: 'owner-1', petId: 'pet-1', queueNumber: 4, currentServing: 0,
+        position: 4, status: 'waiting', updatedAt: Timestamp.fromDate(new Date('2026-10-02T10:00:00Z')),
+        day: Timestamp.fromDate(new Date('2026-11-06T00:00:00Z')), dayKey: '2026-11-06',
+      });
+    }
+  });
+  const db = dbFor('staff-a');
+  const skip = writeBatch(db);
+  skip.update(doc(db, 'queue_records/queue-skip'), {
+    status: 'skipped', skippedAt: serverTimestamp(), position: 0, updatedAt: serverTimestamp(),
+  });
+  skip.set(doc(db, 'notifications/queue_skipped_queue-skip'),
+    notification('queue_skipped', 'owner-1', 'queue', 'queue-skip',
+      'Your pet was skipped in the queue.'));
+  await assertSucceeds(skip.commit());
+
+  const cancel = writeBatch(db);
+  cancel.update(doc(db, 'queue_records/queue-cancel'), {
+    status: 'cancelled', cancelledAt: serverTimestamp(), position: 0, updatedAt: serverTimestamp(),
+  });
+  cancel.set(doc(db, 'notifications/queue_cancelled_queue-cancel'),
+    notification('queue_cancelled', 'owner-1', 'queue', 'queue-cancel',
+      "Your pet's queue entry was cancelled."));
+  await assertSucceeds(cancel.commit());
 });
 
 test('atomic check-in creates the waiting notification', async () => {
@@ -174,8 +218,9 @@ test('atomic check-in creates the waiting notification', async () => {
   });
   batch.set(doc(db, 'queue_records/queue-1'), {
     queueId: 'queue-1', appointmentId: 'appointment-1', hospitalId: 'hospital-a',
-    ownerId: 'owner-1', petId: 'pet-1', queueNumber: 1, currentServing: 0,
-    position: 1, status: 'waiting', updatedAt: serverTimestamp(), day, dayKey: localDay,
+    ownerId: 'owner-1', petId: 'pet-1', veterinarianId: 'vet-a', queueNumber: 1,
+    currentServing: 0, position: 1, status: 'waiting', createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(), day, dayKey: localDay,
   });
   batch.update(doc(db, 'appointments/appointment-1'), {
     queueId: 'queue-1', updatedAt: serverTimestamp(),

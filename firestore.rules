@@ -154,6 +154,18 @@ service cloud.firestore {
         || isVeterinaryStaffForHospital(hospitalId);
     }
 
+    // Queue records are hospital-wide for staff, but veterinarians may only
+    // access records assigned to their own directory identity.
+    function isAssignedQueueVeterinarian(data) {
+      return isVeterinarianForHospital(data.get('hospitalId', null))
+        && data.get('veterinarianId', '') == currentVeterinarianId();
+    }
+
+    function isQueueManager(data) {
+      return isVeterinaryStaffForHospital(data.get('hospitalId', null))
+        || isAssignedQueueVeterinarian(data);
+    }
+
     // ============================================================
     // Users
     // ============================================================
@@ -831,26 +843,22 @@ service cloud.firestore {
     }
 
     match /queue_records/{queueId} {
-      // Owners and appropriately assigned veterinary users retain
-      // hospital-scoped read access.
+      // Owners retain owner-scoped reads. Staff can read the hospital queue,
+      // while veterinarians can read only their assigned queue records.
       allow read: if signedIn()
         && (
           resource.data.get('ownerId', null) == request.auth.uid
-          || isVeterinaryUserForHospital(resource.data.get('hospitalId', null))
+          || isQueueManager(resource.data)
         );
 
       // A valid appointment and atomic appointment linkage are
       // mandatory for queue creation.
-      allow create: if isVeterinaryUserForHospital(
-          request.resource.data.get('hospitalId', null)
-        )
+      allow create: if isQueueManager(request.resource.data)
         && validQueueCreation(queueId);
 
       // Preserve queue identities and assigned queue numbers.
       // A status change must move exactly one stage forward.
-      allow update: if isVeterinaryUserForHospital(
-          resource.data.hospitalId
-        )
+      allow update: if isQueueManager(resource.data)
         && request.resource.data.queueId == resource.data.queueId
         && request.resource.data.ownerId == resource.data.ownerId
         && request.resource.data.petId == resource.data.petId
@@ -937,14 +945,49 @@ service cloud.firestore {
           ? 'Your appointment was confirmed.' : 'Your appointment was rejected.');
     }
 
+    function queueNotificationTransitionMatches(type, before, after) {
+      return (type == 'queue_called'
+          && before == 'waiting' && after == 'called')
+        || (type == 'queue_in_consultation'
+          && before == 'called' && after == 'in_consultation')
+        || (type == 'queue_completed'
+          && before == 'in_consultation' && after == 'completed')
+        || (type == 'queue_skipped'
+          && before in ['waiting', 'called'] && after == 'skipped')
+        || (type == 'queue_cancelled'
+          && before in ['waiting', 'called', 'in_consultation']
+          && after == 'cancelled');
+    }
+
+    function queueNotificationMessage(type) {
+      return type == 'queue_checked_in'
+        ? 'Your pet was checked in to the queue.'
+        : type == 'queue_called'
+        ? 'Your pet has been called to the consultation room.'
+        : type == 'queue_in_consultation'
+        ? 'Your pet\'s consultation has begun.'
+        : type == 'queue_completed'
+        ? 'Your pet\'s consultation is complete.'
+        : type == 'queue_skipped'
+        ? 'Your pet was skipped in the queue.'
+        : 'Your pet\'s queue entry was cancelled.';
+    }
+
     function validQueueNotification(data, notificationId) {
       let path = /databases/$(database)/documents/queue_records/$(data.targetId);
       let beforeExists = exists(path);
       let after = getAfter(path).data;
       return data.targetType == 'queue'
-        && data.type in ['queue_checked_in', 'queue_in_consultation', 'queue_completed']
+        && data.type in [
+          'queue_checked_in',
+          'queue_called',
+          'queue_in_consultation',
+          'queue_completed',
+          'queue_skipped',
+          'queue_cancelled'
+        ]
         && notificationId == data.type + '_' + data.targetId
-        && isVeterinaryUserForHospital(after.hospitalId)
+        && isQueueManager(after)
         && data.recipientUserId == after.ownerId
         && data.keys().hasAll(['queueNumber'])
         && !data.keys().hasAny(['appointmentTime', 'listingName'])
@@ -960,13 +1003,12 @@ service cloud.firestore {
             && get(path).data.appointmentId == after.appointmentId
             && get(path).data.hospitalId == after.hospitalId
             && get(path).data.queueNumber == after.queueNumber
-            && (data.type == 'queue_in_consultation'
-              ? (get(path).data.status == 'waiting' && after.status == 'in_consultation')
-              : (get(path).data.status == 'in_consultation' && after.status == 'completed'))))
-        && data.message == (data.type == 'queue_checked_in'
-          ? 'Your pet was checked in to the queue.'
-          : (data.type == 'queue_in_consultation'
-            ? 'Your pet\'s consultation has begun.' : 'Your pet\'s consultation is complete.'));
+            && queueNotificationTransitionMatches(
+              data.type,
+              get(path).data.status,
+              after.status
+            )))
+        && data.message == queueNotificationMessage(data.type);
     }
 
     function validAdoptionNotification(data, notificationId) {
