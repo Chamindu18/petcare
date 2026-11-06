@@ -353,4 +353,76 @@ void main() {
     );
     expect((await db.collection('queue_records').get()).docs, isEmpty);
   });
+
+  test(
+    'veterinarian reads and transitions only their assigned queue',
+    () async {
+      final queue = await repository.checkInAppointment(
+        appointmentId: 'a',
+        hospitalId: 'hospital',
+      );
+      await db.doc('users/vet').set({
+        'role': 'veterinarian',
+        'hospitalId': 'hospital',
+      });
+      await db.doc('veterinarians/vet').set({
+        'userId': 'vet',
+        'hospitalId': 'hospital',
+        'active': true,
+      });
+      final vetRepository = FirebaseQueueRepository(
+        firestore: db,
+        auth: MockFirebaseAuth(mockUser: MockUser(uid: 'vet'), signedIn: true),
+        now: () => today,
+      );
+      final entries = await vetRepository.getVeterinarianQueue(
+        hospitalId: 'hospital',
+        veterinarianId: 'vet',
+        date: today,
+      );
+      expect(entries.map((entry) => entry.queueId), [queue.queueId]);
+      final called = await vetRepository.transitionStatus(
+        queueId: queue.queueId,
+        hospitalId: 'hospital',
+        expectedStatus: StaffQueueStatus.waiting,
+        nextStatus: StaffQueueStatus.called,
+      );
+      expect(called.status, 'called');
+
+      await db.doc('users/other-vet').set({
+        'role': 'veterinarian',
+        'hospitalId': 'hospital',
+      });
+      await db.doc('veterinarians/other-vet').set({
+        'userId': 'other-vet',
+        'hospitalId': 'hospital',
+        'active': true,
+      });
+      final otherRepository = FirebaseQueueRepository(
+        firestore: db,
+        auth: MockFirebaseAuth(
+          mockUser: MockUser(uid: 'other-vet'),
+          signedIn: true,
+        ),
+        now: () => today,
+      );
+      expect(
+        await otherRepository.getVeterinarianQueue(
+          hospitalId: 'hospital',
+          veterinarianId: 'other-vet',
+          date: today,
+        ),
+        isEmpty,
+      );
+      await expectLater(
+        otherRepository.transitionStatus(
+          queueId: queue.queueId,
+          hospitalId: 'hospital',
+          expectedStatus: StaffQueueStatus.called,
+          nextStatus: StaffQueueStatus.inConsultation,
+        ),
+        throwsStateError,
+      );
+    },
+  );
 }

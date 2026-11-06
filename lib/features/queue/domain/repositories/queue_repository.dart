@@ -76,3 +76,24 @@ abstract interface class StaffQueueCommandRepository {
     required StaffQueueStatus nextStatus,
   });
 }
+
+/// Contract for the authenticated veterinarian's assigned queue.
+///
+/// Reads and commands are scoped to the verified veterinarian and hospital.
+/// Implementations must reject queues assigned to another veterinarian.
+abstract interface class VeterinarianQueueRepository {
+  /// Returns today's queue entries assigned to one verified veterinarian.
+  Future<List<Queue>> getVeterinarianQueue({
+    required String hospitalId,
+    required String veterinarianId,
+    required DateTime date,
+  });
+
+  /// Performs one valid operational transition on the veterinarian's queue.
+  Future<Queue> transitionStatus({
+    required String queueId,
+    required String hospitalId,
+    required StaffQueueStatus expectedStatus,
+    required StaffQueueStatus nextStatus,
+  });
+}
