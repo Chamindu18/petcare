@@ -4,6 +4,8 @@ import '../../../hospitals/domain/entities/hospital.dart';
 import '../../../hospitals/domain/repositories/hospital_repository.dart';
 import '../../../pets/domain/entities/pet.dart';
 import '../../../pets/domain/repositories/pet_repository.dart';
+import '../../../queue/domain/entities/queue.dart';
+import '../../../queue/domain/repositories/queue_repository.dart';
 import '../../../services/domain/entities/service.dart';
 import '../../../services/domain/repositories/service_repository.dart';
 import '../../../veterinary/domain/entities/veterinarian.dart';
@@ -13,19 +15,21 @@ import '../../domain/usecases/appointment_usecases.dart';
 
 /// Holds appointment state and related display data used by the owner UI.
 class AppointmentProvider extends ChangeNotifier {
- AppointmentProvider({
-  required this._getAppointments,
-  required this._petRepository,
-  required this._hospitalRepository,
-  required this._serviceRepository,
-  required this._veterinarianRepository,
-});
+  AppointmentProvider({
+    required this._getAppointments,
+    required this._petRepository,
+    required this._hospitalRepository,
+    required this._serviceRepository,
+    required this._veterinarianRepository,
+    this._queueRepository,
+  });
 
   final GetAppointments _getAppointments;
   final PetRepository _petRepository;
   final HospitalRepository _hospitalRepository;
   final ServiceRepository _serviceRepository;
   final VeterinarianRepository _veterinarianRepository;
+  final QueueRepository? _queueRepository;
 
   List<Appointment> _appointments = [];
 
@@ -33,6 +37,7 @@ class AppointmentProvider extends ChangeNotifier {
   final Map<String, Hospital> _hospitalsById = {};
   final Map<String, Service> _servicesById = {};
   final Map<String, Veterinarian> _veterinariansById = {};
+  final Map<String, Queue> _queuesByAppointmentId = {};
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -55,6 +60,10 @@ class AppointmentProvider extends ChangeNotifier {
 
   /// Returns the veterinarian for an appointment.
   Veterinarian? getVeterinarian(String vetId) => _veterinariansById[vetId];
+
+  /// Returns the queue entry linked to an appointment, when loaded.
+  Queue? getQueueForAppointment(String appointmentId) =>
+      _queuesByAppointmentId[appointmentId];
 
   /// Loads appointments and the related display data.
   Future<void> loadAppointments() async {
@@ -104,7 +113,33 @@ class AppointmentProvider extends ChangeNotifier {
       _loadHospitals(hospitalIds),
       _loadServices(serviceIds),
       _loadVeterinarians(veterinarianIds),
+      _loadQueues(),
     ]);
+  }
+
+  Future<void> _loadQueues() async {
+    _queuesByAppointmentId.clear();
+    final queueRepository = _queueRepository;
+    if (queueRepository == null) return;
+
+    final linkedAppointments = _appointments.where(
+      (appointment) => appointment.queueId?.trim().isNotEmpty ?? false,
+    );
+    await Future.wait(
+      linkedAppointments.map((appointment) async {
+        try {
+          final queue = await queueRepository.getQueueByAppointment(
+            appointment.appointmentId,
+          );
+          if (queue != null) {
+            _queuesByAppointmentId[appointment.appointmentId] = queue;
+          }
+        } catch (error) {
+          // Queue data is supplementary; appointment loading still succeeds.
+          debugPrint('Queue loading error for appointment: $error');
+        }
+      }),
+    );
   }
 
   Future<void> _loadPets(Set<String> petIds) async {

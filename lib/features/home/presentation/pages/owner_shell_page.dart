@@ -46,6 +46,8 @@ import '../../../appointments/domain/usecases/appointment_usecases.dart';
 import '../../../appointments/presentation/pages/my_appointments_page.dart';
 import '../../../appointments/presentation/providers/appointment_provider.dart';
 import '../../../hospitals/data/repositories/firebase_hospital_repository.dart';
+import '../../../queue/data/repositories/firebase_queue_repository.dart';
+import '../../../queue/domain/repositories/queue_repository.dart';
 import '../../../services/data/repositories/firebase_service_repository.dart';
 import '../../../veterinary/data/repositories/firebase_veterinarian_repository.dart';
 
@@ -61,6 +63,8 @@ class OwnerShellPage extends StatefulWidget {
     this.notificationRepository,
     this.profileRepository,
     this.authRepository,
+    this.queueRepository,
+    this.ownerQueueRepository,
   });
 
   final PetsController? petsController;
@@ -70,6 +74,8 @@ class OwnerShellPage extends StatefulWidget {
   final NotificationRepository? notificationRepository;
   final ProfileRepository? profileRepository;
   final AuthRepository? authRepository;
+  final QueueRepository? queueRepository;
+  final OwnerQueueRepository? ownerQueueRepository;
 
   @override
   State<OwnerShellPage> createState() => _OwnerShellPageState();
@@ -86,6 +92,9 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
 
   late final AppointmentProvider _appointmentProvider;
   bool _ownsAppointmentProvider = false;
+
+  QueueRepository? _queueRepository;
+  OwnerQueueRepository? _ownerQueueRepository;
 
   @override
   void initState() {
@@ -173,6 +182,8 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
     // ------------------------------------------------------------
     if (widget.appointmentProvider != null) {
       _appointmentProvider = widget.appointmentProvider!;
+      _queueRepository = widget.queueRepository;
+      _ownerQueueRepository = widget.ownerQueueRepository;
       _ownsAppointmentProvider = false;
     } else {
       final appointmentRepository = FirebaseAppointmentRepository();
@@ -180,13 +191,17 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
       final hospitalRepository = FirebaseHospitalRepository();
       final serviceRepository = FirebaseServiceRepository();
       final veterinarianRepository = FirebaseVeterinarianRepository();
+      final queueRepository = FirebaseQueueRepository();
 
+      _queueRepository = queueRepository;
+      _ownerQueueRepository = queueRepository;
       _appointmentProvider = AppointmentProvider(
         getAppointments: GetAppointments(appointmentRepository),
         petRepository: petRepository,
         hospitalRepository: hospitalRepository,
         serviceRepository: serviceRepository,
         veterinarianRepository: veterinarianRepository,
+        queueRepository: queueRepository,
       );
 
       _ownsAppointmentProvider = true;
@@ -271,7 +286,11 @@ class _OwnerShellPageState extends State<OwnerShellPage> {
             ownsController: false,
             ownsHealthController: false,
           ),
-          MyAppointmentsPage(provider: _appointmentProvider),
+          MyAppointmentsPage(
+            provider: _appointmentProvider,
+            queueRepository: _queueRepository,
+            ownerQueueRepository: _ownerQueueRepository,
+          ),
           AIHubPage(
             pets: _petsController.pets,
             healthController: _healthController,
