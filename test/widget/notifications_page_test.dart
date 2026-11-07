@@ -129,5 +129,39 @@ void main() {
       await tester.scrollUntilVisible(find.text('Listing: Buddy'), 100);
       expect(find.text('Listing: Buddy'), findsOneWidget);
     });
+
+    testWidgets('staff request opens the staff appointment callback', (
+      tester,
+    ) async {
+      var opened = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotificationsPage(
+            notificationRepository: _FakeNotificationRepository(
+              notifications: [
+                notification_entity.Notification(
+                  notificationId: 'appointment_requested_appointment-1_staff-a',
+                  recipientUserId: 'staff-a',
+                  type: 'appointment_requested',
+                  message: 'A new appointment request needs review.',
+                  read: false,
+                  targetType: 'appointment',
+                  targetId: 'appointment-1',
+                  createdAt: DateTime(2026, 11, 7),
+                  appointmentTime: DateTime(2026, 11, 10, 14, 30),
+                ),
+              ],
+            ),
+            onOpenAppointment: () => opened = true,
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('New appointment request'), findsOneWidget);
+      expect(find.textContaining('Scheduled: 10/11/2026'), findsOneWidget);
+      await tester.tap(find.text('New appointment request'));
+      await tester.pump();
+      expect(opened, isTrue);
+    });
   });
 }

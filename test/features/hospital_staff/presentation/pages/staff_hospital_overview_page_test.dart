@@ -94,6 +94,7 @@ Appointment _testAppointment({
   required String status,
   required DateTime dateTime,
   String hospitalId = 'hospital-001',
+  DateTime? updatedAt,
 }) {
   return Appointment(
     appointmentId: id,
@@ -106,6 +107,7 @@ Appointment _testAppointment({
     reason: 'Routine checkup',
     status: status,
     createdAt: DateTime(2026, 1, 1),
+    updatedAt: updatedAt,
   );
 }
 
@@ -335,6 +337,16 @@ void main() {
         appointmentRepository: appointmentRepository,
       );
 
+      expect(
+        find.descendant(
+          of: find
+              .ancestor(of: find.text('Pending'), matching: find.byType(Column))
+              .first,
+          matching: find.text('0'),
+        ),
+        findsWidgets,
+      );
+
       await tester.scrollUntilVisible(
         find.text('No upcoming appointments scheduled.'),
         150,
@@ -342,6 +354,44 @@ void main() {
 
       expect(find.text('No upcoming appointments scheduled.'), findsOneWidget);
     });
+
+    testWidgets(
+      'shows owner cancellation activity only for assigned hospital',
+      (tester) async {
+        final changedAt = DateTime(2026, 11, 7, 10, 30);
+        final appointments = [
+          _testAppointment(
+            id: 'cancel-1',
+            status: 'cancelled',
+            dateTime: DateTime(2026, 11, 10, 9),
+            updatedAt: changedAt,
+          ),
+          _testAppointment(
+            id: 'other-cancel',
+            status: 'cancelled',
+            dateTime: DateTime(2026, 11, 10, 9),
+            hospitalId: 'hospital-002',
+            updatedAt: changedAt,
+          ),
+        ];
+        await _pumpOverview(
+          tester,
+          hospitalRepository: _FakeHospitalRepository(
+            (_, _) async => _testHospital(),
+          ),
+          appointmentRepository: _FakeAppointmentRepository(
+            onLoad: (_, _) async => appointments,
+          ),
+        );
+        await tester.scrollUntilVisible(find.text('Recent cancellations'), 150);
+        expect(find.text('Appointment #cancel-1 cancelled'), findsOneWidget);
+        expect(find.text('Appointment #other-ca cancelled'), findsNothing);
+        expect(
+          find.textContaining('Cancelled 7/11/2026 10:30'),
+          findsOneWidget,
+        );
+      },
+    );
 
     testWidgets('retries after appointment loading failure', (tester) async {
       final appointmentRepository = _FakeAppointmentRepository(
