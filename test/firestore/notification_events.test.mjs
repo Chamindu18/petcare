@@ -25,6 +25,7 @@ beforeEach(async () => {
       setDoc(doc(db, 'hospital_staff/staff-a'), { userId: 'staff-a', hospitalId: 'hospital-a', active: true }),
       setDoc(doc(db, 'hospital_staff/staff-b'), { userId: 'staff-b', hospitalId: 'hospital-b', active: true }),
       setDoc(doc(db, 'users/provider-1'), { uid: 'provider-1', role: 'adoption_provider' }),
+      setDoc(doc(db, 'users/provider-2'), { uid: 'provider-2', role: 'adoption_provider' }),
       setDoc(doc(db, 'pets/pet-1'), { ownerId: 'owner-1', name: 'Milo' }),
       setDoc(doc(db, 'appointments/appointment-1'), {
         ownerId: 'owner-1', petId: 'pet-1', hospitalId: 'hospital-a', serviceId: 'service-a',
@@ -79,6 +80,114 @@ function notification(type, recipientUserId, targetType, targetId, message) {
     ...(targetType === 'adoption_request' ? {listingName: 'Buddy'} : {}),
     createdAt: serverTimestamp() };
 }
+
+function submitAdoptionRequest(db, {
+  requestId = 'new-request-1',
+  listingId = 'listing-1',
+  requesterId = 'owner-1',
+  recipientId = 'provider-1',
+  notificationRecipientId = recipientId,
+  message = 'You received a new adoption application for Buddy.',
+} = {}) {
+  const batch = writeBatch(db);
+  batch.set(doc(db, `adoption_requests/${requestId}`), {
+    listingId,
+    requesterId,
+    recipientId,
+    recipientType: 'adoption_provider',
+    providerId: recipientId,
+    status: 'pending',
+    submittedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  batch.set(
+    doc(db, `notifications/adoption_request_submitted_${listingId}_${requesterId}`),
+    notification(
+      'adoption_request_submitted',
+      notificationRecipientId,
+      'adoption_request',
+      requestId,
+      message,
+    ),
+  );
+  return batch.commit();
+}
+
+test('owner request atomically creates one verified provider notification', async () => {
+  await assertSucceeds(submitAdoptionRequest(dbFor('owner-1')));
+
+  const notice = doc(
+    dbFor('provider-1'),
+    'notifications/adoption_request_submitted_listing-1_owner-1',
+  );
+  const snapshot = await getDoc(notice);
+  assert.equal(snapshot.data()?.recipientUserId, 'provider-1');
+  assert.equal(snapshot.data()?.listingName, 'Buddy');
+  assert.equal(snapshot.data()?.read, false);
+  await assertFails(getDoc(doc(
+    dbFor('provider-2'),
+    'notifications/adoption_request_submitted_listing-1_owner-1',
+  )));
+  await assertSucceeds(updateDoc(notice, {read: true}));
+  await assertFails(updateDoc(doc(
+    dbFor('owner-1'),
+    'notifications/adoption_request_submitted_listing-1_owner-1',
+  ), {read: true}));
+});
+
+test('failed or duplicate requests create no forged or duplicate provider notification', async () => {
+  const ownerDb = dbFor('owner-1');
+  await assertFails(submitAdoptionRequest(ownerDb, {
+    requestId: 'wrong-provider-request',
+    recipientId: 'provider-2',
+  }));
+  await assertFails(setDoc(doc(
+    ownerDb,
+    'notifications/adoption_request_submitted_listing-1_owner-1',
+  ), notification(
+    'adoption_request_submitted',
+    'provider-2',
+    'adoption_request',
+    'forged-request',
+    'Forged message',
+  )));
+
+  await assertSucceeds(submitAdoptionRequest(ownerDb));
+  await assertFails(submitAdoptionRequest(ownerDb, {requestId: 'new-request-2'}));
+
+  await env.withSecurityRulesDisabled(async context => {
+    const db = context.firestore();
+    assert.equal((await getDoc(doc(db, 'adoption_requests/wrong-provider-request'))).exists(), false);
+    assert.equal((await getDoc(doc(db, 'adoption_requests/new-request-2'))).exists(), false);
+    assert.equal((await getDoc(doc(
+      db,
+      'notifications/adoption_request_submitted_listing-1_owner-1',
+    ))).data()?.targetId, 'new-request-1');
+  });
+});
+
+test('owner withdrawal atomically notifies the verified provider', async () => {
+  const db = dbFor('owner-1');
+  const batch = writeBatch(db);
+  batch.update(doc(db, 'adoption_requests/request-1'), {
+    status: 'withdrawn',
+    closedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  batch.set(doc(db, 'notifications/adoption_request_withdrawn_request-1'),
+    notification(
+      'adoption_request_withdrawn',
+      'provider-1',
+      'adoption_request',
+      'request-1',
+      'An adoption application for Buddy was withdrawn.',
+    ));
+  await assertSucceeds(batch.commit());
+  assert.equal((await getDoc(doc(
+    dbFor('provider-1'),
+    'notifications/adoption_request_withdrawn_request-1',
+  ))).data()?.listingName, 'Buddy');
+});
 
 test('confirmation is atomic, owner scoped, and cannot be replayed', async () => {
   const db = dbFor('staff-a');

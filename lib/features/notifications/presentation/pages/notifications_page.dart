@@ -106,6 +106,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   }
                   final route = switch (notification.targetType) {
                     'appointment' || 'queue' => AppRouter.myAppointments,
+                    'adoption_request'
+                        when notification.type ==
+                                'adoption_request_submitted' ||
+                            notification.type ==
+                                'adoption_request_withdrawn' =>
+                      AppRouter.adoptionRequests,
                     'adoption_request' => AppRouter.myAdoptionRequests,
                     _ => null,
                   };
@@ -236,6 +242,8 @@ class _NotificationCard extends StatelessWidget {
     'queue_cancelled' => 'Queue entry cancelled',
     'adoption_accepted' => 'Adoption request accepted',
     'adoption_rejected' => 'Adoption request rejected',
+    'adoption_request_submitted' => 'New adoption request',
+    'adoption_request_withdrawn' => 'Adoption request withdrawn',
     _ => 'Notification',
   };
 

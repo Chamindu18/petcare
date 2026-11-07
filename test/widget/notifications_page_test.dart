@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:petcare/app/router/app_router.dart';
 import 'package:petcare/features/notifications/domain/entities/notification.dart'
     as notification_entity;
 import 'package:petcare/features/notifications/domain/repositories/notification_repository.dart';
@@ -128,6 +129,46 @@ void main() {
       expect(find.text('Queue number: 4'), findsOneWidget);
       await tester.scrollUntilVisible(find.text('Listing: Buddy'), 100);
       expect(find.text('Listing: Buddy'), findsOneWidget);
+    });
+
+    testWidgets('provider request notification opens request management', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          routes: {
+            AppRouter.adoptionRequests: (_) =>
+                const Scaffold(body: Text('Provider request management')),
+          },
+          home: NotificationsPage(
+            notificationRepository: _FakeNotificationRepository(
+              notifications: [
+                notification_entity.Notification(
+                  notificationId:
+                      'adoption_request_submitted_listing-1_owner-1',
+                  recipientUserId: 'provider-1',
+                  type: 'adoption_request_submitted',
+                  message:
+                      'You received a new adoption application for Buddy.',
+                  read: false,
+                  targetType: 'adoption_request',
+                  targetId: 'request-1',
+                  createdAt: DateTime(2026, 11, 7),
+                  listingName: 'Buddy',
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('New adoption request'), findsOneWidget);
+      expect(find.text('Listing: Buddy'), findsOneWidget);
+      await tester.tap(find.text('New adoption request'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Provider request management'), findsOneWidget);
     });
 
     testWidgets('staff request opens the staff appointment callback', (

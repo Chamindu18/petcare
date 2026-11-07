@@ -61,6 +61,20 @@ void main() {
       expect(requests.docs.first.data()['recipientId'], 'provider-1');
       expect(requests.docs.first.data()['recipientType'], 'adoption_provider');
       expect(requests.docs.first.data()['status'], 'pending');
+
+      final notification = await firestore
+          .collection('notifications')
+          .doc('adoption_request_submitted_listing-1_owner-1')
+          .get();
+      expect(notification.exists, isTrue);
+      expect(notification.data()?['recipientUserId'], 'provider-1');
+      expect(notification.data()?['type'], 'adoption_request_submitted');
+      expect(notification.data()?['targetId'], requests.docs.single.id);
+      expect(notification.data()?['listingName'], 'Buddy');
+      expect(
+        notification.data()?['message'],
+        'You received a new adoption application for Buddy.',
+      );
     });
 
     test('rejects requests to an owner-owned listing', () async {
@@ -92,6 +106,39 @@ void main() {
 
       final requests = await firestore.collection('adoption_requests').get();
       expect(requests.docs, isEmpty);
+      expect((await firestore.collection('notifications').get()).docs, isEmpty);
+    });
+
+    test('duplicate submission creates no second request or notification', () async {
+      final firestore = FakeFirebaseFirestore();
+      final auth = _authAs('owner-1');
+
+      await firestore.collection('users').doc('owner-1').set({'role': 'owner'});
+      await _seedProviderListing(firestore);
+
+      final repository = FirebaseAdoptionRequestRepository(
+        auth: auth,
+        firestore: firestore,
+      );
+
+      await repository.createRequest(
+        listingId: 'listing-1',
+        providerId: 'ignored-client-value',
+      );
+      await repository.createRequest(
+        listingId: 'listing-1',
+        providerId: 'provider-2',
+        recipientId: 'provider-2',
+      );
+
+      expect(
+        (await firestore.collection('adoption_requests').get()).docs,
+        hasLength(1),
+      );
+      expect(
+        (await firestore.collection('notifications').get()).docs,
+        hasLength(1),
+      );
     });
 
     test('prevents owners from viewing received requests', () async {
@@ -167,6 +214,41 @@ void main() {
       expect(request.data()?['status'], 'accepted');
       expect(listing.data()?['status'], 'reserved');
       expect(listing.data()?['acceptedRequestId'], 'request-1');
+    });
+
+    test('owner withdrawal atomically notifies the verified provider', () async {
+      final firestore = FakeFirebaseFirestore();
+      final auth = _authAs('owner-1');
+      await firestore.collection('users').doc('owner-1').set({'role': 'owner'});
+      await _seedProviderListing(firestore);
+      await firestore.collection('adoption_requests').doc('request-1').set({
+        'listingId': 'listing-1',
+        'requesterId': 'owner-1',
+        'recipientId': 'provider-1',
+        'recipientType': 'adoption_provider',
+        'providerId': 'provider-1',
+        'status': 'pending',
+        'submittedAt': Timestamp.fromDate(DateTime.utc(2026, 10, 1)),
+        'updatedAt': Timestamp.fromDate(DateTime.utc(2026, 10, 1)),
+      });
+
+      final repository = FirebaseAdoptionRequestRepository(
+        auth: auth,
+        firestore: firestore,
+      );
+      await repository.withdrawRequest(requestId: 'request-1');
+
+      final request = await firestore
+          .collection('adoption_requests')
+          .doc('request-1')
+          .get();
+      final notification = await firestore
+          .collection('notifications')
+          .doc('adoption_request_withdrawn_request-1')
+          .get();
+      expect(request.data()?['status'], 'withdrawn');
+      expect(notification.data()?['recipientUserId'], 'provider-1');
+      expect(notification.data()?['listingName'], 'Buddy');
     });
   });
 }

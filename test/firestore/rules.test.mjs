@@ -22,6 +22,7 @@ import {
   where,
   orderBy,
   runTransaction,
+  writeBatch,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
@@ -121,6 +122,28 @@ async function seedRequest(id = 'request-1', data = requestData()) {
   await env.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), `adoption_requests/${id}`), data);
   });
+}
+
+async function submitRequestAtomically(db, requestId, data) {
+  const batch = writeBatch(db);
+  batch.set(doc(db, `adoption_requests/${requestId}`), data);
+  batch.set(
+    doc(
+      db,
+      `notifications/adoption_request_submitted_${data.listingId}_${data.requesterId}`,
+    ),
+    {
+      recipientUserId: data.recipientId ?? data.providerId,
+      type: 'adoption_request_submitted',
+      message: 'You received a new adoption application for Buddy.',
+      read: false,
+      targetType: 'adoption_request',
+      targetId: requestId,
+      listingName: 'Buddy',
+      createdAt: serverTimestamp(),
+    },
+  );
+  await batch.commit();
 }
 
 function authed(uid) {
@@ -245,7 +268,7 @@ test('older provider clients can update a canonical provider listing without cha
 
 test('owner can submit a request to an available provider listing', async () => {
   const db = authed('owner-2');
-  await assertSucceeds(setDoc(doc(db, 'adoption_requests/owner-to-provider'), {
+  await assertSucceeds(submitRequestAtomically(db, 'owner-to-provider', {
     listingId: 'provider-listing',
     requesterId: 'owner-2',
     providerId: 'provider-1',
@@ -260,7 +283,7 @@ test('owner can submit a request to an available provider listing', async () => 
 
 test('older clients can still submit a validated legacy provider request', async () => {
   const db = authed('owner-2');
-  await assertSucceeds(setDoc(doc(db, 'adoption_requests/legacy-new-request'), {
+  await assertSucceeds(submitRequestAtomically(db, 'legacy-new-request', {
     listingId: 'provider-listing',
     requesterId: 'owner-2',
     providerId: 'provider-1',

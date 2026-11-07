@@ -58,8 +58,10 @@ class FirebaseAdoptionRequestRepository
       );
     }
 
-    final requestReference = _requestsCollection.doc();
+    final requestReference = _requestsCollection.doc('${listingId}_${user.uid}');
     final listingReference = _listingsCollection.doc(listingId);
+    final notificationId =
+        'adoption_request_submitted_${listingId}_${user.uid}';
 
     await _firestore.runTransaction((transaction) async {
       final listingDocument = await transaction.get(listingReference);
@@ -74,12 +76,12 @@ class FirebaseAdoptionRequestRepository
           'This adoption listing is not available for new requests.',
         );
       }
-
       final listingOwnerType =
           listing['listingOwnerType'] as String? ?? 'adoption_provider';
       final legacyProviderId = listing['providerId'] as String? ?? '';
       final listingOwnerId =
           listing['listingOwnerId'] as String? ?? legacyProviderId;
+      final listingName = listing['petName'];
 
       if (listingOwnerType != 'adoption_provider') {
         throw const AdoptionRequestRepositoryException(
@@ -90,6 +92,11 @@ class FirebaseAdoptionRequestRepository
       if (listingOwnerId.isEmpty || listingOwnerId == user.uid) {
         throw const AdoptionRequestRepositoryException(
           'You cannot submit an adoption request to your own listing.',
+        );
+      }
+      if (listingName is! String || listingName.trim().isEmpty) {
+        throw const AdoptionRequestRepositoryException(
+          'The adoption listing name could not be verified.',
         );
       }
 
@@ -109,21 +116,18 @@ class FirebaseAdoptionRequestRepository
         'submittedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
-
-      transaction.set(requestReference, {
-        'listingId': listingId,
-        'requesterId': user.uid,
-        'recipientId': listingOwnerId,
-        'recipientType': listingOwnerType,
-        // Retain the legacy alias for provider documents/queries only.
-        if (listingOwnerType == 'adoption_provider')
-          'providerId': listingOwnerId,
-        if (normalizedMessage != null && normalizedMessage.isNotEmpty)
-          'message': normalizedMessage,
-        'status': 'pending',
-        'submittedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      NotificationEvent.create(
+        transaction,
+        _firestore,
+        recipientId: listingOwnerId,
+        type: 'adoption_request_submitted',
+        message:
+            'You received a new adoption application for ${listingName.trim()}.',
+        targetType: 'adoption_request',
+        targetId: requestReference.id,
+        notificationId: notificationId,
+        details: {'listingName': listingName.trim()},
+      );
     });
   }
 
@@ -224,11 +228,52 @@ class FirebaseAdoptionRequestRepository
           'Only pending adoption requests can be withdrawn.',
         );
       }
+      final recipientId = data['recipientId'] as String? ?? '';
+      final recipientType = data['recipientType'] as String? ?? '';
+      final listingId = data['listingId'] as String? ?? '';
+      if (recipientId.isEmpty ||
+          recipientType != 'adoption_provider' ||
+          listingId.isEmpty) {
+        throw const AdoptionRequestRepositoryException(
+          'The adoption request recipient could not be verified.',
+        );
+      }
+      final listingDocument = await transaction.get(
+        _listingsCollection.doc(listingId),
+      );
+      final listing = listingDocument.data();
+      final listingOwnerType =
+          listing?['listingOwnerType'] as String? ?? 'adoption_provider';
+      final listingOwnerId =
+          listing?['listingOwnerId'] as String? ??
+          listing?['providerId'] as String? ??
+          '';
+      final listingName = listing?['petName'];
+      if (!listingDocument.exists ||
+          listingOwnerType != recipientType ||
+          listingOwnerId != recipientId ||
+          listingName is! String ||
+          listingName.trim().isEmpty) {
+        throw const AdoptionRequestRepositoryException(
+          'The related adoption listing could not be verified.',
+        );
+      }
       transaction.update(requestReference, {
         'status': 'withdrawn',
         'updatedAt': FieldValue.serverTimestamp(),
         'closedAt': FieldValue.serverTimestamp(),
       });
+      NotificationEvent.create(
+        transaction,
+        _firestore,
+        recipientId: recipientId,
+        type: 'adoption_request_withdrawn',
+        message:
+            'An adoption application for ${listingName.trim()} was withdrawn.',
+        targetType: 'adoption_request',
+        targetId: requestId,
+        details: {'listingName': listingName.trim()},
+      );
     });
   }
 

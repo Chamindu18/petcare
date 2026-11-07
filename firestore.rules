@@ -1089,7 +1089,7 @@ service cloud.firestore {
         && data.message == queueNotificationMessage(data.type);
     }
 
-    function validAdoptionNotification(data, notificationId) {
+    function validAdoptionDecisionNotification(data, notificationId) {
       let path = /databases/$(database)/documents/adoption_requests/$(data.targetId);
       let before = get(path).data;
       let after = getAfter(path).data;
@@ -1111,6 +1111,73 @@ service cloud.firestore {
         && after.updatedAt == request.time
         && data.message == (data.type == 'adoption_accepted'
           ? 'Your adoption request was accepted.' : 'Your adoption request was rejected.');
+    }
+
+    function validNewAdoptionRequestNotification(data, notificationId) {
+      let requestPath = /databases/$(database)/documents/adoption_requests/$(data.targetId);
+      let after = getAfter(requestPath).data;
+      let listingPath = /databases/$(database)/documents/adoption_listings/$(after.listingId);
+      let listing = get(listingPath).data;
+      let recipientId = after.get('recipientId', after.get('providerId', ''));
+      return data.targetType == 'adoption_request'
+        && data.type == 'adoption_request_submitted'
+        && !exists(requestPath)
+        && existsAfter(requestPath)
+        && notificationId == data.type + '_' + after.listingId + '_' + after.requesterId
+        && request.auth.uid == after.requesterId
+        && after.status == 'pending'
+        && after.submittedAt == request.time
+        && after.updatedAt == request.time
+        && recipientId == data.recipientUserId
+        && listingOwnerType(listing) == 'adoption_provider'
+        && listingOwnerId(listing) == recipientId
+        && listing.status == 'available'
+        && get(/databases/$(database)/documents/users/$(recipientId)).data.role == 'adoption_provider'
+        && data.keys().hasAll(['listingName'])
+        && !data.keys().hasAny(['appointmentTime', 'queueNumber', 'queueId'])
+        && data.listingName is string
+        && data.listingName == listing.petName
+        && data.message == 'You received a new adoption application for ' + listing.petName + '.';
+    }
+
+    function validWithdrawnAdoptionRequestNotification(data, notificationId) {
+      let requestPath = /databases/$(database)/documents/adoption_requests/$(data.targetId);
+      let before = get(requestPath).data;
+      let after = getAfter(requestPath).data;
+      let listingPath = /databases/$(database)/documents/adoption_listings/$(before.listingId);
+      let listing = get(listingPath).data;
+      return data.targetType == 'adoption_request'
+        && data.type == 'adoption_request_withdrawn'
+        && exists(requestPath)
+        && existsAfter(requestPath)
+        && notificationId == data.type + '_' + data.targetId
+        && request.auth.uid == before.requesterId
+        && data.recipientUserId == before.recipientId
+        && before.status == 'pending'
+        && after.status == 'withdrawn'
+        && after.requesterId == before.requesterId
+        && after.listingId == before.listingId
+        && after.recipientId == before.recipientId
+        && after.recipientType == before.recipientType
+        && after.updatedAt == request.time
+        && after.closedAt == request.time
+        && listingOwnerType(listing) == 'adoption_provider'
+        && listingOwnerId(listing) == before.recipientId
+        && get(/databases/$(database)/documents/users/$(before.recipientId)).data.role == 'adoption_provider'
+        && data.keys().hasAll(['listingName'])
+        && !data.keys().hasAny(['appointmentTime', 'queueNumber', 'queueId'])
+        && data.listingName is string
+        && data.listingName == listing.petName
+        && data.message == 'An adoption application for ' + listing.petName + ' was withdrawn.';
+    }
+
+    function validAdoptionNotification(data, notificationId) {
+      return data.type in ['adoption_accepted', 'adoption_rejected']
+        ? validAdoptionDecisionNotification(data, notificationId)
+        : (data.type == 'adoption_request_submitted'
+          ? validNewAdoptionRequestNotification(data, notificationId)
+          : (data.type == 'adoption_request_withdrawn'
+            && validWithdrawnAdoptionRequestNotification(data, notificationId)));
     }
 
     match /notifications/{notificationId} {
@@ -1385,7 +1452,19 @@ service cloud.firestore {
         ).data) == data.recipientId;
     }
 
-    function validNewAdoptionRequest(data) {
+    function requestCreationHasProviderNotification(data, requestId) {
+      let notificationId = 'adoption_request_submitted_' + data.listingId + '_' + data.requesterId;
+      let path = /databases/$(database)/documents/notifications/$(notificationId);
+      let notification = getAfter(path).data;
+      return !exists(path)
+        && existsAfter(path)
+        && notification.type == 'adoption_request_submitted'
+        && notification.targetType == 'adoption_request'
+        && notification.targetId == requestId
+        && notification.recipientUserId == data.get('recipientId', data.get('providerId', ''));
+    }
+
+    function validNewAdoptionRequest(data, requestId) {
       return data.keys().hasAll([
         'listingId', 'requesterId', 'recipientId', 'recipientType',
         'status', 'submittedAt', 'updatedAt'
@@ -1420,7 +1499,8 @@ service cloud.firestore {
         && get(
           /databases/$(database)/documents/users/$(data.recipientId)
         ).data.role == 'adoption_provider'
-        && data.get('providerId', '') == data.recipientId;
+        && data.get('providerId', '') == data.recipientId
+        && requestCreationHasProviderNotification(data, requestId);
     }
 
     function ownerCanWithdrawRequest() {
@@ -1492,7 +1572,7 @@ service cloud.firestore {
     // Previously released clients submit provider requests with only
     // providerId. Keep this path provider-only and validate it against the
     // current available listing before allowing creation.
-    function validLegacyProviderRequest(data) {
+    function validLegacyProviderRequest(data, requestId) {
       return data.keys().hasAll([
           'listingId', 'requesterId', 'providerId', 'status',
           'submittedAt', 'updatedAt'
@@ -1524,7 +1604,8 @@ service cloud.firestore {
         ).data) == data.providerId
         && get(
           /databases/$(database)/documents/users/$(data.providerId)
-        ).data.role == 'adoption_provider';
+        ).data.role == 'adoption_provider'
+        && requestCreationHasProviderNotification(data, requestId);
     }
 
     match /adoption_requests/{requestId} {
@@ -1548,8 +1629,8 @@ service cloud.firestore {
         );
 
       allow create: if isOwner()
-        && (validNewAdoptionRequest(request.resource.data)
-          || validLegacyProviderRequest(request.resource.data));
+        && (validNewAdoptionRequest(request.resource.data, requestId)
+          || validLegacyProviderRequest(request.resource.data, requestId));
 
       allow update: if request.resource.data.status == 'withdrawn'
         ? ownerCanWithdrawRequest()
