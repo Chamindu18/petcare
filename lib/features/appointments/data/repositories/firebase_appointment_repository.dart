@@ -211,53 +211,92 @@ class FirebaseAppointmentRepository
   }) async {
     final appointmentReference = _appointmentsCollection.doc(appointmentId);
 
-    await _firestore.runTransaction<void>((transaction) async {
-      final snapshot = await transaction.get(appointmentReference);
+    Future<void> runTransition({required bool includeVetCancellation}) {
+      return _firestore.runTransaction<void>((transaction) async {
+        final snapshot = await transaction.get(appointmentReference);
 
-      if (!snapshot.exists) {
-        throw const AppointmentRepositoryException(
-          'Appointment was not found.',
+        if (!snapshot.exists) {
+          throw const AppointmentRepositoryException(
+            'Appointment was not found.',
+          );
+        }
+
+        final data = snapshot.data();
+
+        if (data == null) {
+          throw const AppointmentRepositoryException(
+            'Appointment data was not found.',
+          );
+        }
+
+        final currentStatus = data['status'];
+
+        if (currentStatus is! String ||
+            !allowedCurrentStatuses.contains(currentStatus)) {
+          throw AppointmentRepositoryException(failureMessage);
+        }
+
+        transaction.set(
+          _firestore.collection('appointment_schedule').doc(appointmentId),
+          _schedule({...data, 'status': nextStatus}),
         );
-      }
-
-      final data = snapshot.data();
-
-      if (data == null) {
-        throw const AppointmentRepositoryException(
-          'Appointment data was not found.',
-        );
-      }
-
-      final currentStatus = data['status'];
-
-      if (currentStatus is! String ||
-          !allowedCurrentStatuses.contains(currentStatus)) {
-        throw AppointmentRepositoryException(failureMessage);
-      }
-
-      transaction.set(
-        _firestore.collection('appointment_schedule').doc(appointmentId),
-        _schedule({...data, 'status': nextStatus}),
-      );
-      transaction.update(appointmentReference, {
-        'status': nextStatus,
-        'updatedAt': FieldValue.serverTimestamp(),
+        transaction.update(appointmentReference, {
+          'status': nextStatus,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        if (nextStatus == 'confirmed' || nextStatus == 'rejected') {
+          NotificationEvent.create(
+            transaction,
+            _firestore,
+            recipientId: data['ownerId'] as String,
+            type: 'appointment_$nextStatus',
+            message: nextStatus == 'confirmed'
+                ? 'Your appointment was confirmed.'
+                : 'Your appointment was rejected.',
+            targetType: 'appointment',
+            targetId: appointmentId,
+            details: {'appointmentTime': data['dateTime']},
+          );
+        }
+        if (nextStatus == 'cancelled' && includeVetCancellation) {
+          final recipientId =
+              await NotificationEvent.resolveVeterinarianRecipient(
+                transaction,
+                _firestore,
+                veterinarianId: data['vetId'] as String? ?? '',
+                hospitalId: data['hospitalId'] as String? ?? '',
+              );
+          if (recipientId != null) {
+            NotificationEvent.create(
+              transaction,
+              _firestore,
+              recipientId: recipientId,
+              type: 'appointment_cancelled_veterinarian',
+              message:
+                  'An appointment assigned to you was cancelled by the owner.',
+              targetType: 'appointment',
+              targetId: appointmentId,
+              details: {'appointmentTime': data['dateTime']},
+            );
+          }
+        }
       });
-      if (nextStatus == 'confirmed' || nextStatus == 'rejected') {
-        NotificationEvent.create(
-          transaction,
-          _firestore,
-          recipientId: data['ownerId'] as String,
-          type: 'appointment_$nextStatus',
-          message: nextStatus == 'confirmed'
-              ? 'Your appointment was confirmed.'
-              : 'Your appointment was rejected.',
-          targetType: 'appointment',
-          targetId: appointmentId,
-          details: {'appointmentTime': data['dateTime']},
-        );
-      }
-    });
+    }
+
+    if (nextStatus != 'cancelled') {
+      await runTransition(includeVetCancellation: false);
+      return;
+    }
+
+    try {
+      await runTransition(includeVetCancellation: true);
+    } on FirebaseException catch (error) {
+      // A malformed legacy veterinarian/Auth link must not block an otherwise
+      // authorized owner cancellation. Rules reject only the optional notice;
+      // retrying without it preserves the existing cancellation transition.
+      if (error.code != 'permission-denied') rethrow;
+      await runTransition(includeVetCancellation: false);
+    }
   }
 }
 

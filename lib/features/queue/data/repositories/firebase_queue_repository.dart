@@ -180,89 +180,121 @@ class FirebaseQueueRepository
         .collection('queue_days')
         .doc(key);
     final queueRef = _queueCollection.doc();
-    await _firestore.runTransaction((tx) async {
-      final snapshot = await tx.get(appointmentRef);
-      if (!snapshot.exists) throw StateError('Appointment not found.');
-      final appointmentData = {
-        ...snapshot.data()!,
-        'appointmentId': snapshot.id,
-      };
-      await _verifyQueueManager(
-        tx,
-        hospitalId,
-        veterinarianId: appointmentData['vetId'] as String? ?? '',
-      );
-      for (final field in ['dateTime', 'createdAt']) {
-        final value = appointmentData[field];
-        if (value is Timestamp) {
-          appointmentData[field] = value.toDate().toUtc().toIso8601String();
+
+    Future<void> runCheckIn({required bool includeVetNotification}) {
+      return _firestore.runTransaction((tx) async {
+        final snapshot = await tx.get(appointmentRef);
+        if (!snapshot.exists) throw StateError('Appointment not found.');
+        final appointmentData = {
+          ...snapshot.data()!,
+          'appointmentId': snapshot.id,
+        };
+        await _verifyQueueManager(
+          tx,
+          hospitalId,
+          veterinarianId: appointmentData['vetId'] as String? ?? '',
+        );
+        for (final field in ['dateTime', 'createdAt']) {
+          final value = appointmentData[field];
+          if (value is Timestamp) {
+            appointmentData[field] = value.toDate().toUtc().toIso8601String();
+          }
         }
-      }
-      final appointment = AppointmentModel.fromMap(appointmentData);
-      // Feed calendar components to the existing pure validator, avoiding device timezone.
-      final storedDate = appointmentData['dateTime'] as String;
-      // Offset-free legacy dates are hospital wall time, not device wall time.
-      final scheduled = storedDate.endsWith('Z')
-          ? _day(appointment.dateTime)
-          : DateTime.utc(
-              appointment.dateTime.year,
-              appointment.dateTime.month,
-              appointment.dateTime.day,
-            );
-      final result = StaffQueueEligibility.evaluate(
-        appointment: AppointmentModel.fromMap({
-          ...appointmentData,
-          'dateTime': DateTime(
-            scheduled.year,
-            scheduled.month,
-            scheduled.day,
-          ).toIso8601String(),
-        }),
-        assignedHospitalId: hospitalId,
-        now: DateTime(day.year, day.month, day.day),
-      );
-      if (!result.isEligible) throw StateError(result.message!);
-      final counter = await tx.get(counterRef);
-      final number = counter.exists
-          ? (counter.data()!['lastNumber'] as int) + 1
-          : 1;
-      tx.set(counterRef, {
-        'lastNumber': number,
-        'queueId': queueRef.id,
-        'day': Timestamp.fromDate(day),
-        'updatedAt': FieldValue.serverTimestamp(),
+        final appointment = AppointmentModel.fromMap(appointmentData);
+        // Feed calendar components to the existing pure validator, avoiding device timezone.
+        final storedDate = appointmentData['dateTime'] as String;
+        // Offset-free legacy dates are hospital wall time, not device wall time.
+        final scheduled = storedDate.endsWith('Z')
+            ? _day(appointment.dateTime)
+            : DateTime.utc(
+                appointment.dateTime.year,
+                appointment.dateTime.month,
+                appointment.dateTime.day,
+              );
+        final result = StaffQueueEligibility.evaluate(
+          appointment: AppointmentModel.fromMap({
+            ...appointmentData,
+            'dateTime': DateTime(
+              scheduled.year,
+              scheduled.month,
+              scheduled.day,
+            ).toIso8601String(),
+          }),
+          assignedHospitalId: hospitalId,
+          now: DateTime(day.year, day.month, day.day),
+        );
+        if (!result.isEligible) throw StateError(result.message!);
+        final counter = await tx.get(counterRef);
+        final number = counter.exists
+            ? (counter.data()!['lastNumber'] as int) + 1
+            : 1;
+        final veterinarianRecipient = includeVetNotification
+            ? await NotificationEvent.resolveVeterinarianRecipient(
+                tx,
+                _firestore,
+                veterinarianId: appointment.vetId,
+                hospitalId: hospitalId,
+              )
+            : null;
+        tx.set(counterRef, {
+          'lastNumber': number,
+          'queueId': queueRef.id,
+          'day': Timestamp.fromDate(day),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        tx.set(queueRef, {
+          'queueId': queueRef.id,
+          'appointmentId': appointmentId,
+          'hospitalId': hospitalId,
+          'ownerId': appointment.ownerId,
+          'petId': appointment.petId,
+          'veterinarianId': appointment.vetId,
+          'queueNumber': number,
+          'currentServing': 0,
+          'position': number,
+          'status': 'waiting',
+          'day': Timestamp.fromDate(day),
+          'dayKey': key,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        tx.update(appointmentRef, {
+          'queueId': queueRef.id,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        NotificationEvent.create(
+          tx,
+          _firestore,
+          recipientId: appointment.ownerId,
+          type: 'queue_checked_in',
+          message: 'Your pet was checked in to the queue.',
+          targetType: 'queue',
+          targetId: queueRef.id,
+          details: {'queueNumber': number},
+        );
+        if (veterinarianRecipient != null) {
+          NotificationEvent.create(
+            tx,
+            _firestore,
+            recipientId: veterinarianRecipient,
+            type: 'patient_checked_in',
+            message: 'An assigned patient has checked in.',
+            targetType: 'appointment',
+            targetId: appointmentId,
+            details: {'queueId': queueRef.id, 'queueNumber': number},
+          );
+        }
       });
-      tx.set(queueRef, {
-        'queueId': queueRef.id,
-        'appointmentId': appointmentId,
-        'hospitalId': hospitalId,
-        'ownerId': appointment.ownerId,
-        'petId': appointment.petId,
-        'veterinarianId': appointment.vetId,
-        'queueNumber': number,
-        'currentServing': 0,
-        'position': number,
-        'status': 'waiting',
-        'day': Timestamp.fromDate(day),
-        'dayKey': key,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-      tx.update(appointmentRef, {
-        'queueId': queueRef.id,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-      NotificationEvent.create(
-        tx,
-        _firestore,
-        recipientId: appointment.ownerId,
-        type: 'queue_checked_in',
-        message: 'Your pet was checked in to the queue.',
-        targetType: 'queue',
-        targetId: queueRef.id,
-        details: {'queueNumber': number},
-      );
-    });
+    }
+
+    try {
+      await runCheckIn(includeVetNotification: true);
+    } on FirebaseException catch (error) {
+      // Preserve the authorized queue transition if a legacy veterinarian
+      // directory points at an invalid or mismatched Auth account.
+      if (error.code != 'permission-denied') rethrow;
+      await runCheckIn(includeVetNotification: false);
+    }
     return (await getQueueById(queueRef.id))!;
   }
 

@@ -111,7 +111,8 @@ service cloud.firestore {
     }
 
     // Directory IDs are canonical; only trusted provisioning controls active
-    // membership. Booking requires the matching provisioned doctor account.
+    // hospital membership. Auth-account verification is kept separate because
+    // a valid appointment may exist before that veterinarian can sign in.
     function validAppointmentVeterinarian(data) {
       let vetId = data.get('vetId', null);
       let pathId = vetId is string && vetId.size() > 0 ? vetId : '__invalid__';
@@ -122,8 +123,7 @@ service cloud.firestore {
         && exists(path)
         && get(path).data.get('active', false) == true
         && get(path).data.hospitalId == data.hospitalId
-        && get(path).data.get('vetId', vetId) == vetId
-        && validVeterinarianAccount(vetId, data.hospitalId, get(path).data.get('userId', null));
+        && get(path).data.get('vetId', vetId) == vetId;
     }
 
     // Staff access requires a trusted assignment document keyed by the
@@ -912,7 +912,7 @@ service cloud.firestore {
 
     function validOwnerNotification(data) {
       return data.keys().hasAll(['recipientUserId', 'type', 'message', 'read', 'targetType', 'targetId', 'createdAt'])
-        && data.keys().hasOnly(['recipientUserId', 'type', 'message', 'read', 'targetType', 'targetId', 'createdAt', 'appointmentTime', 'queueNumber', 'listingName'])
+        && data.keys().hasOnly(['recipientUserId', 'type', 'message', 'read', 'targetType', 'targetId', 'createdAt', 'appointmentTime', 'queueNumber', 'queueId', 'listingName'])
         && data.recipientUserId is string
         && data.type is string
         && data.message is string
@@ -922,7 +922,33 @@ service cloud.firestore {
         && data.createdAt == request.time;
     }
 
-    function validAppointmentNotification(data, notificationId) {
+    function notificationRecipientMatchesVeterinarian(appointment, recipientUserId) {
+      let vetId = appointment.get('vetId', null);
+      let pathId = vetId is string && vetId.size() > 0 ? vetId : '__invalid__';
+      let path = /databases/$(database)/documents/veterinarians/$(pathId);
+      return validAppointmentVeterinarian(appointment)
+        && exists(path)
+        && get(path).data.get('userId', null) == recipientUserId
+        && validVeterinarianAccount(vetId, appointment.hospitalId, recipientUserId);
+    }
+
+    function notificationRecipientMatchesQueue(queue, recipientUserId) {
+      let vetId = queue.get('veterinarianId', null);
+      let hospitalId = queue.get('hospitalId', null);
+      let pathId = vetId is string && vetId.size() > 0 ? vetId : '__invalid__';
+      let path = /databases/$(database)/documents/veterinarians/$(pathId);
+      return vetId is string && vetId.size() > 0
+        && hospitalId is string && hospitalId.size() > 0
+        && hospitalId != 'unassigned'
+        && exists(path)
+        && get(path).data.get('active', false) == true
+        && get(path).data.hospitalId == hospitalId
+        && get(path).data.get('vetId', vetId) == vetId
+        && get(path).data.get('userId', null) == recipientUserId
+        && validVeterinarianAccount(vetId, hospitalId, recipientUserId);
+    }
+
+    function validAppointmentDecisionNotification(data, notificationId) {
       let path = /databases/$(database)/documents/appointments/$(data.targetId);
       let before = get(path).data;
       let after = getAfter(path).data;
@@ -931,7 +957,7 @@ service cloud.firestore {
         && notificationId == data.type + '_' + data.targetId
         && data.recipientUserId == before.ownerId
         && data.keys().hasAll(['appointmentTime'])
-        && !data.keys().hasAny(['queueNumber', 'listingName'])
+        && !data.keys().hasAny(['queueNumber', 'queueId', 'listingName'])
         && data.appointmentTime == before.dateTime
         && before.ownerId == after.ownerId
         && before.petId == after.petId
@@ -943,6 +969,58 @@ service cloud.firestore {
         && after.updatedAt == request.time
         && data.message == (data.type == 'appointment_confirmed'
           ? 'Your appointment was confirmed.' : 'Your appointment was rejected.');
+    }
+
+    function validVeterinarianCancellationNotification(data, notificationId) {
+      let path = /databases/$(database)/documents/appointments/$(data.targetId);
+      let before = get(path).data;
+      let after = getAfter(path).data;
+      return data.targetType == 'appointment'
+        && data.type == 'appointment_cancelled_veterinarian'
+        && notificationId == data.type + '_' + data.targetId
+        && before.ownerId == request.auth.uid
+        && notificationRecipientMatchesVeterinarian(before, data.recipientUserId)
+        && data.keys().hasAll(['appointmentTime'])
+        && !data.keys().hasAny(['queueNumber', 'queueId', 'listingName'])
+        && data.appointmentTime == before.dateTime
+        && before.status in ['pending', 'confirmed']
+        && after.status == 'cancelled'
+        && before.vetId == after.vetId
+        && before.ownerId == after.ownerId
+        && before.petId == after.petId
+        && before.hospitalId == after.hospitalId
+        && after.updatedAt == request.time
+        && data.message == 'An appointment assigned to you was cancelled by the owner.';
+    }
+
+    function validVeterinarianCheckInNotification(data, notificationId) {
+      let queueId = data.get('queueId', null);
+      let queuePathId = queueId is string && queueId.size() > 0 ? queueId : '__invalid__';
+      let queuePath = /databases/$(database)/documents/queue_records/$(queuePathId);
+      let queue = getAfter(queuePath).data;
+      return data.targetType == 'appointment'
+        && data.type == 'patient_checked_in'
+        && notificationId == data.type + '_' + data.targetId
+        && data.keys().hasAll(['queueId', 'queueNumber'])
+        && !data.keys().hasAny(['appointmentTime', 'listingName'])
+        && queueId is string && queueId.size() > 0
+        && !exists(queuePath) && existsAfter(queuePath)
+        && queue.appointmentId == data.targetId
+        && notificationRecipientMatchesQueue(queue, data.recipientUserId)
+        && queue.queueNumber == data.queueNumber
+        && queue.status == 'waiting'
+        && queue.updatedAt == request.time
+        && isQueueManager(queue)
+        && data.message == 'An assigned patient has checked in.';
+    }
+
+    function validAppointmentNotification(data, notificationId) {
+      return data.type in ['appointment_confirmed', 'appointment_rejected']
+        ? validAppointmentDecisionNotification(data, notificationId)
+        : (data.type == 'appointment_cancelled_veterinarian'
+          ? validVeterinarianCancellationNotification(data, notificationId)
+          : (data.type == 'patient_checked_in'
+            && validVeterinarianCheckInNotification(data, notificationId)));
     }
 
     function queueNotificationTransitionMatches(type, before, after) {
@@ -990,7 +1068,7 @@ service cloud.firestore {
         && isQueueManager(after)
         && data.recipientUserId == after.ownerId
         && data.keys().hasAll(['queueNumber'])
-        && !data.keys().hasAny(['appointmentTime', 'listingName'])
+        && !data.keys().hasAny(['appointmentTime', 'queueId', 'listingName'])
         && data.queueNumber == after.queueNumber
         && after.updatedAt == request.time
         && (data.type == 'queue_checked_in'
@@ -1011,7 +1089,7 @@ service cloud.firestore {
         && data.message == queueNotificationMessage(data.type);
     }
 
-    function validAdoptionNotification(data, notificationId) {
+    function validAdoptionDecisionNotification(data, notificationId) {
       let path = /databases/$(database)/documents/adoption_requests/$(data.targetId);
       let before = get(path).data;
       let after = getAfter(path).data;
@@ -1020,7 +1098,7 @@ service cloud.firestore {
         && notificationId == data.type + '_' + data.targetId
         && authorizedRequestRecipient(before)
         && data.recipientUserId == before.requesterId
-        && !data.keys().hasAny(['appointmentTime', 'queueNumber'])
+        && !data.keys().hasAny(['appointmentTime', 'queueNumber', 'queueId'])
         && data.keys().hasAll(['listingName'])
         && data.listingName is string
         && data.listingName == get(/databases/$(database)/documents/adoption_listings/$(before.listingId)).data.petName
@@ -1033,6 +1111,73 @@ service cloud.firestore {
         && after.updatedAt == request.time
         && data.message == (data.type == 'adoption_accepted'
           ? 'Your adoption request was accepted.' : 'Your adoption request was rejected.');
+    }
+
+    function validNewAdoptionRequestNotification(data, notificationId) {
+      let requestPath = /databases/$(database)/documents/adoption_requests/$(data.targetId);
+      let after = getAfter(requestPath).data;
+      let listingPath = /databases/$(database)/documents/adoption_listings/$(after.listingId);
+      let listing = get(listingPath).data;
+      let recipientId = after.get('recipientId', after.get('providerId', ''));
+      return data.targetType == 'adoption_request'
+        && data.type == 'adoption_request_submitted'
+        && !exists(requestPath)
+        && existsAfter(requestPath)
+        && notificationId == data.type + '_' + after.listingId + '_' + after.requesterId
+        && request.auth.uid == after.requesterId
+        && after.status == 'pending'
+        && after.submittedAt == request.time
+        && after.updatedAt == request.time
+        && recipientId == data.recipientUserId
+        && listingOwnerType(listing) == 'adoption_provider'
+        && listingOwnerId(listing) == recipientId
+        && listing.status == 'available'
+        && get(/databases/$(database)/documents/users/$(recipientId)).data.role == 'adoption_provider'
+        && data.keys().hasAll(['listingName'])
+        && !data.keys().hasAny(['appointmentTime', 'queueNumber', 'queueId'])
+        && data.listingName is string
+        && data.listingName == listing.petName
+        && data.message == 'You received a new adoption application for ' + listing.petName + '.';
+    }
+
+    function validWithdrawnAdoptionRequestNotification(data, notificationId) {
+      let requestPath = /databases/$(database)/documents/adoption_requests/$(data.targetId);
+      let before = get(requestPath).data;
+      let after = getAfter(requestPath).data;
+      let listingPath = /databases/$(database)/documents/adoption_listings/$(before.listingId);
+      let listing = get(listingPath).data;
+      return data.targetType == 'adoption_request'
+        && data.type == 'adoption_request_withdrawn'
+        && exists(requestPath)
+        && existsAfter(requestPath)
+        && notificationId == data.type + '_' + data.targetId
+        && request.auth.uid == before.requesterId
+        && data.recipientUserId == before.recipientId
+        && before.status == 'pending'
+        && after.status == 'withdrawn'
+        && after.requesterId == before.requesterId
+        && after.listingId == before.listingId
+        && after.recipientId == before.recipientId
+        && after.recipientType == before.recipientType
+        && after.updatedAt == request.time
+        && after.closedAt == request.time
+        && listingOwnerType(listing) == 'adoption_provider'
+        && listingOwnerId(listing) == before.recipientId
+        && get(/databases/$(database)/documents/users/$(before.recipientId)).data.role == 'adoption_provider'
+        && data.keys().hasAll(['listingName'])
+        && !data.keys().hasAny(['appointmentTime', 'queueNumber', 'queueId'])
+        && data.listingName is string
+        && data.listingName == listing.petName
+        && data.message == 'An adoption application for ' + listing.petName + ' was withdrawn.';
+    }
+
+    function validAdoptionNotification(data, notificationId) {
+      return data.type in ['adoption_accepted', 'adoption_rejected']
+        ? validAdoptionDecisionNotification(data, notificationId)
+        : (data.type == 'adoption_request_submitted'
+          ? validNewAdoptionRequestNotification(data, notificationId)
+          : (data.type == 'adoption_request_withdrawn'
+            && validWithdrawnAdoptionRequestNotification(data, notificationId)));
     }
 
     match /notifications/{notificationId} {
@@ -1307,7 +1452,19 @@ service cloud.firestore {
         ).data) == data.recipientId;
     }
 
-    function validNewAdoptionRequest(data) {
+    function requestCreationHasProviderNotification(data, requestId) {
+      let notificationId = 'adoption_request_submitted_' + data.listingId + '_' + data.requesterId;
+      let path = /databases/$(database)/documents/notifications/$(notificationId);
+      let notification = getAfter(path).data;
+      return !exists(path)
+        && existsAfter(path)
+        && notification.type == 'adoption_request_submitted'
+        && notification.targetType == 'adoption_request'
+        && notification.targetId == requestId
+        && notification.recipientUserId == data.get('recipientId', data.get('providerId', ''));
+    }
+
+    function validNewAdoptionRequest(data, requestId) {
       return data.keys().hasAll([
         'listingId', 'requesterId', 'recipientId', 'recipientType',
         'status', 'submittedAt', 'updatedAt'
@@ -1342,7 +1499,8 @@ service cloud.firestore {
         && get(
           /databases/$(database)/documents/users/$(data.recipientId)
         ).data.role == 'adoption_provider'
-        && data.get('providerId', '') == data.recipientId;
+        && data.get('providerId', '') == data.recipientId
+        && requestCreationHasProviderNotification(data, requestId);
     }
 
     function ownerCanWithdrawRequest() {
@@ -1414,7 +1572,7 @@ service cloud.firestore {
     // Previously released clients submit provider requests with only
     // providerId. Keep this path provider-only and validate it against the
     // current available listing before allowing creation.
-    function validLegacyProviderRequest(data) {
+    function validLegacyProviderRequest(data, requestId) {
       return data.keys().hasAll([
           'listingId', 'requesterId', 'providerId', 'status',
           'submittedAt', 'updatedAt'
@@ -1446,7 +1604,8 @@ service cloud.firestore {
         ).data) == data.providerId
         && get(
           /databases/$(database)/documents/users/$(data.providerId)
-        ).data.role == 'adoption_provider';
+        ).data.role == 'adoption_provider'
+        && requestCreationHasProviderNotification(data, requestId);
     }
 
     match /adoption_requests/{requestId} {
@@ -1470,8 +1629,8 @@ service cloud.firestore {
         );
 
       allow create: if isOwner()
-        && (validNewAdoptionRequest(request.resource.data)
-          || validLegacyProviderRequest(request.resource.data));
+        && (validNewAdoptionRequest(request.resource.data, requestId)
+          || validLegacyProviderRequest(request.resource.data, requestId));
 
       allow update: if request.resource.data.status == 'withdrawn'
         ? ownerCanWithdrawRequest()

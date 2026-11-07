@@ -66,7 +66,7 @@ test('six simultaneous requests for one interval have one winner and no orphan d
   assert.equal((await db.doc(`appointment_schedule/${winner.id}`).get()).data().durationMinutes, 30);
 });
 
-test('booking notifies only verified active staff in its hospital once', async () => {
+test('booking notifies verified hospital staff and the assigned veterinarian once', async () => {
   await db.doc('users/staff-a2').set({role: 'veterinary_staff'});
   await db.doc('hospital_staff/staff-a2').set({userId: 'staff-a2', hospitalId: 'hospital-a', active: true});
   await db.doc('users/inactive-staff').set({role: 'veterinary_staff'});
@@ -74,16 +74,33 @@ test('booking notifies only verified active staff in its hospital once', async (
   await db.doc('hospital_staff/forged').set({userId: 'staff-a', hospitalId: 'hospital-a', active: true});
   await book('notice-one');
   const notices = (await db.collection('notifications').get()).docs;
-  assert.deepEqual(notices.map(d => d.data().recipientUserId).sort(), ['staff-a', 'staff-a2']);
-  for (const notice of notices) {
-    assert.equal(notice.data().type, 'appointment_requested');
+  assert.deepEqual(notices.map(d => d.data().recipientUserId).sort(), ['doctor-a', 'staff-a', 'staff-a2']);
+  for (const notice of notices.filter(d => d.data().type === 'appointment_requested')) {
     assert.equal(notice.data().targetId, 'notice-one');
     assert.equal(notice.data().appointmentTime, base);
   }
+  const vetNotice = notices.find(d => d.data().type === 'appointment_assigned');
+  assert.equal(vetNotice?.data().recipientUserId, 'doctor-a');
+  assert.equal(vetNotice?.data().appointmentTime, base);
   await assert.rejects(book('notice-one'), error => error instanceof BookingError && error.code === 'already-exists');
-  assert.equal((await db.collection('notifications').get()).size, 2);
+  assert.equal((await db.collection('notifications').get()).size, 3);
   await assert.rejects(book('notice-failed', {vetId: 'vet-c'}));
-  assert.equal((await db.collection('notifications').get()).size, 2);
+  assert.equal((await db.collection('notifications').get()).size, 3);
+});
+
+test('reassignment notifies the new and previous verified veterinarians without granting stale access', async () => {
+  await book('reassigned');
+  await reassign('reassigned', 'vet-b');
+  const notices = (await db.collection('notifications').get()).docs
+    .filter(document => document.data().targetId === 'reassigned');
+  const assigned = notices.find(document => document.data().type === 'appointment_reassigned');
+  const removed = notices.find(document => document.data().type === 'appointment_unassigned');
+  assert.equal(assigned?.data().recipientUserId, 'doctor-b');
+  assert.equal(assigned?.data().targetType, 'appointment');
+  assert.equal(removed?.data().recipientUserId, 'doctor-a');
+  assert.equal(removed?.data().targetType, 'none');
+  await assertDenied(getDoc(doc(env.authenticatedContext('doctor-a').firestore(), 'appointments/reassigned')));
+  assert.equal((await getDoc(doc(env.authenticatedContext('doctor-b').firestore(), 'appointments/reassigned'))).data()?.vetId, 'vet-b');
 });
 
 test('missing and inactive hospitals cannot accept bookings or reassignment', async () => {
@@ -237,14 +254,16 @@ test('clients cannot forge duration snapshots, lock revisions, or direct resched
   await assertDenied(setDoc(doc(owner, 'appointment_booking_locks/vet-a'), {revision: 999}));
 });
 
-test('missing and mismatched veterinarian accounts fail before any writes', async () => {
+test('invalid veterinarian account links preserve booking but receive no veterinarian notification', async () => {
   await db.doc('veterinarians/vet-a').update({userId: 'missing-doctor'});
-  await assert.rejects(book('missing-account'), BookingError);
+  await book('missing-account');
   await db.doc('veterinarians/vet-a').update({userId: 'doctor-b'});
-  await assert.rejects(book('wrong-account'), BookingError);
+  await book('wrong-account', {dateTime: '2026-11-10T09:30:00Z'});
   await assert.rejects(book('missing-directory', {vetId: 'missing'}), BookingError);
-  await counts(0);
-  assert.equal((await db.collection('appointment_booking_locks').get()).size, 0);
+  await counts(2);
+  const veterinarianNotices = (await db.collection('notifications')
+    .where('type', '==', 'appointment_assigned').get()).docs;
+  assert.equal(veterinarianNotices.length, 0);
 });
 
 test('unassigned hospitals cannot book even with internally matching records', async () => {

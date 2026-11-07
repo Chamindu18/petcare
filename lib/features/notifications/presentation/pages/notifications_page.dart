@@ -12,10 +12,12 @@ class NotificationsPage extends StatefulWidget {
     super.key,
     this.notificationRepository,
     this.onOpenAppointment,
+    this.onOpenAppointmentById,
   });
 
   final NotificationRepository? notificationRepository;
   final VoidCallback? onOpenAppointment;
+  final ValueChanged<String>? onOpenAppointmentById;
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
 }
@@ -92,13 +94,24 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     notification.notificationId,
                   );
                   if (!context.mounted) return;
-                  if (notification.targetType == 'appointment' &&
-                      widget.onOpenAppointment != null) {
-                    widget.onOpenAppointment!();
-                    return;
+                  if (notification.targetType == 'appointment') {
+                    if (widget.onOpenAppointmentById != null) {
+                      widget.onOpenAppointmentById!(notification.targetId);
+                      return;
+                    }
+                    if (widget.onOpenAppointment != null) {
+                      widget.onOpenAppointment!();
+                      return;
+                    }
                   }
                   final route = switch (notification.targetType) {
                     'appointment' || 'queue' => AppRouter.myAppointments,
+                    'adoption_request'
+                        when notification.type ==
+                                'adoption_request_submitted' ||
+                            notification.type ==
+                                'adoption_request_withdrawn' =>
+                      AppRouter.adoptionRequests,
                     'adoption_request' => AppRouter.myAdoptionRequests,
                     _ => null,
                   };
@@ -214,9 +227,14 @@ class _NotificationCard extends StatelessWidget {
 
   String _titleFor(String type) => switch (type) {
     'appointment_requested' => 'New appointment request',
+    'appointment_assigned' => 'New appointment assigned',
+    'appointment_reassigned' => 'Appointment reassigned',
+    'appointment_unassigned' => 'Appointment removed',
+    'appointment_cancelled_veterinarian' => 'Appointment cancelled',
     'appointment_confirmed' => 'Appointment confirmed',
     'appointment_rejected' => 'Appointment rejected',
     'queue_checked_in' => 'Queue check-in',
+    'patient_checked_in' => 'Patient checked in',
     'queue_called' => 'Called to consultation',
     'queue_in_consultation' => 'Consultation started',
     'queue_completed' => 'Consultation completed',
@@ -224,6 +242,8 @@ class _NotificationCard extends StatelessWidget {
     'queue_cancelled' => 'Queue entry cancelled',
     'adoption_accepted' => 'Adoption request accepted',
     'adoption_rejected' => 'Adoption request rejected',
+    'adoption_request_submitted' => 'New adoption request',
+    'adoption_request_withdrawn' => 'Adoption request withdrawn',
     _ => 'Notification',
   };
 
