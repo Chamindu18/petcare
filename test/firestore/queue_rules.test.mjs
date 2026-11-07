@@ -492,6 +492,14 @@ test('owners and hospital users retain scoped reads and cannot cross hospitals',
     status: 'called', calledAt: serverTimestamp(), updatedAt: serverTimestamp(),
   }));
   await assertFails(checkIn(authenticatedDb('owner-1'), {}, {}, 'queue-owner'));
+
+  const owner = authenticatedDb('owner-1');
+  await assertFails(updateDoc(doc(owner, 'queue_records/queue-1'), {
+    status: 'called', calledAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  }));
+  const otherOwner = authenticatedDb('owner-2');
+  await assertFails(getDoc(doc(otherOwner, 'queue_records/queue-1')));
+  await assertFails(getDoc(doc(otherOwner, 'appointments/appointment-1')));
 });
 
 test('atomic check-in rejects cross-hospital and forged or inactive assignments', async () => {
