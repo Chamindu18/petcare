@@ -163,6 +163,7 @@ void main() {
     await mount(tester);
     expect(appointments.calls, ['hospital/directory']);
     expect(find.text('Appointment overview'), findsOneWidget);
+    expect(find.byTooltip('Notifications'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('No appointments scheduled for today.'),
       200,

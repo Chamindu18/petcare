@@ -8,6 +8,7 @@ import '../../../appointments/presentation/pages/veterinarian_appointments_page.
 import '../../../appointments/presentation/widgets/veterinarian_appointment_card.dart';
 import '../../../auth/data/repositories/firebase_auth_repository.dart';
 import '../../../auth/domain/repositories/auth_repository.dart';
+import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../../profile/domain/entities/user_profile.dart';
 import '../../../queue/domain/repositories/queue_repository.dart';
 import '../providers/veterinarian_workspace_controller.dart';
@@ -105,6 +106,14 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
                 ),
               ),
               actions: [
+                IconButton(
+                  tooltip: 'Notifications',
+                  onPressed: _openNotifications,
+                  icon: const Icon(
+                    Icons.notifications_none_rounded,
+                    color: AppTheme.deepBrown,
+                  ),
+                ),
                 if (_selectedIndex == 0 || _selectedIndex == 1)
                   IconButton(
                     tooltip: 'Refresh',
@@ -601,6 +610,31 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
 
   void _selectTab(int index) {
     setState(() => _selectedIndex = index);
+  }
+
+  Future<void> _openNotifications() async {
+    await _controller.refresh();
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => NotificationsPage(
+          onOpenAppointmentById: _openNotificationAppointment,
+        ),
+      ),
+    );
+  }
+
+  void _openNotificationAppointment(String appointmentId) {
+    final appointment = _controller.appointmentById(appointmentId);
+    if (appointment == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Appointment access is no longer available.'),
+        ),
+      );
+      return;
+    }
+    _openDetails(appointment);
   }
 
   void _openDetails(Appointment appointment) {

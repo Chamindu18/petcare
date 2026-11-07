@@ -128,6 +128,46 @@ test('staff cannot forge appointment time or recipient in an atomic decision', a
   assert.equal((await getDoc(doc(db, 'appointments/appointment-1'))).data()?.status, 'pending');
 });
 
+test('owner cancellation atomically notifies only the verified assigned veterinarian', async () => {
+  const db = dbFor('owner-1');
+  const batch = writeBatch(db);
+  batch.update(doc(db, 'appointments/appointment-1'), {
+    status: 'cancelled', updatedAt: serverTimestamp(),
+  });
+  batch.set(doc(db, 'notifications/appointment_cancelled_veterinarian_appointment-1'),
+    notification('appointment_cancelled_veterinarian', 'vet-a', 'appointment',
+      'appointment-1', 'An appointment assigned to you was cancelled by the owner.'));
+  await assertSucceeds(batch.commit());
+  const notice = doc(dbFor('vet-a'), 'notifications/appointment_cancelled_veterinarian_appointment-1');
+  assert.equal((await getDoc(notice)).data()?.recipientUserId, 'vet-a');
+  await assertFails(getDoc(doc(dbFor('owner-1'), 'notifications/appointment_cancelled_veterinarian_appointment-1')));
+  await assertSucceeds(updateDoc(notice, {read: true}));
+  await assertFails(updateDoc(doc(dbFor('owner-2'), 'notifications/appointment_cancelled_veterinarian_appointment-1'), {read: true}));
+});
+
+test('cancellation notification rejects wrong recipients, messages, and failed transitions', async () => {
+  for (const patch of [
+    {recipientUserId: 'owner-1'},
+    {message: 'Forged cancellation'},
+  ]) {
+    const db = dbFor('owner-1');
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'appointments/appointment-1'), {
+      status: 'cancelled', updatedAt: serverTimestamp(),
+    });
+    batch.set(doc(db, 'notifications/appointment_cancelled_veterinarian_appointment-1'), {
+      ...notification('appointment_cancelled_veterinarian', 'vet-a', 'appointment',
+        'appointment-1', 'An appointment assigned to you was cancelled by the owner.'),
+      ...patch,
+    });
+    await assertFails(batch.commit());
+  }
+  await assertFails(setDoc(doc(dbFor('owner-1'),
+    'notifications/appointment_cancelled_veterinarian_appointment-1'),
+  notification('appointment_cancelled_veterinarian', 'vet-a', 'appointment',
+    'appointment-1', 'An appointment assigned to you was cancelled by the owner.')));
+});
+
 test('provider rejection notifies only the applicant', async () => {
   const db = dbFor('provider-1');
   const batch = writeBatch(db);
@@ -255,6 +295,14 @@ test('atomic check-in creates the waiting notification', async () => {
       'Your pet was checked in to the queue.'),
     queueNumber: 1,
   });
+  batch.set(doc(db, 'notifications/patient_checked_in_appointment-1'), {
+    recipientUserId: 'vet-a', type: 'patient_checked_in',
+    message: 'An assigned patient has checked in.', read: false,
+    targetType: 'appointment', targetId: 'appointment-1',
+    queueId: 'queue-1', queueNumber: 1, createdAt: serverTimestamp(),
+  });
   await assertSucceeds(batch.commit());
   assert.equal((await getDoc(doc(dbFor('owner-1'), 'notifications/queue_checked_in_queue-1'))).data()?.queueNumber, 1);
+  assert.equal((await getDoc(doc(dbFor('vet-a'), 'notifications/patient_checked_in_appointment-1'))).data()?.queueNumber, 1);
+  await assertFails(getDoc(doc(dbFor('owner-1'), 'notifications/patient_checked_in_appointment-1')));
 });

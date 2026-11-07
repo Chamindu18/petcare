@@ -163,5 +163,55 @@ void main() {
       await tester.pump();
       expect(opened, isTrue);
     });
+
+    testWidgets(
+      'veterinarian events use the appointment ID and removed events do not link',
+      (tester) async {
+        String? openedId;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: NotificationsPage(
+              notificationRepository: _FakeNotificationRepository(
+                notifications: [
+                  notification_entity.Notification(
+                    notificationId: 'patient_checked_in_appointment-1',
+                    recipientUserId: 'doctor-1',
+                    type: 'patient_checked_in',
+                    message: 'An assigned patient has checked in.',
+                    read: false,
+                    targetType: 'appointment',
+                    targetId: 'appointment-1',
+                    createdAt: DateTime(2026, 11, 7),
+                    queueNumber: 3,
+                  ),
+                  notification_entity.Notification(
+                    notificationId:
+                        'appointment_unassigned_appointment-2_doctor-1',
+                    recipientUserId: 'doctor-1',
+                    type: 'appointment_unassigned',
+                    message: 'An appointment was removed from your schedule.',
+                    read: false,
+                    targetType: 'none',
+                    targetId: 'appointment-2',
+                    createdAt: DateTime(2026, 11, 7),
+                  ),
+                ],
+              ),
+              onOpenAppointmentById: (id) => openedId = id,
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(find.text('Patient checked in'), findsOneWidget);
+        expect(find.text('Appointment removed'), findsOneWidget);
+        await tester.tap(find.text('Patient checked in'));
+        await tester.pump();
+        expect(openedId, 'appointment-1');
+        openedId = null;
+        await tester.tap(find.text('Appointment removed'));
+        await tester.pump();
+        expect(openedId, isNull);
+      },
+    );
   });
 }
