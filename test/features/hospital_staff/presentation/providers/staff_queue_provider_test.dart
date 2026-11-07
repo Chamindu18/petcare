@@ -193,16 +193,19 @@ void main() {
     expect(provider.eligibleAppointments, isEmpty);
     expect(provider.isProcessing, isFalse);
   });
-  test('only waiting to consultation to completed is supported', () async {
+  test('advances through called and consultation before completion', () async {
     queues.values = [entry()];
     await provider.refresh();
     expect(await provider.advance(provider.entries.single), isTrue);
     expect(queues.expected, StaffQueueStatus.waiting);
+    expect(queues.next, StaffQueueStatus.called);
+    expect(await provider.advance(provider.entries.single), isTrue);
+    expect(queues.expected, StaffQueueStatus.called);
     expect(queues.next, StaffQueueStatus.inConsultation);
     expect(await provider.advance(provider.entries.single), isTrue);
     expect(queues.next, StaffQueueStatus.completed);
     expect(await provider.advance(provider.entries.single), isFalse);
-    expect(queues.transitions, 2);
+    expect(queues.transitions, 3);
   });
   test(
     'stale transaction refreshes and displays actionable conflict',
@@ -324,6 +327,11 @@ void main() {
       queues.hold!.complete();
       await tester.pumpAndSettle();
       expect(find.text('Check In'), findsNothing);
+      await tester.ensureVisible(find.text('Call Patient'));
+      await tester.tap(find.text('Call Patient'));
+      await tester.pumpAndSettle();
+      expect(find.text('Called'), findsOneWidget);
+      expect(find.text('Start Consultation'), findsOneWidget);
       await tester.ensureVisible(find.text('Start Consultation'));
       await tester.tap(find.text('Start Consultation'));
       await tester.pumpAndSettle();
@@ -351,7 +359,7 @@ void main() {
       lessThan(tester.getTopLeft(find.text('Queue #2')).dy),
     );
     expect(find.text('Unknown status: refresh required'), findsOneWidget);
-    expect(find.text('Start Consultation'), findsOneWidget);
+    expect(find.text('Call Patient'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   testWidgets(
@@ -361,11 +369,12 @@ void main() {
       queues.commandError = StateError('status has changed');
       await pump(tester);
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Start Consultation'));
-      await tester.tap(find.text('Start Consultation'));
+      await tester.ensureVisible(find.text('Call Patient'));
+      await tester.tap(find.text('Call Patient'));
       await tester.pumpAndSettle();
       expect(find.textContaining('has changed'), findsOneWidget);
       expect(queues.reads, 2);
+      expect(find.text('Call Patient'), findsOneWidget);
       expect(find.text('Complete Consultation'), findsNothing);
     },
   );

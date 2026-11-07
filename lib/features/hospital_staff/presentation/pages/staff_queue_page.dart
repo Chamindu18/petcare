@@ -180,23 +180,27 @@ class _StaffQueuePageState extends State<StaffQueuePage>
                           Text('Appointment: ${entry.appointmentId}'),
                           Text(switch (entry.status) {
                             'waiting' => 'Waiting',
+                            'called' => 'Called',
                             'in_consultation' => 'In consultation',
                             'completed' => 'Completed',
+                            'skipped' => 'Skipped',
+                            'cancelled' => 'Cancelled',
                             _ => 'Unknown status: refresh required',
                           }),
                           if ([
                             'waiting',
+                            'called',
                             'in_consultation',
                           ].contains(entry.status))
                             FilledButton(
                               onPressed: _provider.canAct
                                   ? () => _run(() => _provider.advance(entry))
                                   : null,
-                              child: Text(
-                                entry.status == 'waiting'
-                                    ? 'Start Consultation'
-                                    : 'Complete Consultation',
-                              ),
+                              child: Text(switch (entry.status) {
+                                'waiting' => 'Call Patient',
+                                'called' => 'Start Consultation',
+                                _ => 'Complete Consultation',
+                              }),
                             ),
                         ],
                       ),

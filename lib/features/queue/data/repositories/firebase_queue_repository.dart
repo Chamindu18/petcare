@@ -11,7 +11,10 @@ import '../../../notifications/data/notification_event.dart';
 
 /// Authorized queue reads and atomic staff queue commands.
 class FirebaseQueueRepository
-    implements QueueRepository, StaffQueueCommandRepository {
+    implements
+        QueueRepository,
+        StaffQueueCommandRepository,
+        VeterinarianQueueRepository {
   FirebaseQueueRepository({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
@@ -44,6 +47,63 @@ class FirebaseQueueRepository
         data?['hospitalId'] != hospitalId ||
         data?['active'] != true) {
       throw StateError('An active hospital staff assignment is required.');
+    }
+  }
+
+  Future<void> _verifyVeterinarian(
+    Transaction tx, {
+    required String hospitalId,
+    required String veterinarianId,
+  }) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null ||
+        hospitalId.isEmpty ||
+        hospitalId == 'unassigned' ||
+        veterinarianId.isEmpty) {
+      throw StateError('An active veterinarian assignment is required.');
+    }
+    final user = (await tx.get(_firestore.collection('users').doc(uid))).data();
+    final vetId = user?['vetId'] ?? uid;
+    if (user?['role'] != 'veterinarian' ||
+        vetId is! String ||
+        vetId.isEmpty ||
+        vetId != veterinarianId ||
+        user?['hospitalId'] != hospitalId) {
+      throw StateError('An active veterinarian assignment is required.');
+    }
+    final directory = (await tx.get(
+      _firestore.collection('veterinarians').doc(vetId),
+    )).data();
+    if (directory == null ||
+        directory['userId'] != uid ||
+        directory['active'] != true ||
+        directory['hospitalId'] != hospitalId ||
+        (directory.containsKey('vetId') && directory['vetId'] != vetId)) {
+      throw StateError('An active veterinarian assignment is required.');
+    }
+  }
+
+  Future<void> _verifyQueueManager(
+    Transaction tx,
+    String hospitalId, {
+    required String veterinarianId,
+  }) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null || hospitalId.isEmpty || hospitalId == 'unassigned') {
+      throw StateError('An active hospital assignment is required.');
+    }
+    final user = (await tx.get(_firestore.collection('users').doc(uid))).data();
+    switch (user?['role']) {
+      case 'veterinary_staff':
+        await _verifyStaff(tx, hospitalId);
+      case 'veterinarian':
+        await _verifyVeterinarian(
+          tx,
+          hospitalId: hospitalId,
+          veterinarianId: veterinarianId,
+        );
+      default:
+        throw StateError('An active hospital assignment is required.');
     }
   }
 
@@ -121,13 +181,17 @@ class FirebaseQueueRepository
         .doc(key);
     final queueRef = _queueCollection.doc();
     await _firestore.runTransaction((tx) async {
-      await _verifyStaff(tx, hospitalId);
       final snapshot = await tx.get(appointmentRef);
       if (!snapshot.exists) throw StateError('Appointment not found.');
       final appointmentData = {
         ...snapshot.data()!,
         'appointmentId': snapshot.id,
       };
+      await _verifyQueueManager(
+        tx,
+        hospitalId,
+        veterinarianId: appointmentData['vetId'] as String? ?? '',
+      );
       for (final field in ['dateTime', 'createdAt']) {
         final value = appointmentData[field];
         if (value is Timestamp) {
@@ -174,12 +238,14 @@ class FirebaseQueueRepository
         'hospitalId': hospitalId,
         'ownerId': appointment.ownerId,
         'petId': appointment.petId,
+        'veterinarianId': appointment.vetId,
         'queueNumber': number,
         'currentServing': 0,
         'position': number,
         'status': 'waiting',
         'day': Timestamp.fromDate(day),
         'dayKey': key,
+        'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
       tx.update(appointmentRef, {
@@ -220,21 +286,87 @@ class FirebaseQueueRepository
   }
 
   @override
+  Future<List<Queue>> getVeterinarianQueue({
+    required String hospitalId,
+    required String veterinarianId,
+    required DateTime date,
+  }) async {
+    final day = DateTime.utc(date.year, date.month, date.day);
+    await _firestore.runTransaction(
+      (tx) => _verifyVeterinarian(
+        tx,
+        hospitalId: hospitalId,
+        veterinarianId: veterinarianId,
+      ),
+    );
+    final snapshot = await _queueCollection
+        .where('hospitalId', isEqualTo: hospitalId)
+        .where('veterinarianId', isEqualTo: veterinarianId)
+        .where('day', isEqualTo: Timestamp.fromDate(day))
+        .get();
+    final queues = snapshot.docs
+        .map((doc) => QueueModel.fromMap(doc.data()))
+        .where(
+          (queue) =>
+              queue.hospitalId == hospitalId &&
+              queue.veterinarianId == veterinarianId,
+        )
+        .toList();
+    queues.sort((a, b) => a.queueNumber.compareTo(b.queueNumber));
+    return queues;
+  }
+
+  static String _notificationType(StaffQueueStatus status) {
+    return switch (status) {
+      QueueStatus.called => 'queue_called',
+      QueueStatus.inConsultation => 'queue_in_consultation',
+      QueueStatus.completed => 'queue_completed',
+      QueueStatus.skipped => 'queue_skipped',
+      QueueStatus.cancelled => 'queue_cancelled',
+      QueueStatus.waiting => throw StateError(
+        'Queue cannot transition back to waiting.',
+      ),
+    };
+  }
+
+  static String _notificationMessage(StaffQueueStatus status) {
+    return switch (status) {
+      QueueStatus.called =>
+        'Your pet has been called to the consultation room.',
+      QueueStatus.inConsultation => "Your pet's consultation has begun.",
+      QueueStatus.completed => "Your pet's consultation is complete.",
+      QueueStatus.skipped => 'Your pet was skipped in the queue.',
+      QueueStatus.cancelled => "Your pet's queue entry was cancelled.",
+      QueueStatus.waiting => throw StateError(
+        'Queue cannot transition back to waiting.',
+      ),
+    };
+  }
+
+  @override
   Future<Queue> transitionStatus({
     required String queueId,
     required String hospitalId,
     required StaffQueueStatus expectedStatus,
     required StaffQueueStatus nextStatus,
   }) async {
-    if (!((expectedStatus == StaffQueueStatus.waiting &&
-            nextStatus == StaffQueueStatus.inConsultation) ||
-        (expectedStatus == StaffQueueStatus.inConsultation &&
-            nextStatus == StaffQueueStatus.completed))) {
+    if (!expectedStatus.canTransitionTo(nextStatus)) {
       throw StateError('Invalid queue status transition.');
     }
+
+    final timestampField = switch (nextStatus) {
+      QueueStatus.called => 'calledAt',
+      QueueStatus.inConsultation => 'consultationStartedAt',
+      QueueStatus.completed => 'completedAt',
+      QueueStatus.skipped => 'skippedAt',
+      QueueStatus.cancelled => 'cancelledAt',
+      QueueStatus.waiting => throw StateError(
+        'Queue cannot transition back to waiting.',
+      ),
+    };
+
     final ref = _queueCollection.doc(queueId);
     await _firestore.runTransaction((tx) async {
-      await _verifyStaff(tx, hospitalId);
       final snapshot = await tx.get(ref);
       final data = snapshot.data();
       if (data == null ||
@@ -244,21 +376,23 @@ class FirebaseQueueRepository
           'Queue not found, unauthorized, or status has changed.',
         );
       }
+      await _verifyQueueManager(
+        tx,
+        hospitalId,
+        veterinarianId: data['veterinarianId'] as String? ?? '',
+      );
       tx.update(ref, {
         'status': nextStatus.value,
         'position': 0,
+        timestampField: FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
       NotificationEvent.create(
         tx,
         _firestore,
         recipientId: data['ownerId'] as String,
-        type: nextStatus == StaffQueueStatus.inConsultation
-            ? 'queue_in_consultation'
-            : 'queue_completed',
-        message: nextStatus == StaffQueueStatus.inConsultation
-            ? "Your pet's consultation has begun."
-            : "Your pet's consultation is complete.",
+        type: _notificationType(nextStatus),
+        message: _notificationMessage(nextStatus),
         targetType: 'queue',
         targetId: queueId,
         details: {'queueNumber': data['queueNumber']},

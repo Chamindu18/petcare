@@ -14,11 +14,16 @@ class GetAvailableAppointmentSlots {
   /// Existing appointments belonging to other veterinarians are ignored.
   /// Existing appointments for the selected veterinarian are checked for
   /// overlap using their actual service durations.
+  ///
+  /// [now] defaults to the current device time and removes slots that have
+  /// already started. Tests can supply a fixed value for deterministic
+  /// results.
   Future<List<AppointmentSlot>> call({
     required DateTime date,
     required String veterinarianId,
     required HospitalOperatingHours operatingHours,
     required int serviceDurationMinutes,
+    DateTime? now,
   }) async {
     final availability = await _repository.getAvailabilityForVeterinarian(
       veterinarianId: veterinarianId,
@@ -32,6 +37,7 @@ class GetAvailableAppointmentSlots {
       veterinarianId: veterinarianId,
       existingAppointments: availability.appointments,
       appointmentDurations: availability.appointmentDurations,
+      now: now ?? DateTime.now(),
     );
   }
 }

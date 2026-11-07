@@ -335,7 +335,18 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         _isSubmitting = false;
       });
 
-      _showMessage('Unable to create the appointment. Please try again.');
+      if (error is StateError) {
+        _showMessage(error.message);
+      } else if (error is AppointmentRepositoryException) {
+        _showMessage(error.message);
+      } else {
+        _showMessage('Unable to create the appointment. Please try again.');
+      }
+
+      // A conflict means another owner booked this interval first. Refresh
+      // the authoritative availability instead of leaving a stale slot
+      // selected.
+      await _loadAvailableSlots();
     }
   }
 

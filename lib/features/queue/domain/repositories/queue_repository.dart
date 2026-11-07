@@ -1,4 +1,7 @@
 import '../entities/queue.dart';
+import '../entities/queue_status.dart';
+
+export '../entities/queue_status.dart' show QueueStatus;
 
 /// Read-only access to queue information.
 ///
@@ -12,36 +15,11 @@ abstract interface class QueueRepository {
   Future<Queue?> getQueueById(String queueId);
 }
 
-/// Supported operational states for a hospital queue entry.
+/// Backward-compatible staff name for the full queue lifecycle.
 ///
-/// Appointment confirmation and cancellation are separate workflows.
-/// Queue status must not be used to modify appointment status.
-enum StaffQueueStatus {
-  waiting('waiting'),
-  inConsultation('in_consultation'),
-  completed('completed');
-
-  const StaffQueueStatus(this.value);
-
-  /// Canonical value stored in the queue record.
-  final String value;
-
-  /// Converts a stored value into a known queue status.
-  ///
-  /// Unknown states are rejected instead of being silently treated
-  /// as waiting or completed.
-  static StaffQueueStatus fromValue(String value) {
-    final normalized = value.trim().toLowerCase();
-
-    for (final status in StaffQueueStatus.values) {
-      if (status.value == normalized) {
-        return status;
-      }
-    }
-
-    throw FormatException('Unsupported queue status: $value');
-  }
-}
+/// Existing staff commands only issue the waiting, in-consultation,
+/// and completed transitions.
+typedef StaffQueueStatus = QueueStatus;
 
 /// Contract for hospital staff queue-management operations.
 ///
@@ -82,13 +60,36 @@ abstract interface class StaffQueueCommandRepository {
   /// Performs one valid operational queue status transition.
   ///
   /// Allowed transitions:
-  /// waiting -> in_consultation -> completed
+  /// waiting -> called -> in_consultation -> completed
+  ///
+  /// Waiting and called entries may also be skipped or cancelled, and an
+  /// in-consultation entry may be cancelled. Terminal entries cannot be
+  /// reopened or changed through this workflow.
   ///
   /// The expected status provides optimistic concurrency protection:
   /// a transaction must reject the operation if the persisted status
   /// has changed since it was read.
-  ///
-  /// Completed entries cannot be reopened through this workflow.
+  Future<Queue> transitionStatus({
+    required String queueId,
+    required String hospitalId,
+    required StaffQueueStatus expectedStatus,
+    required StaffQueueStatus nextStatus,
+  });
+}
+
+/// Contract for the authenticated veterinarian's assigned queue.
+///
+/// Reads and commands are scoped to the verified veterinarian and hospital.
+/// Implementations must reject queues assigned to another veterinarian.
+abstract interface class VeterinarianQueueRepository {
+  /// Returns today's queue entries assigned to one verified veterinarian.
+  Future<List<Queue>> getVeterinarianQueue({
+    required String hospitalId,
+    required String veterinarianId,
+    required DateTime date,
+  });
+
+  /// Performs one valid operational transition on the veterinarian's queue.
   Future<Queue> transitionStatus({
     required String queueId,
     required String hospitalId,

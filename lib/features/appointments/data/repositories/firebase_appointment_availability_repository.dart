@@ -26,6 +26,7 @@ class FirebaseAppointmentAvailabilityRepository
   }) async {
     final dayStart = DateTime(date.year, date.month, date.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
+    final previousDayStart = dayStart.subtract(const Duration(days: 1));
 
     final snapshot = await _appointmentsCollection
         .where('vetId', isEqualTo: veterinarianId)
@@ -35,22 +36,24 @@ class FirebaseAppointmentAvailabilityRepository
     final appointmentDurations = <String, Duration>{};
 
     for (final document in snapshot.docs) {
+      final data = document.data();
       final appointment = AppointmentModel.fromMap({
-        ...document.data(),
+        ...data,
         'appointmentId': document.id,
         'ownerId': '',
         'petId': '',
         'reason': '',
-        'createdAt': document.data()['dateTime'],
+        'createdAt': data['dateTime'],
       });
 
-      // A service can cross midnight. Include the preceding day's starts so
-      // the slot generator can compare their full intervals with this day.
-      if (!_isOnDate(
-        appointment.dateTime,
-        dayStart.subtract(const Duration(days: 1)),
-        dayEnd,
-      )) {
+      final startsOnSelectedDay =
+          !appointment.dateTime.isBefore(dayStart) &&
+          appointment.dateTime.isBefore(dayEnd);
+      final startsOnPreviousDay =
+          !appointment.dateTime.isBefore(previousDayStart) &&
+          appointment.dateTime.isBefore(dayStart);
+
+      if (!startsOnSelectedDay && !startsOnPreviousDay) {
         continue;
       }
 
@@ -58,35 +61,31 @@ class FirebaseAppointmentAvailabilityRepository
           .doc(appointment.serviceId)
           .get();
 
-      final serviceData = serviceDocument.data();
+      final rawDuration =
+          data['durationMinutes'] ?? serviceDocument.data()?['duration'];
+      final occupiedDuration = rawDuration is num && rawDuration > 0
+          ? Duration(minutes: rawDuration.toInt())
+          : null;
 
-      final duration =
-          document.data()['durationMinutes'] ?? serviceData?['duration'];
+      // A previous-day appointment can only affect the selected day when it
+      // provably crosses midnight. Unknown legacy durations cannot be proven
+      // to cross; the trusted reservation still rejects any real conflict.
+      if (startsOnPreviousDay &&
+          (occupiedDuration == null ||
+              !appointment.dateTime.add(occupiedDuration).isAfter(dayStart))) {
+        continue;
+      }
 
-      if (duration is num && duration > 0) {
-        appointmentDurations[appointment.appointmentId] = Duration(
-          minutes: duration.toInt(),
-        );
+      if (occupiedDuration != null) {
+        appointmentDurations[appointment.appointmentId] = occupiedDuration;
       }
-      final occupiedDuration = appointmentDurations[appointment.appointmentId];
-      if (occupiedDuration == null ||
-          appointment.dateTime.add(occupiedDuration).isAfter(dayStart)) {
-        appointments.add(appointment);
-      }
+
+      appointments.add(appointment);
     }
 
     return VeterinarianAvailability(
       appointments: appointments,
       appointmentDurations: appointmentDurations,
     );
-  }
-
-  bool _isOnDate(
-    DateTime appointmentDateTime,
-    DateTime dayStart,
-    DateTime dayEnd,
-  ) {
-    return !appointmentDateTime.isBefore(dayStart) &&
-        appointmentDateTime.isBefore(dayEnd);
   }
 }

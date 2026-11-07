@@ -98,8 +98,8 @@ test('real callable booking, staff decisions/reassignment, doctor visibility and
       const number = counter.exists() ? counter.data().lastNumber + 1 : 1;
       tx.set(counterRef, {lastNumber: number, queueId, day, updatedAt: serverTimestamp()});
       tx.set(doc(staff, 'queue_records', queueId), {queueId, appointmentId: 'cross-booking', hospitalId: 'cross-hospital',
-        ownerId, petId: 'cross-pet', queueNumber: number, currentServing: 0, position: number,
-        status: 'waiting', day, dayKey, updatedAt: serverTimestamp()});
+        ownerId, petId: 'cross-pet', veterinarianId: appointment.vetId, queueNumber: number, currentServing: 0, position: number,
+        status: 'waiting', day, dayKey, createdAt: serverTimestamp(), updatedAt: serverTimestamp()});
       tx.update(ref, {queueId, updatedAt: serverTimestamp()});
     });
     const results = await Promise.allSettled([checkIn('cross-queue-a'), checkIn('cross-queue-b')]);
@@ -116,10 +116,10 @@ test('real callable booking, staff decisions/reassignment, doctor visibility and
     }
     assert.equal((await getDoc(doc(owner, 'appointment_schedule/cross-booking'))).data().vetId, 'cross-vet-b');
     const queueRef = doc(staff, 'queue_records', ownerRecord.queueId);
-    await assertDenied(updateDoc(doc(outsider, 'queue_records', ownerRecord.queueId), {status: 'in_consultation', updatedAt: serverTimestamp()}));
-    await assertDenied(updateDoc(queueRef, {status: 'completed', updatedAt: serverTimestamp()}));
-    for (const status of ['in_consultation', 'completed']) {
-      await assertSucceeds(updateDoc(queueRef, {status, position: 0, updatedAt: serverTimestamp()}));
+    await assertDenied(updateDoc(doc(outsider, 'queue_records', ownerRecord.queueId), {status: 'called', calledAt: serverTimestamp(), updatedAt: serverTimestamp()}));
+    await assertDenied(updateDoc(queueRef, {status: 'completed', completedAt: serverTimestamp(), updatedAt: serverTimestamp()}));
+    for (const [status, timestampField] of [['called', 'calledAt'], ['in_consultation', 'consultationStartedAt'], ['completed', 'completedAt']]) {
+      await assertSucceeds(updateDoc(queueRef, {status, position: 0, [timestampField]: serverTimestamp(), updatedAt: serverTimestamp()}));
       assert.equal((await getDoc(doc(owner, 'queue_records', ownerRecord.queueId))).data().status, status);
     }
   } finally { await env.cleanup(); await deleteApp(app); }

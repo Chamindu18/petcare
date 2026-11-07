@@ -50,6 +50,8 @@ void main() {
       );
       expect(queue.queueNumber, 1);
       expect(queue.ownerId, 'owner');
+      expect(queue.veterinarianId, 'vet');
+      expect(queue.createdAt, isNotNull);
       expect(
         (await db.doc('appointments/a').get()).data()!['queueId'],
         queue.queueId,
@@ -123,7 +125,7 @@ void main() {
   });
 
   test(
-    'status commands reject skips and stale expectations, and finish forward',
+    'status commands enforce the full lifecycle and stamp transitions',
     () async {
       final queue = await repository.checkInAppointment(
         appointmentId: 'a',
@@ -146,26 +148,90 @@ void main() {
       await expectLater(
         transition(
           StaffQueueStatus.waiting,
-          StaffQueueStatus.inConsultation,
+          StaffQueueStatus.called,
           hospital: 'other',
         ),
         throwsStateError,
       );
-      await transition(
+      final calledQueue = await transition(
         StaffQueueStatus.waiting,
-        StaffQueueStatus.inConsultation,
+        StaffQueueStatus.called,
       );
+      expect(calledQueue.status, 'called');
+      expect(calledQueue.calledAt, isNotNull);
+      expect(calledQueue.consultationStartedAt, isNull);
       await expectLater(
-        transition(StaffQueueStatus.waiting, StaffQueueStatus.inConsultation),
+        transition(StaffQueueStatus.called, StaffQueueStatus.completed),
         throwsStateError,
       );
+      await expectLater(
+        transition(StaffQueueStatus.waiting, StaffQueueStatus.called),
+        throwsStateError,
+      );
+      final inConsultation = await transition(
+        StaffQueueStatus.called,
+        StaffQueueStatus.inConsultation,
+      );
+      expect(inConsultation.consultationStartedAt, isNotNull);
       final completed = await transition(
         StaffQueueStatus.inConsultation,
         StaffQueueStatus.completed,
       );
       expect(completed.status, 'completed');
+      expect(completed.completedAt, isNotNull);
+      await expectLater(
+        transition(StaffQueueStatus.completed, StaffQueueStatus.called),
+        throwsStateError,
+      );
     },
   );
+
+  test('skipped and cancelled entries are terminal', () async {
+    final skippedQueue = await repository.checkInAppointment(
+      appointmentId: 'a',
+      hospitalId: 'hospital',
+    );
+    final skipped = await repository.transitionStatus(
+      queueId: skippedQueue.queueId,
+      hospitalId: 'hospital',
+      expectedStatus: StaffQueueStatus.waiting,
+      nextStatus: StaffQueueStatus.skipped,
+    );
+    expect(skipped.status, 'skipped');
+    expect(skipped.skippedAt, isNotNull);
+    await expectLater(
+      repository.transitionStatus(
+        queueId: skippedQueue.queueId,
+        hospitalId: 'hospital',
+        expectedStatus: StaffQueueStatus.skipped,
+        nextStatus: StaffQueueStatus.called,
+      ),
+      throwsStateError,
+    );
+
+    await appointment('b');
+    final cancelledQueue = await repository.checkInAppointment(
+      appointmentId: 'b',
+      hospitalId: 'hospital',
+    );
+    final cancelled = await repository.transitionStatus(
+      queueId: cancelledQueue.queueId,
+      hospitalId: 'hospital',
+      expectedStatus: StaffQueueStatus.waiting,
+      nextStatus: StaffQueueStatus.cancelled,
+    );
+    expect(cancelled.status, 'cancelled');
+    expect(cancelled.cancelledAt, isNotNull);
+    await expectLater(
+      repository.transitionStatus(
+        queueId: cancelledQueue.queueId,
+        hospitalId: 'hospital',
+        expectedStatus: StaffQueueStatus.cancelled,
+        nextStatus: StaffQueueStatus.waiting,
+      ),
+      throwsStateError,
+    );
+  });
 
   test('legacy scoped lookup works with string timestamps', () async {
     await db.doc('queue_records/legacy').set({
@@ -287,4 +353,76 @@ void main() {
     );
     expect((await db.collection('queue_records').get()).docs, isEmpty);
   });
+
+  test(
+    'veterinarian reads and transitions only their assigned queue',
+    () async {
+      final queue = await repository.checkInAppointment(
+        appointmentId: 'a',
+        hospitalId: 'hospital',
+      );
+      await db.doc('users/vet').set({
+        'role': 'veterinarian',
+        'hospitalId': 'hospital',
+      });
+      await db.doc('veterinarians/vet').set({
+        'userId': 'vet',
+        'hospitalId': 'hospital',
+        'active': true,
+      });
+      final vetRepository = FirebaseQueueRepository(
+        firestore: db,
+        auth: MockFirebaseAuth(mockUser: MockUser(uid: 'vet'), signedIn: true),
+        now: () => today,
+      );
+      final entries = await vetRepository.getVeterinarianQueue(
+        hospitalId: 'hospital',
+        veterinarianId: 'vet',
+        date: today,
+      );
+      expect(entries.map((entry) => entry.queueId), [queue.queueId]);
+      final called = await vetRepository.transitionStatus(
+        queueId: queue.queueId,
+        hospitalId: 'hospital',
+        expectedStatus: StaffQueueStatus.waiting,
+        nextStatus: StaffQueueStatus.called,
+      );
+      expect(called.status, 'called');
+
+      await db.doc('users/other-vet').set({
+        'role': 'veterinarian',
+        'hospitalId': 'hospital',
+      });
+      await db.doc('veterinarians/other-vet').set({
+        'userId': 'other-vet',
+        'hospitalId': 'hospital',
+        'active': true,
+      });
+      final otherRepository = FirebaseQueueRepository(
+        firestore: db,
+        auth: MockFirebaseAuth(
+          mockUser: MockUser(uid: 'other-vet'),
+          signedIn: true,
+        ),
+        now: () => today,
+      );
+      expect(
+        await otherRepository.getVeterinarianQueue(
+          hospitalId: 'hospital',
+          veterinarianId: 'other-vet',
+          date: today,
+        ),
+        isEmpty,
+      );
+      await expectLater(
+        otherRepository.transitionStatus(
+          queueId: queue.queueId,
+          hospitalId: 'hospital',
+          expectedStatus: StaffQueueStatus.called,
+          nextStatus: StaffQueueStatus.inConsultation,
+        ),
+        throwsStateError,
+      );
+    },
+  );
 }

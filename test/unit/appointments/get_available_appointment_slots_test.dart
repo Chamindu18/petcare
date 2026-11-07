@@ -38,49 +38,104 @@ void main() {
   );
 
   group('GetAvailableAppointmentSlots', () {
-    test('returns available slots when existing appointments are present', () async {
-      final existingAppointment = Appointment(
-        appointmentId: 'appointment_001',
-        ownerId: 'owner_001',
-        petId: 'pet_001',
-        hospitalId: 'hospital_001',
-        serviceId: 'service_001',
-        vetId: veterinarianId,
-        dateTime: DateTime(2026, 11, 1, 9),
-        reason: 'Checkup',
-        status: 'pending',
-        createdAt: DateTime(2026, 10, 31),
-      );
+    test(
+      'returns available slots when existing appointments are present',
+      () async {
+        final existingAppointment = Appointment(
+          appointmentId: 'appointment_001',
+          ownerId: 'owner_001',
+          petId: 'pet_001',
+          hospitalId: 'hospital_001',
+          serviceId: 'service_001',
+          vetId: veterinarianId,
+          dateTime: DateTime(2026, 11, 1, 9),
+          reason: 'Checkup',
+          status: 'pending',
+          createdAt: DateTime(2026, 10, 31),
+        );
 
-      final repository = FakeAppointmentAvailabilityRepository(
-        availability: VeterinarianAvailability(
-          appointments: [existingAppointment],
-          appointmentDurations: {
-            'appointment_001': const Duration(minutes: 30),
-          },
-        ),
-      );
+        final repository = FakeAppointmentAvailabilityRepository(
+          availability: VeterinarianAvailability(
+            appointments: [existingAppointment],
+            appointmentDurations: {
+              'appointment_001': const Duration(minutes: 30),
+            },
+          ),
+        );
 
-      final useCase = GetAvailableAppointmentSlots(repository);
+        final useCase = GetAvailableAppointmentSlots(repository);
 
-      final slots = await useCase(
-        date: DateTime(2026, 11, 1),
-        veterinarianId: veterinarianId,
-        operatingHours: operatingHours,
-        serviceDurationMinutes: 30,
-      );
+        final slots = await useCase(
+          date: DateTime(2026, 11, 1),
+          veterinarianId: veterinarianId,
+          operatingHours: operatingHours,
+          serviceDurationMinutes: 30,
+          now: DateTime(2026, 10, 31),
+        );
 
-      expect(slots, hasLength(7));
-      expect(
-        slots.any(
-          (slot) => slot.startTime == DateTime(2026, 11, 1, 9),
-        ),
-        isFalse,
-      );
-    });
+        expect(slots, hasLength(7));
+        expect(
+          slots.any((slot) => slot.startTime == DateTime(2026, 11, 1, 9)),
+          isFalse,
+        );
+      },
+    );
 
-    test('returns all valid slots when there are no existing appointments',
-        () async {
+    test(
+      'returns all valid slots when there are no existing appointments',
+      () async {
+        final repository = FakeAppointmentAvailabilityRepository(
+          availability: const VeterinarianAvailability(
+            appointments: [],
+            appointmentDurations: {},
+          ),
+        );
+
+        final useCase = GetAvailableAppointmentSlots(repository);
+
+        final slots = await useCase(
+          date: DateTime(2026, 11, 1),
+          veterinarianId: veterinarianId,
+          operatingHours: operatingHours,
+          serviceDurationMinutes: 30,
+          now: DateTime(2026, 10, 31),
+        );
+
+        expect(slots, hasLength(8));
+        expect(slots.first.startTime, DateTime(2026, 11, 1, 8));
+        expect(slots.last.startTime, DateTime(2026, 11, 1, 11, 30));
+      },
+    );
+
+    test(
+      'excludes slots that have already started on the selected day',
+      () async {
+        final repository = FakeAppointmentAvailabilityRepository(
+          availability: const VeterinarianAvailability(
+            appointments: [],
+            appointmentDurations: {},
+          ),
+        );
+
+        final useCase = GetAvailableAppointmentSlots(repository);
+
+        final slots = await useCase(
+          date: DateTime(2026, 11, 1),
+          veterinarianId: veterinarianId,
+          operatingHours: operatingHours,
+          serviceDurationMinutes: 30,
+          now: DateTime(2026, 11, 1, 10, 15),
+        );
+
+        expect(slots.map((slot) => slot.startTime), [
+          DateTime(2026, 11, 1, 10, 30),
+          DateTime(2026, 11, 1, 11),
+          DateTime(2026, 11, 1, 11, 30),
+        ]);
+      },
+    );
+
+    test('keeps all slots for a future day', () async {
       final repository = FakeAppointmentAvailabilityRepository(
         availability: const VeterinarianAvailability(
           appointments: [],
@@ -91,21 +146,15 @@ void main() {
       final useCase = GetAvailableAppointmentSlots(repository);
 
       final slots = await useCase(
-        date: DateTime(2026, 11, 1),
+        date: DateTime(2026, 11, 2),
         veterinarianId: veterinarianId,
         operatingHours: operatingHours,
         serviceDurationMinutes: 30,
+        now: DateTime(2026, 11, 1, 10, 15),
       );
 
       expect(slots, hasLength(8));
-      expect(
-        slots.first.startTime,
-        DateTime(2026, 11, 1, 8),
-      );
-      expect(
-        slots.last.startTime,
-        DateTime(2026, 11, 1, 11, 30),
-      );
+      expect(slots.first.startTime, DateTime(2026, 11, 2, 8));
     });
 
     test('propagates repository errors', () async {
@@ -125,6 +174,7 @@ void main() {
           veterinarianId: veterinarianId,
           operatingHours: operatingHours,
           serviceDurationMinutes: 30,
+          now: DateTime(2026, 10, 31),
         ),
         throwsA(isA<Exception>()),
       );
