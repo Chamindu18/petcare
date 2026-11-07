@@ -15,6 +15,18 @@ abstract interface class QueueRepository {
   Future<Queue?> getQueueById(String queueId);
 }
 
+/// Owner-scoped queue position reads.
+///
+/// The server must verify that the queue entry belongs to the authenticated
+/// owner before calculating a position from hospital queue entries.
+abstract interface class OwnerQueueRepository {
+  /// Returns the owner's current waiting position, or null when unavailable.
+  ///
+  /// A positive value means the number of waiting entries ahead, including
+  /// the owner's entry. Zero means the entry is not waiting.
+  Future<int?> getOwnerQueuePosition({required String queueId});
+}
+
 /// Backward-compatible staff name for the full queue lifecycle.
 ///
 /// Existing staff commands only issue the waiting, in-consultation,

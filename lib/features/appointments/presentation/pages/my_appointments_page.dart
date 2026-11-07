@@ -1,14 +1,25 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../queue/domain/entities/queue.dart';
+import '../../../queue/domain/repositories/queue_repository.dart';
+import '../../../queue/presentation/pages/owner_queue_details_page.dart';
+import '../../../queue/presentation/widgets/owner_queue_status_badge.dart';
 import '../../domain/entities/appointment.dart';
 import '../providers/appointment_provider.dart';
 
 ///  Shows the signed-in owner's appointments.
 class MyAppointmentsPage extends StatefulWidget {
-  const MyAppointmentsPage({required this.provider, super.key});
+  const MyAppointmentsPage({
+    required this.provider,
+    this.queueRepository,
+    this.ownerQueueRepository,
+    super.key,
+  });
 
   final AppointmentProvider provider;
+  final QueueRepository? queueRepository;
+  final OwnerQueueRepository? ownerQueueRepository;
 
   @override
   State<MyAppointmentsPage> createState() => _MyAppointmentsPageState();
@@ -62,6 +73,8 @@ class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
                 return _AppointmentCard(
                   appointment: appointment,
                   provider: widget.provider,
+                  queueRepository: widget.queueRepository,
+                  ownerQueueRepository: widget.ownerQueueRepository,
                 );
               },
             ),
@@ -74,10 +87,17 @@ class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
 
 /// Displays one appointment summary.
 class _AppointmentCard extends StatelessWidget {
-  const _AppointmentCard({required this.appointment, required this.provider});
+  const _AppointmentCard({
+    required this.appointment,
+    required this.provider,
+    required this.queueRepository,
+    required this.ownerQueueRepository,
+  });
 
   final Appointment appointment;
   final AppointmentProvider provider;
+  final QueueRepository? queueRepository;
+  final OwnerQueueRepository? ownerQueueRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -154,6 +174,14 @@ class _AppointmentCard extends StatelessWidget {
                 value: appointment.reason,
               ),
             ],
+            const SizedBox(height: 16),
+            _QueueSection(
+              appointment: appointment,
+              provider: provider,
+              queue: provider.getQueueForAppointment(appointment.appointmentId),
+              queueRepository: queueRepository,
+              ownerQueueRepository: ownerQueueRepository,
+            ),
           ],
         ),
       ),
@@ -172,6 +200,136 @@ class _AppointmentCard extends StatelessWidget {
     final period = dateTime.hour >= 12 ? 'PM' : 'AM';
 
     return '$hour:$minute $period';
+  }
+}
+
+/// Displays the owner's linked queue summary without inventing a position.
+class _QueueSection extends StatelessWidget {
+  const _QueueSection({
+    required this.appointment,
+    required this.provider,
+    required this.queue,
+    required this.queueRepository,
+    required this.ownerQueueRepository,
+  });
+
+  final Appointment appointment;
+  final AppointmentProvider provider;
+  final Queue? queue;
+  final QueueRepository? queueRepository;
+  final OwnerQueueRepository? ownerQueueRepository;
+
+  @override
+  Widget build(BuildContext context) {
+    final queueId = appointment.queueId?.trim() ?? '';
+    if (queueId.isEmpty) {
+      return const _QueueNotice(
+        icon: Icons.hourglass_empty_rounded,
+        message: 'Queue details will appear after hospital staff checks in.',
+      );
+    }
+
+    final linkedQueue = queue;
+    if (linkedQueue == null) {
+      return const _QueueNotice(
+        icon: Icons.info_outline,
+        message: 'Queue information is unavailable. Pull down to refresh.',
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Live queue',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: AppTheme.espresso,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              OwnerQueueStatusBadge(status: linkedQueue.queueStatus),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Queue number: ${linkedQueue.queueNumber}',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppTheme.deepBrown,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (queueRepository != null && ownerQueueRepository != null) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => _openQueue(context, linkedQueue),
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: const Text('View queue'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _openQueue(BuildContext context, Queue linkedQueue) {
+    final queueRepo = queueRepository;
+    final ownerRepo = ownerQueueRepository;
+    if (queueRepo == null || ownerRepo == null) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => OwnerQueueDetailsPage(
+          appointment: appointment,
+          queueRepository: queueRepo,
+          ownerQueueRepository: ownerRepo,
+          initialQueue: linkedQueue,
+          petName: provider.getPet(appointment.petId)?.name,
+          hospitalName: provider.getHospital(appointment.hospitalId)?.name,
+          veterinarianName: provider.getVeterinarian(appointment.vetId)?.name,
+          serviceName: provider.getService(appointment.serviceId)?.name,
+        ),
+      ),
+    );
+  }
+}
+
+class _QueueNotice extends StatelessWidget {
+  const _QueueNotice({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: AppTheme.deepBrown),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            message,
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: AppTheme.deepBrown),
+          ),
+        ),
+      ],
+    );
   }
 }
 
