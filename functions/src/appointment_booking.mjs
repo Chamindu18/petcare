@@ -20,6 +20,35 @@ function duration(value) {
   if (!Number.isInteger(value) || value <= 0 || value > 1440) fail('failed-precondition', 'Service duration is unavailable.');
   return value;
 }
+const hospitalOffsetMinutes = 330; // Existing hospital data and callable use Sri Lanka local time.
+const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+export function hospitalWindow(hours, start) {
+  if (typeof hours !== 'string') fail('failed-precondition', 'Hospital operating hours are unavailable.');
+  let value = hours.trim();
+  const local = new Date(start.getTime() + hospitalOffsetMinutes * 60000);
+  const weekly = /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*-\s*(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*,\s*(.+)$/i.exec(value);
+  if (weekly) {
+    const first = weekdays.indexOf(weekly[1].toLowerCase());
+    const last = weekdays.indexOf(weekly[2].toLowerCase());
+    const day = local.getUTCDay();
+    if (!(first <= last ? day >= first && day <= last : day >= first || day <= last)) {
+      fail('failed-precondition', 'The hospital is closed on this day.');
+    }
+    value = weekly[3];
+  }
+  const match = /^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)\s*-\s*(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i.exec(value);
+  if (!match) fail('failed-precondition', 'Hospital operating hours are unavailable.');
+  const minutes = (hour, minute, period) => {
+    const h = Number(hour), m = Number(minute ?? 0);
+    if (h < 1 || h > 12 || m < 0 || m > 59) fail('failed-precondition', 'Invalid hospital operating hours.');
+    return ((h % 12) + (period.toUpperCase() === 'PM' ? 12 : 0)) * 60 + m;
+  };
+  const opening = minutes(match[1], match[2], match[3]);
+  const closing = minutes(match[4], match[5], match[6]);
+  if (closing <= opening) fail('failed-precondition', 'Overnight or invalid hospital hours are unsupported.');
+  return {opening, closing, localMinutes: local.getUTCHours() * 60 + local.getUTCMinutes(),
+    exactMinute: local.getUTCSeconds() === 0 && local.getUTCMilliseconds() === 0};
+}
 export function schedule(data) {
   return Object.fromEntries(['vetId', 'hospitalId', 'serviceId', 'dateTime', 'status', 'durationMinutes']
     .filter(key => data[key] !== undefined).map(key => [key, data[key]]));
@@ -51,7 +80,8 @@ export async function reserveAppointment(db, uid, input) {
     const hospitalId = id(action === 'create' ? input.hospitalId : existing.hospitalId);
     if (hospitalId === 'unassigned') fail('failed-precondition', 'A hospital assignment is required.');
     if (input.hospitalId !== undefined && input.hospitalId !== hospitalId) fail('permission-denied', 'Hospital assignment does not match.');
-    if ((await tx.get(db.collection('hospitals').doc(hospitalId))).data()?.active !== true) {
+    const hospital = (await tx.get(db.collection('hospitals').doc(hospitalId))).data();
+    if (hospital?.active !== true) {
       fail('failed-precondition', 'Select an active hospital.');
     }
     if (action === 'reassign') {
@@ -84,10 +114,17 @@ export async function reserveAppointment(db, uid, input) {
     }
     const service = (await tx.get(db.collection('services').doc(serviceId))).data();
     if (service?.hospitalId !== hospitalId) fail('failed-precondition', 'Select a service at this hospital.');
-    const minutes = duration(existing && existing.serviceId === serviceId && existing.durationMinutes !== undefined
-      ? existing.durationMinutes : service.duration);
+    // New appointments are exactly one 15-minute interval. Preserve the
+    // snapshotted duration of legacy appointments during reassignment.
+    const minutes = existing ? duration(existing.durationMinutes ?? service.duration) : 15;
     const start = instant(action === 'reassign' ? existing.dateTime : input.dateTime);
     const end = start.getTime() + minutes * 60000;
+    const window = hospitalWindow(hospital.hours, start);
+    if (!window.exactMinute || window.localMinutes < window.opening || window.localMinutes + minutes > window.closing ||
+        (window.localMinutes - window.opening) % 15 !== 0) {
+      fail('failed-precondition', 'Select a 15-minute slot within hospital operating hours.');
+    }
+    if (start.getTime() <= Date.now()) fail('failed-precondition', 'Select a future appointment slot.');
     const reason = action === 'reassign' ? existing.reason : input.reason;
     if (typeof reason !== 'string' || reason.length > 2000) fail('invalid-argument', 'Reason must be at most 2000 characters.');
     const lockIds = [...new Set([vetId, ...(existing ? [id(existing.vetId)] : [])])].sort();

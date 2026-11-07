@@ -190,4 +190,26 @@ void main() {
     expect(availability.appointments.single.appointmentId, 'unknown-today');
     expect(availability.appointmentDurations, isEmpty);
   });
+
+  test('maps UTC schedule instants to Sri Lanka hospital wall time', () async {
+    await addService('service-a', 15);
+    await db.doc('appointment_schedule/utc-booking').set({
+      'vetId': 'vet-a',
+      'hospitalId': 'hospital-a',
+      'serviceId': 'service-a',
+      'dateTime': '2026-11-20T03:30:00.000Z',
+      'status': 'pending',
+      'durationMinutes': 15,
+    });
+
+    final availability = await repository.getAvailabilityForVeterinarian(
+      veterinarianId: 'vet-a',
+      date: DateTime(2026, 11, 20),
+    );
+
+    expect(
+      availability.appointments.single.dateTime,
+      DateTime(2026, 11, 20, 9),
+    );
+  });
 }

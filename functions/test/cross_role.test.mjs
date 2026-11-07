@@ -25,7 +25,7 @@ test('real callable booking, staff decisions/reassignment, doctor visibility and
     const entries = {
       [`users/${ownerId}`]: {role: 'owner'},
       'pets/cross-pet': {ownerId},
-      'hospitals/cross-hospital': {active: true},
+      'hospitals/cross-hospital': {active: true, hours: '12:00 AM - 11:59 PM'},
       'services/cross-service': {hospitalId: 'cross-hospital', duration: 30},
       'users/cross-staff': {role: 'veterinary_staff'},
       'users/cross-outsider': {role: 'veterinary_staff'},
@@ -39,7 +39,11 @@ test('real callable booking, staff decisions/reassignment, doctor visibility and
     await Promise.all(Object.entries(entries).map(([path, data]) => admin.doc(path).set(data)));
     const db = uid => env.authenticatedContext(uid).firestore();
     const owner = db(ownerId), staff = db('cross-staff'), outsider = db('cross-outsider');
-    const dayKey = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+    const hospitalNow = new Date(Date.now() + 330 * 60000);
+    const dayKey = hospitalNow.toISOString().slice(0, 10);
+    const firstMinute = Math.ceil((hospitalNow.getUTCHours() * 60 + hospitalNow.getUTCMinutes() + 30) / 15) * 15;
+    assert.ok(firstMinute + 15 < 1439, 'Today must have room for two future test bookings');
+    const slotTime = minute => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
     const day = Timestamp.fromDate(new Date(`${dayKey}T00:00:00Z`));
     const invoke = async input => {
       const response = await fetch(`http://127.0.0.1:5001/${projectId}/asia-south2/reserveAppointmentSlot`,
@@ -53,8 +57,8 @@ test('real callable booking, staff decisions/reassignment, doctor visibility and
     assert.equal((await getDocs(query(collection(owner, 'hospitals'), where('active', '==', true)))).size, 1);
     assert.equal((await getDocs(query(collection(owner, 'veterinarians'), where('active', '==', true),
       where('hospitalId', '==', 'cross-hospital')))).size, 2);
-    assert.equal((await create('cross-booking', '10:00')).status, 200);
-    assert.equal((await create('cross-reject', '11:00')).status, 200);
+    assert.equal((await create('cross-booking', slotTime(firstMinute))).status, 200);
+    assert.equal((await create('cross-reject', slotTime(firstMinute + 15))).status, 200);
     const appointmentRef = client => doc(client, 'appointments/cross-booking');
     const doctorQuery = (uid, vetId) => getDocs(query(collection(db(uid), 'appointments'),
       where('hospitalId', '==', 'cross-hospital'), where('vetId', '==', vetId)));
