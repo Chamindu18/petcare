@@ -12,6 +12,35 @@ import '../entities/hospital_operating_hours.dart';
 class HospitalHoursParser {
   const HospitalHoursParser._();
 
+  /// Returns null when a stored weekly schedule explicitly closes on [date].
+  /// A bare time range applies every day; unsupported formats fail closed.
+  static HospitalOperatingHours? forDate(String value, DateTime date) {
+    final normalized = value.trim();
+    final weekly = RegExp(
+      r'^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*-\s*'
+      r'(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*,\s*(.+)$',
+      caseSensitive: false,
+    ).firstMatch(normalized);
+    if (weekly == null) return parse(normalized);
+    const days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+    final first = days.indexOf(weekly.group(1)!.toLowerCase());
+    final last = days.indexOf(weekly.group(2)!.toLowerCase());
+    final hours = parse(weekly.group(3)!);
+    final day = date.weekday - 1;
+    final open = first <= last
+        ? day >= first && day <= last
+        : day >= first || day <= last;
+    return open ? hours : null;
+  }
+
   static HospitalOperatingHours parse(String value) {
     final normalized = value.trim();
 
@@ -91,11 +120,7 @@ class HospitalHoursParser {
     }
   }
 
-  static int _toMinutes(
-    int hour,
-    int minutes,
-    String period,
-  ) {
+  static int _toMinutes(int hour, int minutes, String period) {
     final normalizedHour = hour == 12 ? 0 : hour;
     final hour24 = period == 'PM' ? normalizedHour + 12 : normalizedHour;
 

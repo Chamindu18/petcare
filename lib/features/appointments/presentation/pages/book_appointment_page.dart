@@ -20,6 +20,7 @@ import '../../domain/entities/hospital_operating_hours.dart';
 import '../../domain/usecases/appointment_usecases.dart';
 import '../../domain/usecases/get_available_appointment_slots.dart';
 import '../../domain/utils/hospital_hours_parser.dart';
+import '../../domain/utils/appointment_slot_generator.dart';
 
 class BookAppointmentRouteArgs {
   const BookAppointmentRouteArgs({
@@ -48,6 +49,21 @@ class BookAppointmentPage extends StatefulWidget {
 }
 
 class _BookAppointmentPageState extends State<BookAppointmentPage> {
+  DateTime get _hospitalNow {
+    final clock = DateTime.now().toUtc().add(
+      const Duration(hours: 5, minutes: 30),
+    );
+    return DateTime(
+      clock.year,
+      clock.month,
+      clock.day,
+      clock.hour,
+      clock.minute,
+      clock.second,
+      clock.millisecond,
+    );
+  }
+
   late final GetServicesByHospital _getServicesByHospital;
   late final GetVeterinariansByHospital _getVeterinariansByHospital;
   late final GetHospitalById _getHospitalById;
@@ -66,7 +82,9 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
 
   List<AppointmentSlot> _availableSlots = [];
 
-  HospitalOperatingHours? _operatingHours;
+  String? _hospitalHours;
+  bool _closedDay = false;
+  String? _slotErrorMessage;
 
   bool _isLoading = true;
   bool _isLoadingSlots = false;
@@ -122,8 +140,6 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         throw StateError('Hospital was not found.');
       }
 
-      final operatingHours = HospitalHoursParser.parse(hospital.hours);
-
       final services = await _getServicesByHospital(widget.hospitalId);
 
       final veterinarians = await _getVeterinariansByHospital(
@@ -149,7 +165,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         _services = services;
         _veterinarians = veterinarians;
         _selectedVeterinarian = selectedVeterinarian;
-        _operatingHours = operatingHours;
+        _hospitalHours = hospital.hours;
         _isLoading = false;
       });
     } catch (error) {
@@ -165,7 +181,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   }
 
   Future<void> _selectDate() async {
-    final now = DateTime.now();
+    final now = _hospitalNow;
 
     final selectedDate = await showDatePicker(
       context: context,
@@ -189,41 +205,59 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   }
 
   Future<void> _loadAvailableSlots() async {
+    final requestId = ++_availabilityRequestId;
     final selectedDate = _selectedDate;
     final selectedService = _selectedService;
     final selectedVeterinarian = _selectedVeterinarian;
-    final operatingHours = _operatingHours;
+    final hospitalHours = _hospitalHours;
 
     if (selectedDate == null ||
         selectedService == null ||
         selectedVeterinarian == null ||
-        operatingHours == null) {
+        hospitalHours == null) {
+      if (mounted) {
+        setState(() {
+          _availableSlots = [];
+          _selectedSlot = null;
+          _isLoadingSlots = false;
+          _closedDay = false;
+          _slotErrorMessage = null;
+        });
+      }
       return;
     }
 
-    final serviceDuration = selectedService.duration;
-
-    if (serviceDuration == null || serviceDuration <= 0) {
-      if (!mounted) {
-        return;
-      }
-
+    final HospitalOperatingHours? operatingHours;
+    try {
+      operatingHours = HospitalHoursParser.forDate(hospitalHours, selectedDate);
+    } on FormatException {
       setState(() {
         _availableSlots = [];
+        _selectedSlot = null;
         _isLoadingSlots = false;
+        _closedDay = false;
+        _slotErrorMessage = 'Hospital operating hours are missing or invalid.';
       });
-
-      _showMessage('The selected service does not have a valid duration.');
-
       return;
     }
 
-    final requestId = ++_availabilityRequestId;
+    if (operatingHours == null) {
+      setState(() {
+        _closedDay = true;
+        _availableSlots = [];
+        _selectedSlot = null;
+        _isLoadingSlots = false;
+        _slotErrorMessage = null;
+      });
+      return;
+    }
 
     setState(() {
       _availableSlots = [];
       _selectedSlot = null;
       _isLoadingSlots = true;
+      _closedDay = false;
+      _slotErrorMessage = null;
     });
 
     try {
@@ -231,7 +265,8 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         date: selectedDate,
         veterinarianId: selectedVeterinarian.vetId,
         operatingHours: operatingHours,
-        serviceDurationMinutes: serviceDuration,
+        serviceDurationMinutes: 15,
+        now: _hospitalNow,
       );
 
       if (!mounted || requestId != _availabilityRequestId) {
@@ -242,19 +277,19 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         _availableSlots = slots;
         _isLoadingSlots = false;
       });
-    } catch (error) {
+    } catch (error, stackTrace) {
       if (!mounted || requestId != _availabilityRequestId) {
         return;
       }
 
+      debugPrint('Appointment availability failed: $error\n$stackTrace');
+
       setState(() {
         _availableSlots = [];
         _isLoadingSlots = false;
+        _slotErrorMessage =
+            'Unable to check appointment availability. Please try again.';
       });
-
-      _showMessage(
-        'Unable to load available appointment slots. Please try again.',
-      );
     }
   }
 
@@ -280,7 +315,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
     final veterinarian = _selectedVeterinarian!;
     final dateTime = _selectedDateTime!;
 
-    if (dateTime.isBefore(DateTime.now())) {
+    if (!dateTime.isAfter(_hospitalNow)) {
       _showMessage('Please select a future appointment slot.');
       return;
     }
@@ -591,6 +626,13 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       );
     }
 
+    if (_veterinarians.isEmpty) {
+      return const _SlotMessage(
+        icon: Icons.person_off_outlined,
+        message: 'No eligible veterinarian is assigned to this hospital.',
+      );
+    }
+
     if (_selectedService == null || _selectedVeterinarian == null) {
       return const _SlotMessage(
         icon: Icons.info_outline_rounded,
@@ -605,12 +647,40 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       );
     }
 
+    if (_closedDay) {
+      return const _SlotMessage(
+        icon: Icons.event_busy_rounded,
+        message: 'This hospital is closed on the selected day.',
+      );
+    }
+
+    if (_slotErrorMessage != null) {
+      return _SlotMessage(
+        icon: Icons.error_outline_rounded,
+        message: _slotErrorMessage!,
+      );
+    }
+
     if (_availableSlots.isEmpty) {
       return const _SlotMessage(
         icon: Icons.event_busy_rounded,
-        message: 'No appointment slots are currently available for this date.',
+        message: 'No appointment slots are available for this date.',
       );
     }
+
+    final hours = HospitalHoursParser.forDate(_hospitalHours!, _selectedDate!)!;
+    final allSlots = AppointmentSlotGenerator.generate(
+      date: _selectedDate!,
+      operatingHours: hours,
+      serviceDurationMinutes: 15,
+      veterinarianId: _selectedVeterinarian!.vetId,
+      existingAppointments: const [],
+      appointmentDurations: const {},
+    );
+    final availableStarts = _availableSlots
+        .map((slot) => slot.startTime)
+        .toSet();
+    final now = _hospitalNow;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -632,20 +702,26 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
             mainAxisSpacing: 10,
             childAspectRatio: 2.2,
           ),
-          itemCount: _availableSlots.length,
+          itemCount: allSlots.length,
           itemBuilder: (context, index) {
-            final slot = _availableSlots[index];
+            final slot = allSlots[index];
+            final isPast = !slot.startTime.isAfter(now);
+            final isAvailable =
+                availableStarts.contains(slot.startTime) && !isPast;
 
-            final isSelected = _selectedSlot == slot;
+            final isSelected = _selectedSlot?.startTime == slot.startTime;
 
             return _SlotButton(
               slot: slot,
               selected: isSelected,
-              onTap: () {
-                setState(() {
-                  _selectedSlot = slot;
-                });
-              },
+              available: isAvailable,
+              onTap: !isAvailable
+                  ? null
+                  : () {
+                      setState(() {
+                        _selectedSlot = slot;
+                      });
+                    },
             );
           },
         ),
@@ -750,19 +826,25 @@ class _SlotButton extends StatelessWidget {
   const _SlotButton({
     required this.slot,
     required this.selected,
+    required this.available,
     required this.onTap,
   });
 
   final AppointmentSlot slot;
   final bool selected;
-  final VoidCallback onTap;
+  final bool available;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final time = TimeOfDay.fromDateTime(slot.startTime);
 
     return Material(
-      color: selected ? AppTheme.primary : AppTheme.white,
+      color: selected
+          ? AppTheme.primary
+          : available
+          ? AppTheme.white
+          : AppTheme.background,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -772,13 +854,21 @@ class _SlotButton extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? AppTheme.primary : AppTheme.deepBrown,
+              color: selected
+                  ? AppTheme.primary
+                  : available
+                  ? AppTheme.deepBrown
+                  : AppTheme.background,
             ),
           ),
           child: Text(
             time.format(context),
             style: TextStyle(
-              color: selected ? AppTheme.white : AppTheme.espresso,
+              color: selected
+                  ? AppTheme.white
+                  : available
+                  ? AppTheme.espresso
+                  : AppTheme.deepBrown.withValues(alpha: 0.45),
               fontWeight: FontWeight.w700,
             ),
           ),

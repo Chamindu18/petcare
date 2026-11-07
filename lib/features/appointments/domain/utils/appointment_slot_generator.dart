@@ -11,7 +11,7 @@ import '../entities/hospital_operating_hours.dart';
 class AppointmentSlotGenerator {
   const AppointmentSlotGenerator._();
 
-  /// Generates non-overlapping slots within the hospital's operating hours.
+  /// Generates 15-minute start choices that fit within operating hours.
   ///
   /// [date] determines the calendar day for the generated slots.
   /// [operatingHours] defines the hospital opening and closing times.
@@ -63,6 +63,7 @@ class AppointmentSlotGenerator {
     final slots = <AppointmentSlot>[];
 
     var slotStart = dayStart;
+    const step = Duration(minutes: 15);
 
     while (!slotStart.add(requestedDuration).isAfter(dayEnd)) {
       final slotEnd = slotStart.add(requestedDuration);
@@ -70,7 +71,7 @@ class AppointmentSlotGenerator {
       // A slot that has already started cannot be booked, even when its
       // remaining time has not fully elapsed.
       if (now != null && !slotStart.isAfter(now)) {
-        slotStart = slotEnd;
+        slotStart = slotStart.add(step);
         continue;
       }
 
@@ -107,7 +108,7 @@ class AppointmentSlotGenerator {
         slots.add(AppointmentSlot(startTime: slotStart, endTime: slotEnd));
       }
 
-      slotStart = slotEnd;
+      slotStart = slotStart.add(step);
     }
 
     return slots;

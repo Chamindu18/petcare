@@ -26,6 +26,20 @@ class FirebaseAppointmentRepository
   CollectionReference<Map<String, dynamic>> get _appointmentsCollection =>
       _firestore.collection('appointments');
 
+  // Picker values are hospital wall time. Include the hospital offset rather
+  // than the device offset so travel/device timezone cannot shift bookings.
+  String _hospitalTime(DateTime value) {
+    final wall = DateTime.utc(
+      value.year,
+      value.month,
+      value.day,
+      value.hour,
+      value.minute,
+    );
+    final utc = wall.subtract(const Duration(hours: 5, minutes: 30));
+    return utc.toUtc().toIso8601String();
+  }
+
   String get _currentUserId {
     final user = _auth.currentUser;
 
@@ -50,7 +64,7 @@ class FirebaseAppointmentRepository
       'hospitalId': appointment.hospitalId,
       'serviceId': appointment.serviceId,
       'vetId': appointment.vetId,
-      'dateTime': appointment.dateTime.toUtc().toIso8601String(),
+      'dateTime': _hospitalTime(appointment.dateTime),
       'reason': appointment.reason,
     });
     return AppointmentModel.fromMap(data);
@@ -148,7 +162,7 @@ class FirebaseAppointmentRepository
       'hospitalId': appointment.hospitalId,
       'serviceId': appointment.serviceId,
       'vetId': appointment.vetId,
-      'dateTime': appointment.dateTime.toUtc().toIso8601String(),
+      'dateTime': _hospitalTime(appointment.dateTime),
       'reason': appointment.reason,
     });
   }

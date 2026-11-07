@@ -5,6 +5,55 @@ import 'package:petcare/features/appointments/domain/utils/hospital_hours_parser
 
 void main() {
   group('HospitalHoursParser', () {
+    test('weekly hours close outside the stored day range', () {
+      expect(
+        HospitalHoursParser.forDate(
+          'Monday - Saturday, 8 AM - 6 PM',
+          DateTime(2026, 11, 8),
+        ),
+        isNull,
+      );
+      expect(
+        HospitalHoursParser.forDate(
+          'Monday - Saturday, 8 AM - 6 PM',
+          DateTime(2026, 11, 9),
+        )!.openingMinutes,
+        480,
+      );
+    });
+    test('stored weekly hours include Friday and another open weekday', () {
+      for (final date in [DateTime(2026, 11, 20), DateTime(2026, 11, 23)]) {
+        final hours = HospitalHoursParser.forDate(
+          'Monday - Saturday, 8 AM - 6 PM',
+          date,
+        );
+        expect(hours?.openingMinutes, 480);
+        expect(hours?.closingMinutes, 1080);
+      }
+      expect(
+        HospitalHoursParser.forDate(
+          'Monday - Saturday, 8 AM - 6 PM',
+          DateTime(2026, 11, 22),
+        ),
+        isNull,
+      );
+    });
+    test('live hospital format permits multiple future dates', () {
+      for (final date in [DateTime(2026, 11, 20), DateTime(2026, 11, 23)]) {
+        final hours = HospitalHoursParser.forDate('8:00 AM - 8:00 PM', date)!;
+        expect(hours.openingMinutes, 480);
+        expect(hours.closingMinutes, 1200);
+      }
+    });
+    test('invalid weekly hours are not mistaken for a closed day', () {
+      expect(
+        () => HospitalHoursParser.forDate(
+          'Monday - Saturday, unknown',
+          DateTime(2026, 11, 22),
+        ),
+        throwsFormatException,
+      );
+    });
     test('parses standard AM and PM hours', () {
       final result = HospitalHoursParser.parse('8 AM - 8 PM');
 

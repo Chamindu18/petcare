@@ -40,7 +40,8 @@ after(async () => { await env?.cleanup(); if (app) await deleteApp(app); });
 beforeEach(async () => {
   await env.clearFirestore();
   const entries = {
-    'hospitals/hospital-a': {active: true}, 'hospitals/hospital-b': {active: true},
+    'hospitals/hospital-a': {active: true, hours: '8 AM - 8 PM'},
+    'hospitals/hospital-b': {active: true, hours: '8 AM - 8 PM'},
     'users/owner-a': {role: 'owner'}, 'users/owner-b': {role: 'owner'},
     'users/staff-a': {role: 'veterinary_staff'}, 'users/staff-b': {role: 'veterinary_staff'},
     'hospital_staff/staff-a': {userId: 'staff-a', hospitalId: 'hospital-a', active: true},
@@ -63,7 +64,7 @@ test('six simultaneous requests for one interval have one winner and no orphan d
   await counts(1);
   assert.equal((await db.collection('appointment_booking_locks').get()).size, 1);
   const winner = (await db.collection('appointments').get()).docs[0];
-  assert.equal((await db.doc(`appointment_schedule/${winner.id}`).get()).data().durationMinutes, 30);
+  assert.equal((await db.doc(`appointment_schedule/${winner.id}`).get()).data().durationMinutes, 15);
 });
 
 test('booking notifies verified hospital staff and the assigned veterinarian once', async () => {
@@ -118,9 +119,31 @@ test('missing and inactive hospitals cannot accept bookings or reassignment', as
   }
 });
 
-test('partially overlapping intervals with different service lengths cannot both reserve', async () => {
-  await oneWinner([book('long', {serviceId: 'long'}), book('short', {dateTime: '2026-11-10T09:45:00Z'})]);
-  await counts(1);
+test('hospital hours, closed days and past times are enforced by the callable', async () => {
+  await db.doc('hospitals/hospital-a').update({hours: 'Monday - Saturday, 8 AM - 8 PM'});
+  for (const dateTime of ['2026-11-15T09:00:00Z', '2026-11-10T02:15:00Z',
+    '2026-11-10T14:30:00Z', '2026-11-10T09:01:00Z', '2020-11-10T09:00:00Z']) {
+    await assert.rejects(book(`closed-${dateTime}`, {dateTime}),
+      error => error instanceof BookingError && error.code === 'failed-precondition');
+  }
+  await counts(0);
+});
+
+test('missing and overnight operating hours fail closed', async () => {
+  for (const hours of [null, '8 PM - 8 AM', 'unknown']) {
+    await db.doc('hospitals/hospital-a').set({active: true, ...(hours == null ? {} : {hours})});
+    await assert.rejects(book(`invalid-hours-${hours}`),
+      error => error instanceof BookingError && error.code === 'failed-precondition');
+  }
+  await counts(0);
+});
+
+test('legacy longer appointment prevents an overlapping 15-minute booking', async () => {
+  await db.doc('appointments/legacy-long').set({...request('legacy-long'), ownerId: 'owner-a',
+    status: 'pending', createdAt: base, durationMinutes: 60});
+  await assert.rejects(book('short', {dateTime: '2026-11-10T09:45:00Z'}),
+    error => error.code === 'already-exists');
+  await counts(1, 0);
 });
 
 test('adjacent appointments and different dates may reserve concurrently', async () => {
@@ -203,9 +226,10 @@ test('legacy appointments without projections still prevent overlapping booking'
 test('snapshotted duration is stable when the service duration changes', async () => {
   await book('first');
   await db.doc('services/service-a').update({duration: 10});
-  await assert.rejects(book('overlap', {dateTime: '2026-11-10T09:15:00Z'}), error => error.code === 'already-exists');
+  assert.equal((await db.doc('appointments/first').get()).data().durationMinutes, 15);
+  await book('next-slot', {dateTime: '2026-11-10T09:15:00Z'});
   await book('adjacent', {dateTime: '2026-11-10T09:30:00Z'});
-  await counts(2);
+  await counts(3);
 });
 
 test('failed duplicate request ID cannot overwrite an existing booking', async () => {
@@ -241,7 +265,20 @@ test('owner cancellation releases a server-booked interval without corrupting du
   });
   await book('replacement');
   await counts(2);
-  assert.equal((await db.doc('appointments/first').get()).data().durationMinutes, 30);
+  assert.equal((await db.doc('appointments/first').get()).data().durationMinutes, 15);
+});
+
+test('staff rejection releases the reserved interval', async () => {
+  await book('rejected');
+  const client = env.authenticatedContext('staff-a').firestore();
+  await runTransaction(client, async tx => {
+    const ref = doc(client, 'appointments/rejected');
+    const data = (await tx.get(ref)).data();
+    tx.update(ref, {status: 'rejected', updatedAt: serverTimestamp()});
+    tx.set(doc(client, 'appointment_schedule/rejected'), schedule({...data, status: 'rejected'}));
+  });
+  await book('replacement');
+  await counts(2);
 });
 
 test('clients cannot forge duration snapshots, lock revisions, or direct rescheduling', async () => {
