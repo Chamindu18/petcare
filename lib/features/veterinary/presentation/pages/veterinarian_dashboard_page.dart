@@ -11,6 +11,8 @@ import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../../profile/domain/entities/user_profile.dart';
 import '../../../queue/domain/repositories/queue_repository.dart';
+import '../../../qr_health_passport/data/repositories/firebase_qr_health_passport_repository.dart';
+import '../../../qr_health_passport/presentation/pages/qr_scanner_page.dart';
 import '../providers/veterinarian_workspace_controller.dart';
 import 'veterinarian_queue_page.dart';
 import 'veterinarian_self_profile_page.dart';
@@ -106,6 +108,14 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
                 ),
               ),
               actions: [
+                IconButton(
+                  tooltip: 'Scan QR Health Passport',
+                  onPressed: _openQrScanner,
+                  icon: const Icon(
+                    Icons.qr_code_scanner_rounded,
+                    color: AppTheme.deepBrown,
+                  ),
+                ),
                 IconButton(
                   tooltip: 'Notifications',
                   onPressed: _openNotifications,
@@ -661,6 +671,7 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
               hospitalName: _controller.hospital?.name,
               onConfirm: _controller.confirmAppointment,
               onReject: _controller.rejectAppointment,
+              onOpenHealthPassport: _openQrScanner,
               onManageQueue: () {
                 Navigator.of(context).pop();
                 _selectTab(2);
@@ -668,6 +679,16 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
               actionErrorProvider: () => _controller.actionErrorMessage,
             );
           },
+        ),
+      ),
+    );
+  }
+
+  void _openQrScanner() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => QrScannerPage(
+          repository: FirebaseQrHealthPassportRepository(),
         ),
       ),
     );

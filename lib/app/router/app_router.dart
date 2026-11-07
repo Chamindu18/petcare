@@ -68,6 +68,9 @@ import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/help_support_page.dart';
 import '../../features/profile/presentation/pages/notification_settings_page.dart';
 import '../../features/profile/presentation/pages/privacy_security_page.dart';
+import '../../features/qr_health_passport/data/repositories/firebase_qr_health_passport_repository.dart';
+import '../../features/qr_health_passport/presentation/pages/owner_qr_health_passport_page.dart';
+import '../../features/qr_health_passport/presentation/pages/qr_scanner_page.dart';
 import '../../core/config/cloudinary_config.dart';
 import '../../features/hospitals/presentation/pages/hospital_discovery_page.dart';
 import '../../features/hospitals/presentation/pages/hospital_details_page.dart';
@@ -142,6 +145,8 @@ class AppRouter {
   static const String vetVisitPreparation = '/vet-visit-preparation';
   static const String appointmentConfirmation = '/appointment-confirmation';
   static const String myAppointments = '/my-appointments';
+  static const String ownerQrHealthPassport = '/qr-health-passport';
+  static const String qrHealthPassportScanner = '/qr-health-passport/scan';
 
   // Routes whose data and workflows are specific to pet owners.
   // Adoption routes intentionally remain under their existing provider gate
@@ -161,6 +166,7 @@ class AppRouter {
     healthSummary,
     preventiveInsights,
     vetVisitPreparation,
+    ownerQrHealthPassport,
   };
 
   // Public routes are handled here.
@@ -266,6 +272,8 @@ class AppRouter {
       preventiveInsights,
       vetVisitPreparation,
       myAppointments,
+      ownerQrHealthPassport,
+      qrHealthPassportScanner,
     };
 
     // Protect routes that require authentication.
@@ -732,6 +740,41 @@ class AppRouter {
             provider: appointmentProvider,
             queueRepository: queueRepository,
             ownerQueueRepository: queueRepository,
+          ),
+          settings: settings,
+        );
+
+      case ownerQrHealthPassport:
+        final arguments = settings.arguments;
+        if (arguments is! OwnerQrHealthPassportArgs) {
+          return MaterialPageRoute(
+            builder: (_) => const Scaffold(
+              body: Center(child: Text('Invalid health passport request.')),
+            ),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => OwnerQrHealthPassportPage(
+            petId: arguments.petId,
+            petName: arguments.petName,
+            appointmentId: arguments.appointmentId,
+            repository: FirebaseQrHealthPassportRepository(
+              auth: auth,
+              firestore: firestore ?? FirebaseFirestore.instance,
+            ),
+            auth: auth,
+          ),
+          settings: settings,
+        );
+
+      case qrHealthPassportScanner:
+        return MaterialPageRoute(
+          builder: (_) => QrScannerPage(
+            repository: FirebaseQrHealthPassportRepository(
+              auth: auth,
+              firestore: firestore ?? FirebaseFirestore.instance,
+            ),
           ),
           settings: settings,
         );

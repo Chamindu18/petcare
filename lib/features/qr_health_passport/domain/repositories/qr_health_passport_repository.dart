@@ -10,4 +10,8 @@ abstract interface class QrHealthPassportRepository {
 
   // Verify a QR reference before allowing access.
   Future<QrHealthPassport?> verifyQrReference(String token);
+
+  Future<QrHealthPassportData> getPassportData(String token);
+
+  Future<void> revokeQrReference(String token);
 }

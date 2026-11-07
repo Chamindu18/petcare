@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../qr_health_passport/presentation/pages/owner_qr_health_passport_page.dart';
 import '../../../queue/domain/entities/queue.dart';
 import '../../../queue/domain/repositories/queue_repository.dart';
 import '../../../queue/presentation/pages/owner_queue_details_page.dart';
@@ -172,6 +174,25 @@ class _AppointmentCard extends StatelessWidget {
                 icon: Icons.notes_outlined,
                 label: 'Reason',
                 value: appointment.reason,
+              ),
+            ],
+            if (appointment.status.trim().toLowerCase() == 'confirmed') ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.of(context).pushNamed(
+                    AppRouter.ownerQrHealthPassport,
+                    arguments: OwnerQrHealthPassportArgs(
+                      petId: appointment.petId,
+                      petName:
+                          provider.getPet(appointment.petId)?.name ?? 'Pet',
+                      appointmentId: appointment.appointmentId,
+                    ),
+                  ),
+                  icon: const Icon(Icons.qr_code_2_rounded),
+                  label: const Text('Show QR Health Passport'),
+                ),
               ),
             ],
             const SizedBox(height: 16),

@@ -1,5 +1,21 @@
 rules_version = '2';
 
+// ===============================================================
+// QR Health Passport assumed data model
+// ===============================================================
+// qr_health_passports/{43-char base64url token}
+//   appointmentId, petId, hospitalId, veterinarianId: non-empty strings,
+//     immutable relationship identifiers copied from the linked appointment
+//   status: "active" or "revoked" (only active -> revoked is mutable)
+//   schemaVersion: integer 1, immutable
+//   createdAt: server timestamp, immutable; authorization expires after 15 min
+//   revokedAt: server timestamp, present only after revocation
+// pet/summary: name, species, breed, dob copied exactly from pets/{petId}
+// medical_conditions, vaccinations, treatments, health_measurements:
+//   immutable, strictly shaped copies of existing source documents.
+// Staff may get only the parent verification document. Only the assigned
+// veterinarian and owner may read the bounded pet/medical projections.
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -642,6 +658,301 @@ service cloud.firestore {
         && resource.data.ownerId == request.auth.uid
         && resource.data.get('queueId', null) == null
         && !existsAfter(/databases/$(database)/documents/appointment_schedule/$(appointmentId));
+    }
+
+    // ============================================================
+    // Appointment-linked QR Health Passports
+    // ============================================================
+
+    function qrTokenIsValid(token) {
+      return token is string && token.matches('^[A-Za-z0-9_-]{43}$');
+    }
+
+    function isValidQrPassport(data) {
+      return data.keys().hasAll([
+          'appointmentId', 'petId', 'hospitalId', 'veterinarianId',
+          'status', 'schemaVersion', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'appointmentId', 'petId', 'hospitalId', 'veterinarianId',
+          'status', 'schemaVersion', 'createdAt', 'revokedAt'
+        ])
+        && data.appointmentId is string
+        && data.appointmentId.size() > 0
+        && data.appointmentId.size() <= 128
+        && data.petId is string
+        && data.petId.size() > 0
+        && data.petId.size() <= 128
+        && data.hospitalId is string
+        && data.hospitalId.size() > 0
+        && data.hospitalId.size() <= 128
+        && data.veterinarianId is string
+        && data.veterinarianId.size() > 0
+        && data.veterinarianId.size() <= 128
+        && data.status in ['active', 'revoked']
+        && data.schemaVersion is int
+        && data.schemaVersion == 1
+        && data.createdAt is timestamp
+        && (!('revokedAt' in data) || data.revokedAt is timestamp);
+    }
+
+    function qrAppointment(data) {
+      return get(
+        /databases/$(database)/documents/appointments/$(data.appointmentId)
+      ).data;
+    }
+
+    function qrOwner(data) {
+      return signedIn()
+        && qrAppointment(data).get('ownerId', '') == request.auth.uid;
+    }
+
+    function qrRelationshipsMatch(data) {
+      let appointment = qrAppointment(data);
+      return appointment.get('petId', null) == data.petId
+        && appointment.get('hospitalId', null) == data.hospitalId
+        && appointment.get('vetId', null) == data.veterinarianId;
+    }
+
+    function qrIsUsable(data) {
+      return isValidQrPassport(data)
+        && data.status == 'active'
+        && !('revokedAt' in data)
+        && request.time < data.createdAt + duration.value(15, 'm')
+        && qrAppointment(data).get('status', '') == 'confirmed'
+        && qrRelationshipsMatch(data);
+    }
+
+    function veterinarianCanUseQr(data) {
+      return qrIsUsable(data)
+        && data.veterinarianId == currentVeterinarianId()
+        && isVeterinarianForHospital(data.hospitalId);
+    }
+
+    function staffCanVerifyQr(data) {
+      return qrIsUsable(data)
+        && isVeterinaryStaffForHospital(data.hospitalId);
+    }
+
+    function ownerCanCreateQr(data) {
+      let appointment = qrAppointment(data);
+      return isOwner()
+        && appointment.get('ownerId', '') == request.auth.uid
+        && appointment.get('status', '') == 'confirmed'
+        && qrRelationshipsMatch(data)
+        && exists(/databases/$(database)/documents/pets/$(data.petId))
+        && get(/databases/$(database)/documents/pets/$(data.petId))
+          .data.get('ownerId', '') == request.auth.uid
+        && validAppointmentVeterinarian(appointment);
+    }
+
+    function qrProjectionParent(token) {
+      return get(
+        /databases/$(database)/documents/qr_health_passports/$(token)
+      ).data;
+    }
+
+    function qrProjectionParentAfter(token) {
+      return getAfter(
+        /databases/$(database)/documents/qr_health_passports/$(token)
+      ).data;
+    }
+
+    function ownerCanCreateQrProjection(token) {
+      let passport = qrProjectionParentAfter(token);
+      return qrTokenIsValid(token)
+        && isValidQrPassport(passport)
+        && passport.status == 'active'
+        && request.time < passport.createdAt + duration.value(15, 'm')
+        && qrAppointment(passport).get('status', '') == 'confirmed'
+        && qrRelationshipsMatch(passport)
+        && qrOwner(passport);
+    }
+
+    function canReadQrProjection(token) {
+      let passport = qrProjectionParent(token);
+      return qrTokenIsValid(token)
+        && (qrOwner(passport) || veterinarianCanUseQr(passport));
+    }
+
+    match /qr_health_passports/{token} {
+      allow get: if qrTokenIsValid(token)
+        && (qrOwner(resource.data)
+          || veterinarianCanUseQr(resource.data)
+          || staffCanVerifyQr(resource.data));
+      allow list: if false;
+
+      allow create: if qrTokenIsValid(token)
+        && isValidQrPassport(request.resource.data)
+        && request.resource.data.status == 'active'
+        && !('revokedAt' in request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && ownerCanCreateQr(request.resource.data);
+
+      allow update: if isValidQrPassport(request.resource.data)
+        && qrOwner(resource.data)
+        && resource.data.status == 'active'
+        && request.resource.data.status == 'revoked'
+        && request.resource.data.revokedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'revokedAt']);
+      allow delete: if false;
+
+      match /pet/{documentId} {
+        function isValidPetProjection(data) {
+          let passport = qrProjectionParentAfter(token);
+          let source = get(
+            /databases/$(database)/documents/pets/$(passport.petId)
+          ).data;
+          return documentId == 'summary'
+            && data.keys().hasAll(['name', 'species', 'breed', 'dob'])
+            && data.keys().hasOnly(['name', 'species', 'breed', 'dob'])
+            && data.name is string && data.name.size() > 0
+            && data.name.size() <= 100
+            && data.species is string && data.species.size() > 0
+            && data.species.size() <= 80
+            && data.breed is string && data.breed.size() <= 100
+            && data.dob is string && data.dob.size() <= 64
+            && data.name == source.name
+            && data.species == source.species
+            && data.breed == source.breed
+            && data.dob == source.dob;
+        }
+
+        allow read: if canReadQrProjection(token);
+        allow create: if ownerCanCreateQrProjection(token)
+          && isValidPetProjection(request.resource.data);
+        allow update, delete: if false;
+      }
+
+      match /medical_conditions/{conditionId} {
+        function isValidConditionProjection(data) {
+          let passport = qrProjectionParentAfter(token);
+          let source = get(
+            /databases/$(database)/documents/medical_conditions/$(conditionId)
+          ).data;
+          return data.keys().hasAll([
+              'conditionId', 'petId', 'name', 'status', 'source',
+              'diagnosisDate', 'notes', 'createdAt', 'updatedAt'
+            ])
+            && data.keys().hasOnly([
+              'conditionId', 'petId', 'name', 'status', 'source',
+              'diagnosisDate', 'vetId', 'notes', 'createdAt', 'updatedAt'
+            ])
+            && data.conditionId == conditionId
+            && data.petId == passport.petId
+            && data.name is string && data.name.size() > 0
+            && data.name.size() <= 200
+            && data.status is string && data.status.size() <= 50
+            && data.source is string && data.source.size() <= 50
+            && data.diagnosisDate is string && data.diagnosisDate.size() <= 64
+            && data.notes is string && data.notes.size() <= 4000
+            && data.createdAt is string && data.createdAt.size() <= 64
+            && data.updatedAt is string && data.updatedAt.size() <= 64
+            && data == source;
+        }
+
+        allow read: if canReadQrProjection(token);
+        allow create: if ownerCanCreateQrProjection(token)
+          && isValidConditionProjection(request.resource.data);
+        allow update, delete: if false;
+      }
+
+      match /vaccinations/{vaccinationId} {
+        function isValidVaccinationProjection(data) {
+          let passport = qrProjectionParentAfter(token);
+          let source = get(
+            /databases/$(database)/documents/vaccinations/$(vaccinationId)
+          ).data;
+          return data.keys().hasAll([
+              'vaccinationId', 'petId', 'name', 'dateGiven', 'notes',
+              'createdAt', 'updatedAt'
+            ])
+            && data.keys().hasOnly([
+              'vaccinationId', 'petId', 'name', 'dateGiven', 'nextDueDate',
+              'providerId', 'notes', 'createdAt', 'updatedAt'
+            ])
+            && data.vaccinationId == vaccinationId
+            && data.petId == passport.petId
+            && data.name is string && data.name.size() > 0
+            && data.name.size() <= 200
+            && data.dateGiven is string && data.dateGiven.size() <= 64
+            && data.notes is string && data.notes.size() <= 4000
+            && data.createdAt is string && data.createdAt.size() <= 64
+            && data.updatedAt is string && data.updatedAt.size() <= 64
+            && data == source;
+        }
+
+        allow read: if canReadQrProjection(token);
+        allow create: if ownerCanCreateQrProjection(token)
+          && isValidVaccinationProjection(request.resource.data);
+        allow update, delete: if false;
+      }
+
+      match /treatments/{treatmentId} {
+        function isValidTreatmentProjection(data) {
+          let passport = qrProjectionParentAfter(token);
+          let source = get(
+            /databases/$(database)/documents/treatments/$(treatmentId)
+          ).data;
+          return data.keys().hasAll([
+              'treatmentId', 'petId', 'name', 'status', 'source', 'notes',
+              'createdAt', 'updatedAt'
+            ])
+            && data.keys().hasOnly([
+              'treatmentId', 'petId', 'name', 'status', 'source', 'startDate',
+              'endDate', 'notes', 'createdAt', 'updatedAt'
+            ])
+            && data.treatmentId == treatmentId
+            && data.petId == passport.petId
+            && data.name is string && data.name.size() > 0
+            && data.name.size() <= 200
+            && data.status is string && data.status.size() <= 50
+            && data.source is string && data.source.size() <= 50
+            && data.notes is string && data.notes.size() <= 4000
+            && data.createdAt is string && data.createdAt.size() <= 64
+            && data.updatedAt is string && data.updatedAt.size() <= 64
+            && data == source;
+        }
+
+        allow read: if canReadQrProjection(token);
+        allow create: if ownerCanCreateQrProjection(token)
+          && isValidTreatmentProjection(request.resource.data);
+        allow update, delete: if false;
+      }
+
+      match /health_measurements/{measurementId} {
+        function isValidMeasurementProjection(data) {
+          let passport = qrProjectionParentAfter(token);
+          let source = get(
+            /databases/$(database)/documents/health_measurements/$(measurementId)
+          ).data;
+          return data.keys().hasAll([
+              'measurementId', 'petId', 'type', 'value', 'unit',
+              'recordedAt', 'createdAt', 'updatedAt'
+            ])
+            && data.keys().hasOnly([
+              'measurementId', 'petId', 'type', 'value', 'unit',
+              'recordedAt', 'createdAt', 'updatedAt'
+            ])
+            && data.measurementId == measurementId
+            && data.petId == passport.petId
+            && data.type is string && data.type.size() > 0
+            && data.type.size() <= 100
+            && data.value is number
+            && data.value >= -1000000 && data.value <= 1000000
+            && data.unit is string && data.unit.size() <= 50
+            && data.recordedAt is string && data.recordedAt.size() <= 64
+            && data.createdAt is string && data.createdAt.size() <= 64
+            && data.updatedAt is string && data.updatedAt.size() <= 64
+            && data == source;
+        }
+
+        allow read: if canReadQrProjection(token);
+        allow create: if ownerCanCreateQrProjection(token)
+          && isValidMeasurementProjection(request.resource.data);
+        allow update, delete: if false;
+      }
     }
 
     // ============================================================

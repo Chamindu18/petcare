@@ -7,6 +7,8 @@ import '../../../hospitals/domain/repositories/hospital_repository.dart';
 import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
 import '../../../queue/domain/repositories/queue_repository.dart';
+import '../../../qr_health_passport/data/repositories/firebase_qr_health_passport_repository.dart';
+import '../../../qr_health_passport/presentation/pages/qr_scanner_page.dart';
 import '../../domain/entities/hospital_staff_assignment.dart';
 import 'staff_appointments_page.dart';
 import 'staff_hospital_overview_page.dart';
@@ -153,6 +155,18 @@ class _StaffShellPageState extends State<StaffShellPage> {
         title: Text(_navigationItems[_currentIndex].label),
         elevation: 0,
         actions: [
+          IconButton(
+            tooltip: 'Verify QR Health Passport',
+            icon: const Icon(Icons.qr_code_scanner_rounded),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => QrScannerPage(
+                  repository: FirebaseQrHealthPassportRepository(),
+                  verificationOnly: true,
+                ),
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Notifications',
             icon: const Icon(Icons.notifications_none_rounded),
