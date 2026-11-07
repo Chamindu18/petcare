@@ -6,6 +6,7 @@ import '../../../hospital_staff/domain/utils/staff_queue_eligibility.dart';
 
 import '../../domain/entities/queue.dart';
 import '../../domain/repositories/queue_repository.dart';
+import '../datasources/owner_queue_position_datasource.dart';
 import '../models/queue_model.dart';
 import '../../../notifications/data/notification_event.dart';
 
@@ -13,18 +14,21 @@ import '../../../notifications/data/notification_event.dart';
 class FirebaseQueueRepository
     implements
         QueueRepository,
+        OwnerQueueRepository,
         StaffQueueCommandRepository,
         VeterinarianQueueRepository {
   FirebaseQueueRepository({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
     DateTime Function()? now,
+    this._ownerQueuePositionDataSource,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
        _auth = auth ?? FirebaseAuth.instance,
        _now = now ?? DateTime.now;
 
   final FirebaseAuth _auth;
   final DateTime Function() _now;
+  final OwnerQueuePositionDataSource? _ownerQueuePositionDataSource;
 
   // MVP hospitals use Asia/Colombo, independently of the device timezone.
   static DateTime _day(DateTime instant) {
@@ -158,6 +162,18 @@ class FirebaseQueueRepository
     }
 
     return QueueModel.fromMap(data);
+  }
+
+  @override
+  Future<int?> getOwnerQueuePosition({required String queueId}) async {
+    if (queueId.trim().isEmpty) return null;
+    final dataSource =
+        _ownerQueuePositionDataSource ??
+        FirebaseOwnerQueuePositionDataSource(auth: _auth);
+    final result = await dataSource.fetchPosition(queueId: queueId);
+    final position = result['position'];
+    if (position is! int || position <= 0) return null;
+    return position;
   }
 
   @override
