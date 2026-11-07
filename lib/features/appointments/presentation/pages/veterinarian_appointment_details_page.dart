@@ -15,6 +15,7 @@ class VeterinarianAppointmentDetailsPage extends StatefulWidget {
     this.hospitalName,
     this.actionErrorProvider,
     this.onManageQueue,
+    this.onOpenHealthPassport,
   });
 
   final Appointment appointment;
@@ -24,6 +25,7 @@ class VeterinarianAppointmentDetailsPage extends StatefulWidget {
   final Future<bool> Function(String appointmentId) onReject;
   final String? Function()? actionErrorProvider;
   final VoidCallback? onManageQueue;
+  final VoidCallback? onOpenHealthPassport;
 
   @override
   State<VeterinarianAppointmentDetailsPage> createState() =>
@@ -296,11 +298,7 @@ class _VeterinarianAppointmentDetailsPageState
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: () => _showNotAvailable(
-                'QR Health Passport',
-                'The appointment-linked QR Health Passport is not available '
-                    'in this phase. No QR code has been generated.',
-              ),
+              onPressed: widget.onOpenHealthPassport,
               icon: const Icon(Icons.qr_code_2_rounded),
               label: const Text('Open pet health passport'),
             ),

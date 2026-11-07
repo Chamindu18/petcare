@@ -30,3 +30,23 @@ class VerifyQrReference {
     return _repository.verifyQrReference(token);
   }
 }
+
+class GetQrHealthPassportData {
+  const GetQrHealthPassportData(this._repository);
+
+  final QrHealthPassportRepository _repository;
+
+  Future<QrHealthPassportData> call(String token) {
+    return _repository.getPassportData(token);
+  }
+}
+
+class RevokeQrReference {
+  const RevokeQrReference(this._repository);
+
+  final QrHealthPassportRepository _repository;
+
+  Future<void> call(String token) {
+    return _repository.revokeQrReference(token);
+  }
+}
