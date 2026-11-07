@@ -109,6 +109,12 @@ test('real callable booking, staff decisions/reassignment, doctor visibility and
     assert.equal(ownerRecord.ownerId, ownerId);
     assert.equal(ownerRecord.vetId, 'cross-vet-b');
     assert.equal(ownerRecord.status, 'confirmed');
+    const positionResponse = await fetch(`http://127.0.0.1:5001/${projectId}/asia-south2/getOwnerQueuePosition`,
+      {method: 'POST', headers: {'Content-Type': 'application/json', Authorization: `Bearer ${idToken}`},
+        body: JSON.stringify({data: {queueId: ownerRecord.queueId}})});
+    const positionBody = await positionResponse.json();
+    assert.equal(positionResponse.status, 200, JSON.stringify(positionBody));
+    assert.deepEqual(positionBody.result, {position: 1, status: 'waiting'});
     for (const client of [owner, staff, db('cross-doctor-b')]) {
       const refreshed = (await getDoc(appointmentRef(client))).data();
       assert.equal(refreshed.queueId, ownerRecord.queueId);
