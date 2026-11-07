@@ -66,6 +66,26 @@ test('six simultaneous requests for one interval have one winner and no orphan d
   assert.equal((await db.doc(`appointment_schedule/${winner.id}`).get()).data().durationMinutes, 30);
 });
 
+test('booking notifies only verified active staff in its hospital once', async () => {
+  await db.doc('users/staff-a2').set({role: 'veterinary_staff'});
+  await db.doc('hospital_staff/staff-a2').set({userId: 'staff-a2', hospitalId: 'hospital-a', active: true});
+  await db.doc('users/inactive-staff').set({role: 'veterinary_staff'});
+  await db.doc('hospital_staff/inactive-staff').set({userId: 'inactive-staff', hospitalId: 'hospital-a', active: false});
+  await db.doc('hospital_staff/forged').set({userId: 'staff-a', hospitalId: 'hospital-a', active: true});
+  await book('notice-one');
+  const notices = (await db.collection('notifications').get()).docs;
+  assert.deepEqual(notices.map(d => d.data().recipientUserId).sort(), ['staff-a', 'staff-a2']);
+  for (const notice of notices) {
+    assert.equal(notice.data().type, 'appointment_requested');
+    assert.equal(notice.data().targetId, 'notice-one');
+    assert.equal(notice.data().appointmentTime, base);
+  }
+  await assert.rejects(book('notice-one'), error => error instanceof BookingError && error.code === 'already-exists');
+  assert.equal((await db.collection('notifications').get()).size, 2);
+  await assert.rejects(book('notice-failed', {vetId: 'vet-c'}));
+  assert.equal((await db.collection('notifications').get()).size, 2);
+});
+
 test('missing and inactive hospitals cannot accept bookings or reassignment', async () => {
   await book('existing');
   for (const hospital of [null, {active: false}]) {

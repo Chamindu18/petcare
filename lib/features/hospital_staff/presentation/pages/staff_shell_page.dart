@@ -4,6 +4,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../appointments/domain/repositories/appointment_repository.dart';
 import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../hospitals/domain/repositories/hospital_repository.dart';
+import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
 import '../../../queue/domain/repositories/queue_repository.dart';
 import '../../domain/entities/hospital_staff_assignment.dart';
@@ -151,6 +152,22 @@ class _StaffShellPageState extends State<StaffShellPage> {
         backgroundColor: AppTheme.white,
         title: Text(_navigationItems[_currentIndex].label),
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            icon: const Icon(Icons.notifications_none_rounded),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => NotificationsPage(
+                  onOpenAppointment: () {
+                    Navigator.of(context).pop();
+                    _onTabSelected(1);
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: IndexedStack(index: _currentIndex, children: pages),
       bottomNavigationBar: _StaffBottomNavigation(

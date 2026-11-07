@@ -8,9 +8,14 @@ import '../providers/notification_provider.dart';
 import '../../domain/repositories/notification_repository.dart';
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key, this.notificationRepository});
+  const NotificationsPage({
+    super.key,
+    this.notificationRepository,
+    this.onOpenAppointment,
+  });
 
   final NotificationRepository? notificationRepository;
+  final VoidCallback? onOpenAppointment;
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
 }
@@ -82,8 +87,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
               return _NotificationCard(
                 notification: notification,
-                onTap: () {
-                  _notificationProvider.markAsRead(notification.notificationId);
+                onTap: () async {
+                  await _notificationProvider.markAsRead(
+                    notification.notificationId,
+                  );
+                  if (!context.mounted) return;
+                  if (notification.targetType == 'appointment' &&
+                      widget.onOpenAppointment != null) {
+                    widget.onOpenAppointment!();
+                    return;
+                  }
                   final route = switch (notification.targetType) {
                     'appointment' || 'queue' => AppRouter.myAppointments,
                     'adoption_request' => AppRouter.myAdoptionRequests,
@@ -200,6 +213,7 @@ class _NotificationCard extends StatelessWidget {
   }
 
   String _titleFor(String type) => switch (type) {
+    'appointment_requested' => 'New appointment request',
     'appointment_confirmed' => 'Appointment confirmed',
     'appointment_rejected' => 'Appointment rejected',
     'queue_checked_in' => 'Queue check-in',

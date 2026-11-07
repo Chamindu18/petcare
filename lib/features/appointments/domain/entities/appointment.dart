@@ -11,6 +11,7 @@ class Appointment {
     required this.status,
     this.queueId,
     required this.createdAt,
+    this.updatedAt,
   });
 
   final String appointmentId;
@@ -24,4 +25,5 @@ class Appointment {
   final String status;
   final String? queueId;
   final DateTime createdAt;
+  final DateTime? updatedAt;
 }

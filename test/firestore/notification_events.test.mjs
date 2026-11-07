@@ -19,9 +19,11 @@ beforeEach(async () => {
       setDoc(doc(db, 'users/owner-1'), { uid: 'owner-1', role: 'owner' }),
       setDoc(doc(db, 'users/owner-2'), { uid: 'owner-2', role: 'owner' }),
       setDoc(doc(db, 'users/staff-a'), { uid: 'staff-a', role: 'veterinary_staff' }),
+      setDoc(doc(db, 'users/staff-b'), { uid: 'staff-b', role: 'veterinary_staff' }),
       setDoc(doc(db, 'users/vet-a'), { uid: 'vet-a', role: 'veterinarian', hospitalId: 'hospital-a' }),
       setDoc(doc(db, 'veterinarians/vet-a'), { userId: 'vet-a', hospitalId: 'hospital-a', active: true }),
       setDoc(doc(db, 'hospital_staff/staff-a'), { userId: 'staff-a', hospitalId: 'hospital-a', active: true }),
+      setDoc(doc(db, 'hospital_staff/staff-b'), { userId: 'staff-b', hospitalId: 'hospital-b', active: true }),
       setDoc(doc(db, 'users/provider-1'), { uid: 'provider-1', role: 'adoption_provider' }),
       setDoc(doc(db, 'pets/pet-1'), { ownerId: 'owner-1', name: 'Milo' }),
       setDoc(doc(db, 'appointments/appointment-1'), {
@@ -47,6 +49,29 @@ beforeEach(async () => {
 });
 
 const dbFor = (uid) => env.authenticatedContext(uid).firestore();
+
+test('staff booking notification is recipient-only and owners cannot forge it', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'notifications/appointment_requested_appointment-1_staff-a'), {
+      recipientUserId: 'staff-a', type: 'appointment_requested',
+      message: 'A new appointment request needs review.', read: false,
+      targetType: 'appointment', targetId: 'appointment-1',
+      appointmentTime: '2026-11-10T08:30:00Z', createdAt: Timestamp.now(),
+    });
+  });
+  const ref = db => doc(db, 'notifications/appointment_requested_appointment-1_staff-a');
+  await assertSucceeds(getDoc(ref(dbFor('staff-a'))));
+  await assertFails(getDoc(ref(dbFor('owner-1'))));
+  await assertFails(getDoc(ref(dbFor('owner-2'))));
+  await assertFails(getDoc(ref(dbFor('staff-b'))));
+  await assertFails(setDoc(doc(dbFor('owner-1'), 'notifications/appointment_requested_forged_staff-a'), {
+    recipientUserId: 'staff-a', type: 'appointment_requested',
+    message: 'A new appointment request needs review.', read: false,
+    targetType: 'appointment', targetId: 'appointment-1',
+    appointmentTime: '2026-11-10T08:30:00Z', createdAt: serverTimestamp(),
+  }));
+  await assertSucceeds(updateDoc(ref(dbFor('staff-a')), {read: true}));
+});
 function notification(type, recipientUserId, targetType, targetId, message) {
   return { recipientUserId, type, message, read: false, targetType, targetId,
     ...(targetType === 'appointment' ? {appointmentTime: Timestamp.fromDate(new Date('2026-11-10T08:30:00Z'))} : {}),

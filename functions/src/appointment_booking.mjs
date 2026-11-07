@@ -87,6 +87,18 @@ export async function reserveAppointment(db, uid, input) {
         (await tx.get(db.collection('services').doc(id(other.serviceId)))).data()?.duration);
       if (otherStart + otherMinutes * 60000 > start.getTime()) fail('already-exists', 'This time is no longer available. Select another slot.');
     }
+    // Only the trusted scheduler can enumerate provisioned hospital staff.
+    // Resolve recipients before the first write in this transaction.
+    const staffRecipients = [];
+    if (action === 'create') {
+      const assignments = await tx.get(db.collection('hospital_staff').where('hospitalId', '==', hospitalId));
+      for (const assignment of assignments.docs) {
+        const staff = assignment.data();
+        if (staff.active !== true || staff.userId !== assignment.id) continue;
+        const account = (await tx.get(db.collection('users').doc(assignment.id))).data();
+        if (account?.role === 'veterinary_staff') staffRecipients.push(assignment.id);
+      }
+    }
     const data = action === 'create' ? {
       appointmentId, ownerId: uid, petId, hospitalId, serviceId, vetId,
       dateTime: start.toISOString(), reason, status: 'pending', queueId: null,
@@ -96,6 +108,14 @@ export async function reserveAppointment(db, uid, input) {
     // commits the appointment, projection and mutex revisions, or none of them.
     tx.set(ref, {...data, updatedAt: FieldValue.serverTimestamp()});
     tx.set(db.collection('appointment_schedule').doc(appointmentId), schedule(data));
+    for (const recipientUserId of staffRecipients) {
+      tx.create(db.collection('notifications').doc(`appointment_requested_${appointmentId}_${recipientUserId}`), {
+        recipientUserId, type: 'appointment_requested',
+        message: 'A new appointment request needs review.', read: false,
+        targetType: 'appointment', targetId: appointmentId,
+        appointmentTime: data.dateTime, createdAt: FieldValue.serverTimestamp(),
+      });
+    }
     for (const lock of locks) tx.set(lock, {revision: FieldValue.increment(1)});
     return {...data, createdAt: instant(data.createdAt).toISOString()};
   }, {maxAttempts: 10});

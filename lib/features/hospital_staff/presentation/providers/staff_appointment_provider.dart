@@ -182,6 +182,7 @@ class StaffAppointmentProvider extends ChangeNotifier {
         status: status,
         queueId: appointment.queueId,
         createdAt: appointment.createdAt,
+        updatedAt: appointment.updatedAt,
       );
     }).toList();
   }

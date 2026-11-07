@@ -328,6 +328,15 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
     }
     overdue.sort((a, b) => a.dateTime.compareTo(b.dateTime));
     upcoming.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    final cancellations =
+        appointments
+            .where((appointment) => _status(appointment) == 'cancelled')
+            .toList()
+          ..sort(
+            (a, b) => (b.updatedAt ?? b.createdAt).compareTo(
+              a.updatedAt ?? a.createdAt,
+            ),
+          );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -372,6 +381,37 @@ class _StaffHospitalOverviewPageState extends State<StaffHospitalOverviewPage> {
           ],
         ),
         const SizedBox(height: 24),
+        if (cancellations.isNotEmpty) ...[
+          Row(
+            children: [
+              Expanded(child: _sectionHeading('Recent cancellations')),
+              if (widget.onOpenAppointments != null)
+                TextButton(
+                  onPressed: widget.onOpenAppointments,
+                  child: const Text('View All'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...cancellations.take(3).map((appointment) {
+            final changedAt = (appointment.updatedAt ?? appointment.createdAt)
+                .toLocal();
+            return ListTile(
+              leading: const Icon(Icons.event_busy_outlined),
+              title: Text(
+                'Appointment #${_shortId(appointment.appointmentId)} cancelled',
+              ),
+              subtitle: Text(
+                'Cancelled ${changedAt.day}/${changedAt.month}/${changedAt.year} '
+                '${changedAt.hour.toString().padLeft(2, '0')}:'
+                '${changedAt.minute.toString().padLeft(2, '0')}  •  '
+                'Scheduled ${appointment.dateTime.day}/${appointment.dateTime.month} '
+                '${TimeOfDay.fromDateTime(appointment.dateTime).format(context)}',
+              ),
+            );
+          }),
+          const SizedBox(height: 18),
+        ],
         if (overdue.isNotEmpty) ...[
           Row(
             children: [

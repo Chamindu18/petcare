@@ -18,6 +18,10 @@ test('authenticated callable transport serializes concurrent bookings and reject
     await db.doc(`users/${uid}`).set({role: 'owner'});
     await db.doc('pets/transport-pet').set({ownerId: uid});
     await db.doc('hospitals/transport-hospital').set({active: true});
+    await db.doc('users/transport-staff').set({role: 'veterinary_staff'});
+    await db.doc('hospital_staff/transport-staff').set({
+      userId: 'transport-staff', hospitalId: 'transport-hospital', active: true,
+    });
     await db.doc('users/transport-doctor').set({role: 'veterinarian', vetId: 'transport-vet', hospitalId: 'transport-hospital'});
     await db.doc('veterinarians/transport-vet').set({active: true, userId: 'transport-doctor', hospitalId: 'transport-hospital'});
     await db.doc('services/transport-service').set({hospitalId: 'transport-hospital', duration: 30});
@@ -36,5 +40,9 @@ test('authenticated callable transport serializes concurrent bookings and reject
     assert.equal(result.result.durationMinutes, 30);
     assert.equal((await db.collection('appointments').where('hospitalId', '==', 'transport-hospital').get()).size, 1);
     assert.equal((await db.collection('appointment_schedule').where('hospitalId', '==', 'transport-hospital').get()).size, 1);
+    const notices = (await db.collection('notifications').where('recipientUserId', '==', 'transport-staff').get()).docs;
+    assert.equal(notices.length, 1);
+    assert.equal(notices[0].data().type, 'appointment_requested');
+    assert.equal(notices[0].data().targetId, result.result.appointmentId);
   } finally { await deleteApp(app); }
 });
