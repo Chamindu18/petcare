@@ -6,10 +6,7 @@ import 'package:petcare/features/adoption/domain/repositories/adoption_listing_r
 import 'package:petcare/features/adoption/presentation/pages/create_edit_adoption_listing_page.dart';
 
 class _FakeAdoptionListingRepository implements AdoptionListingRepository {
-  _FakeAdoptionListingRepository({
-    this.createError,
-    this.updateError,
-  });
+  _FakeAdoptionListingRepository({this.createError, this.updateError});
 
   final Object? createError;
   final Object? updateError;
@@ -58,9 +55,7 @@ class _FakeAdoptionListingRepository implements AdoptionListingRepository {
   }
 
   @override
-  Stream<AdoptionListing?> watchListing({
-    required String listingId,
-  }) {
+  Stream<AdoptionListing?> watchListing({required String listingId}) {
     return Stream.value(null);
   }
 
@@ -115,12 +110,7 @@ Future<void> _selectDropdownValue(
 
   final rect = tester.getRect(dropdown);
 
-  await tester.tapAt(
-    Offset(
-      rect.center.dx,
-      rect.bottom - 8,
-    ),
-  );
+  await tester.tapAt(Offset(rect.center.dx, rect.bottom - 8));
 
   await tester.pumpAndSettle();
 
@@ -128,428 +118,306 @@ Future<void> _selectDropdownValue(
   await tester.pumpAndSettle();
 }
 
+/// Scrolls a form action button into a safe hit-test position.
+///
+/// Using an explicit SingleChildScrollView avoids accidentally selecting
+/// another Scrollable in the widget tree. The 0.75 alignment keeps the
+/// button comfortably above the bottom edge of the 600px test viewport.
+Future<void> _scrollToButton(
+  WidgetTester tester,
+  Finder button,
+) async {
+  final scrollable = find
+      .byWidgetPredicate(
+        (widget) =>
+            widget is Scrollable &&
+            widget.axisDirection == AxisDirection.down,
+      )
+      .first;
+
+  await tester.scrollUntilVisible(
+    button,
+    300,
+    scrollable: scrollable,
+  );
+
+  await tester.pumpAndSettle();
+
+  // scrollUntilVisible can leave the button right at the bottom edge
+  // of the 600px test viewport. Move it slightly higher if necessary.
+  for (var attempt = 0; attempt < 5; attempt++) {
+    final rect = tester.getRect(button);
+
+    if (rect.bottom <= 560) {
+      break;
+    }
+
+    await tester.drag(
+      scrollable,
+      const Offset(0, -120),
+    );
+
+    await tester.pumpAndSettle();
+  }
+
+  final finalRect = tester.getRect(button);
+
+  expect(
+    finalRect.top,
+    greaterThanOrEqualTo(0),
+    reason: 'The button must be inside the test viewport.',
+  );
+
+  expect(
+    finalRect.bottom,
+    lessThanOrEqualTo(600),
+    reason: 'The button must be inside the test viewport.',
+  );
+}
+
 void main() {
   testWidgets('renders create listing form', (tester) async {
     final repository = _FakeAdoptionListingRepository();
 
+    await tester.pumpWidget(_buildPage(repository: repository));
+
+    expect(find.text('Create Adoption Listing'), findsOneWidget);
+
+    expect(find.byType(TextFormField), findsNWidgets(6));
+
+    expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(2));
+
+    expect(find.text('Save Draft'), findsOneWidget);
+
+    expect(find.text('Publish'), findsOneWidget);
+  });
+
+  testWidgets('validation prevents submission with missing required fields', (
+    tester,
+  ) async {
+    final repository = _FakeAdoptionListingRepository();
+
+    await tester.pumpWidget(_buildPage(repository: repository));
+
+    final publishButton = find.widgetWithText(FilledButton, 'Publish');
+
+    expect(publishButton, findsOneWidget);
+
+    await _scrollToButton(tester, publishButton);
+
+    await tester.tap(publishButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Please enter the pet name.'), findsOneWidget);
+
+    expect(find.text('Please enter location.'), findsOneWidget);
+
+    expect(find.text('Please enter description.'), findsOneWidget);
+
+    expect(repository.createdListing, isNull);
+  });
+
+  testWidgets('save draft creates listing with draft status', (tester) async {
+    final repository = _FakeAdoptionListingRepository();
+
+    await tester.pumpWidget(_buildPage(repository: repository));
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'Buddy');
+
+    final speciesDropdown = find.byType(DropdownButtonFormField<String>).at(0);
+
+    await _selectDropdownValue(tester, speciesDropdown, 'Dog');
+
+    final genderDropdown = find.byType(DropdownButtonFormField<String>).at(1);
+
+    await _selectDropdownValue(tester, genderDropdown, 'Male');
+
+    final fields = find.byType(TextFormField);
+
+    await tester.enterText(fields.at(3), 'Colombo');
+
+    await tester.enterText(
+      fields.at(4),
+      'Friendly dog looking for a loving home.',
+    );
+
+    final saveDraftButton = find.widgetWithText(OutlinedButton, 'Save Draft');
+
+    expect(saveDraftButton, findsOneWidget);
+
+    await _scrollToButton(tester, saveDraftButton);
+
+    await tester.tap(saveDraftButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.createdListing, isNotNull);
+
+    expect(repository.createdListing!.petName, 'Buddy');
+
+    expect(repository.createdListing!.species, 'Dog');
+
+    expect(repository.createdListing!.gender, 'Male');
+
+    expect(repository.createdListing!.status, 'draft');
+  });
+
+  testWidgets('publish creates listing with available status', (tester) async {
+    final repository = _FakeAdoptionListingRepository();
+
+    await tester.pumpWidget(_buildPage(repository: repository));
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'Luna');
+
+    final speciesDropdown = find.byType(DropdownButtonFormField<String>).at(0);
+
+    await _selectDropdownValue(tester, speciesDropdown, 'Cat');
+
+    final genderDropdown = find.byType(DropdownButtonFormField<String>).at(1);
+
+    await _selectDropdownValue(tester, genderDropdown, 'Male');
+
+    final fields = find.byType(TextFormField);
+
+    await tester.enterText(fields.at(3), 'Kandy');
+
+    await tester.enterText(fields.at(4), 'Calm cat looking for a loving home.');
+
+    final publishButton = find.widgetWithText(FilledButton, 'Publish');
+
+    expect(publishButton, findsOneWidget);
+
+    await _scrollToButton(tester, publishButton);
+
+    await tester.tap(publishButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.createdListing, isNotNull);
+
+    expect(repository.createdListing!.status, 'available');
+  });
+
+  testWidgets('edit mode pre-fills existing listing', (tester) async {
+    final repository = _FakeAdoptionListingRepository();
+    final listing = _createListing();
+
     await tester.pumpWidget(
-      _buildPage(repository: repository),
+      _buildPage(repository: repository, listing: listing),
     );
 
-    expect(
-      find.text('Create Adoption Listing'),
-      findsOneWidget,
-    );
+    expect(find.text('Edit Adoption Listing'), findsOneWidget);
+
+    expect(find.text('Buddy'), findsOneWidget);
+
+    expect(find.text('Labrador'), findsOneWidget);
+
+    expect(find.text('2 years'), findsOneWidget);
+
+    expect(find.text('Colombo'), findsOneWidget);
 
     expect(
-      find.byType(TextFormField),
-      findsNWidgets(7),
-    );
-
-    expect(
-      find.byType(DropdownButtonFormField<String>),
-      findsNWidgets(2),
-    );
-
-    expect(
-      find.text('Save Draft'),
-      findsOneWidget,
-    );
-
-    expect(
-      find.text('Publish'),
+      find.text('Friendly dog looking for a loving home.'),
       findsOneWidget,
     );
   });
 
-  testWidgets(
-    'validation prevents submission with missing required fields',
-    (tester) async {
-      final repository = _FakeAdoptionListingRepository();
-
-      await tester.pumpWidget(
-        _buildPage(repository: repository),
-      );
-
-      final publishButton = find.widgetWithText(
-        FilledButton,
-        'Publish',
-      );
-
-      expect(
-        publishButton,
-        findsOneWidget,
-      );
-
-      await tester.ensureVisible(publishButton);
-      await tester.pumpAndSettle();
-
-      await tester.tap(publishButton);
-      await tester.pumpAndSettle();
-
-      expect(
-        find.text('Please enter the pet name.'),
-        findsOneWidget,
-      );
-
-      expect(
-        find.text('Please enter location.'),
-        findsOneWidget,
-      );
-
-      expect(
-        find.text('Please enter description.'),
-        findsOneWidget,
-      );
-
-      expect(
-        repository.createdListing,
-        isNull,
-      );
-    },
-  );
-
-  testWidgets(
-    'save draft creates listing with draft status',
-    (tester) async {
-      final repository = _FakeAdoptionListingRepository();
-
-      await tester.pumpWidget(
-        _buildPage(repository: repository),
-      );
-
-      await tester.enterText(
-        find.byType(TextFormField).at(0),
-        'Buddy',
-      );
-
-      final speciesDropdown =
-          find.byType(DropdownButtonFormField<String>).at(0);
-
-      await _selectDropdownValue(
-        tester,
-        speciesDropdown,
-        'Dog',
-      );
-
-      final genderDropdown =
-          find.byType(DropdownButtonFormField<String>).at(1);
-
-      await _selectDropdownValue(
-        tester,
-        genderDropdown,
-        'Male',
-      );
-
-      final fields = find.byType(TextFormField);
-
-      await tester.enterText(
-        fields.at(3),
-        'Colombo',
-      );
-
-      await tester.enterText(
-        fields.at(4),
-        'Friendly dog looking for a loving home.',
-      );
-
-      final saveDraftButton = find.widgetWithText(
-        OutlinedButton,
-        'Save Draft',
-      );
-
-      expect(
-        saveDraftButton,
-        findsOneWidget,
-      );
-
-      await tester.ensureVisible(saveDraftButton);
-      await tester.pumpAndSettle();
-
-      await tester.tap(saveDraftButton);
-      await tester.pumpAndSettle();
-
-      expect(
-        repository.createdListing,
-        isNotNull,
-      );
-
-      expect(
-        repository.createdListing!.petName,
-        'Buddy',
-      );
-
-      expect(
-        repository.createdListing!.species,
-        'Dog',
-      );
-
-      expect(
-        repository.createdListing!.gender,
-        'Male',
-      );
-
-      expect(
-        repository.createdListing!.status,
-        'draft',
-      );
-    },
-  );
-
-  testWidgets(
-    'publish creates listing with available status',
-    (tester) async {
-      final repository = _FakeAdoptionListingRepository();
-
-      await tester.pumpWidget(
-        _buildPage(repository: repository),
-      );
-
-      await tester.enterText(
-        find.byType(TextFormField).at(0),
-        'Luna',
-      );
-
-      final speciesDropdown =
-          find.byType(DropdownButtonFormField<String>).at(0);
-
-      await _selectDropdownValue(
-        tester,
-        speciesDropdown,
-        'Cat',
-      );
-
-      final genderDropdown =
-          find.byType(DropdownButtonFormField<String>).at(1);
-
-      await _selectDropdownValue(
-        tester,
-        genderDropdown,
-        'Male',
-      );
-
-      final fields = find.byType(TextFormField);
-
-      await tester.enterText(
-        fields.at(3),
-        'Kandy',
-      );
-
-      await tester.enterText(
-        fields.at(4),
-        'Calm cat looking for a loving home.',
-      );
-
-      final publishButton = find.widgetWithText(
-        FilledButton,
-        'Publish',
-      );
-
-      expect(
-        publishButton,
-        findsOneWidget,
-      );
-
-      await tester.ensureVisible(publishButton);
-      await tester.pumpAndSettle();
-
-      await tester.tap(publishButton);
-      await tester.pumpAndSettle();
-
-      expect(
-        repository.createdListing,
-        isNotNull,
-      );
-
-      expect(
-        repository.createdListing!.status,
-        'available',
-      );
-    },
-  );
-
-  testWidgets(
-    'edit mode pre-fills existing listing',
-    (tester) async {
-      final repository = _FakeAdoptionListingRepository();
-      final listing = _createListing();
-
-      await tester.pumpWidget(
-        _buildPage(
-          repository: repository,
-          listing: listing,
-        ),
-      );
-
-      expect(
-        find.text('Edit Adoption Listing'),
-        findsOneWidget,
-      );
-
-      expect(
-        find.text('Buddy'),
-        findsOneWidget,
-      );
-
-      expect(
-        find.text('Labrador'),
-        findsOneWidget,
-      );
-
-      expect(
-        find.text('2 years'),
-        findsOneWidget,
-      );
-
-      expect(
-        find.text('Colombo'),
-        findsOneWidget,
-      );
-
-      expect(
-        find.text(
-          'Friendly dog looking for a loving home.',
-        ),
-        findsOneWidget,
-      );
-    },
-  );
-
-  testWidgets(
-    'update saves edited listing',
-    (tester) async {
-      final repository = _FakeAdoptionListingRepository();
-      final listing = _createListing();
-
-      await tester.pumpWidget(
-        _buildPage(
-          repository: repository,
-          listing: listing,
-        ),
-      );
-
-      final nameField = find.byType(TextFormField).at(0);
-
-      await tester.enterText(
-        nameField,
-        'Max',
-      );
-
-      final genderDropdown =
-          find.byType(DropdownButtonFormField<String>).at(1);
-
-      await _selectDropdownValue(
-        tester,
-        genderDropdown,
-        'Male',
-      );
-
-      final publishChangesButton = find.widgetWithText(
-        FilledButton,
-        'Publish Changes',
-      );
-
-      expect(
-        publishChangesButton,
-        findsOneWidget,
-      );
-
-      await tester.ensureVisible(publishChangesButton);
-      await tester.pumpAndSettle();
-
-      await tester.tap(publishChangesButton);
-      await tester.pumpAndSettle();
-
-      expect(
-        repository.updatedListing,
-        isNotNull,
-      );
-
-      expect(
-        repository.updatedListing!.listingId,
-        'listing-1',
-      );
-
-      expect(
-        repository.updatedListing!.petName,
-        'Max',
-      );
-
-      expect(
-        repository.updatedListing!.status,
-        'available',
-      );
-    },
-  );
-
-  testWidgets(
-    'shows error when repository save fails',
-    (tester) async {
-      final repository = _FakeAdoptionListingRepository(
-        createError: StateError('Network error'),
-      );
-
-      await tester.pumpWidget(
-        _buildPage(repository: repository),
-      );
-
-      await tester.enterText(
-        find.byType(TextFormField).at(0),
-        'Buddy',
-      );
-
-      final speciesDropdown =
-          find.byType(DropdownButtonFormField<String>).at(0);
-
-      await _selectDropdownValue(
-        tester,
-        speciesDropdown,
-        'Dog',
-      );
-
-      final genderDropdown =
-          find.byType(DropdownButtonFormField<String>).at(1);
-
-      await _selectDropdownValue(
-        tester,
-        genderDropdown,
-        'Male',
-      );
-
-      final fields = find.byType(TextFormField);
-
-      await tester.enterText(
-        fields.at(3),
-        'Colombo',
-      );
-
-      await tester.enterText(
-        fields.at(4),
-        'Friendly dog looking for a loving home.',
-      );
-
-      final saveDraftButton = find.widgetWithText(
-        OutlinedButton,
-        'Save Draft',
-      );
-
-      expect(
-        saveDraftButton,
-        findsOneWidget,
-      );
-
-      await tester.ensureVisible(saveDraftButton);
-      await tester.pumpAndSettle();
-
-      await tester.tap(saveDraftButton);
-      await tester.pumpAndSettle();
-
-      expect(
-        find.text(
-          'Unable to save the adoption listing.',
-        ),
-        findsOneWidget,
-      );
-    },
-  );
+  testWidgets('update saves edited listing', (tester) async {
+    final repository = _FakeAdoptionListingRepository();
+    final listing = _createListing();
+
+    await tester.pumpWidget(
+      _buildPage(repository: repository, listing: listing),
+    );
+
+    final nameField = find.byType(TextFormField).at(0);
+
+    await tester.enterText(nameField, 'Max');
+
+    final genderDropdown = find.byType(DropdownButtonFormField<String>).at(1);
+
+    await _selectDropdownValue(tester, genderDropdown, 'Male');
+
+    final publishChangesButton = find.widgetWithText(
+      FilledButton,
+      'Publish Changes',
+    );
+
+    expect(publishChangesButton, findsOneWidget);
+
+    await _scrollToButton(tester, publishChangesButton);
+
+    await tester.tap(publishChangesButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.updatedListing, isNotNull);
+
+    expect(repository.updatedListing!.listingId, 'listing-1');
+
+    expect(repository.updatedListing!.petName, 'Max');
+
+    expect(repository.updatedListing!.status, 'available');
+  });
+
+  testWidgets('shows error when repository save fails', (tester) async {
+    final repository = _FakeAdoptionListingRepository(
+      createError: StateError('Network error'),
+    );
+
+    await tester.pumpWidget(_buildPage(repository: repository));
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'Buddy');
+
+    final speciesDropdown = find.byType(DropdownButtonFormField<String>).at(0);
+
+    await _selectDropdownValue(tester, speciesDropdown, 'Dog');
+
+    final genderDropdown = find.byType(DropdownButtonFormField<String>).at(1);
+
+    await _selectDropdownValue(tester, genderDropdown, 'Male');
+
+    final fields = find.byType(TextFormField);
+
+    await tester.enterText(fields.at(3), 'Colombo');
+
+    await tester.enterText(
+      fields.at(4),
+      'Friendly dog looking for a loving home.',
+    );
+
+    final saveDraftButton = find.widgetWithText(OutlinedButton, 'Save Draft');
+
+    expect(saveDraftButton, findsOneWidget);
+
+    await _scrollToButton(tester, saveDraftButton);
+
+    await tester.tap(saveDraftButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unable to save the adoption listing.'), findsOneWidget);
+  });
+
+  testWidgets('shows error when updating listing fails', (tester) async {
+    final repository = _FakeAdoptionListingRepository(
+      updateError: StateError('Network error'),
+    );
+
+    await tester.pumpWidget(
+      _buildPage(repository: repository, listing: _createListing()),
+    );
+
+    final publishChangesButton = find.widgetWithText(
+      FilledButton,
+      'Publish Changes',
+    );
+
+    expect(publishChangesButton, findsOneWidget);
+
+    await _scrollToButton(tester, publishChangesButton);
+
+    await tester.tap(publishChangesButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unable to save the adoption listing.'), findsOneWidget);
+
+    expect(repository.updatedListing, isNull);
+  });
 }

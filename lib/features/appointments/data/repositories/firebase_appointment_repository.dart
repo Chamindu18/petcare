@@ -4,14 +4,22 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../domain/entities/appointment.dart';
 import '../../domain/repositories/appointment_repository.dart';
 import '../models/appointment_model.dart';
+import '../datasources/appointment_scheduling_datasource.dart';
+import '../../../notifications/data/notification_event.dart';
 
-class FirebaseAppointmentRepository implements AppointmentRepository {
+class FirebaseAppointmentRepository
+    implements AppointmentRepository, AppointmentAssignmentRepository {
   FirebaseAppointmentRepository({
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
+    AppointmentSchedulingDataSource? schedulingDataSource,
   }) : _auth = auth ?? FirebaseAuth.instance,
-       _firestore = firestore ?? FirebaseFirestore.instance;
+       _firestore = firestore ?? FirebaseFirestore.instance,
+       _scheduling =
+           schedulingDataSource ??
+           FirebaseAppointmentSchedulingDataSource(auth: auth);
 
+  final AppointmentSchedulingDataSource _scheduling;
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
 
@@ -32,31 +40,31 @@ class FirebaseAppointmentRepository implements AppointmentRepository {
 
   @override
   Future<Appointment> createAppointment(Appointment appointment) async {
-    final ownerId = _currentUserId;
-
-    // Let Firestore generate the appointment document ID.
-    final document = _appointmentsCollection.doc();
-
-    final persistedAppointment = Appointment(
-      appointmentId: document.id,
-      ownerId: ownerId,
-      petId: appointment.petId,
-      hospitalId: appointment.hospitalId,
-      serviceId: appointment.serviceId,
-      vetId: appointment.vetId,
-      dateTime: appointment.dateTime,
-      reason: appointment.reason,
-      status: appointment.status,
-      queueId: appointment.queueId,
-      createdAt: appointment.createdAt,
-    );
-
-    final appointmentModel = AppointmentModel.fromEntity(persistedAppointment);
-
-    await document.set(appointmentModel.toMap());
-
-    return persistedAppointment;
+    // Generate once before invoking the server, so transport retries can reuse
+    // the same request ID and cannot create another appointment silently.
+    _currentUserId;
+    final data = await _scheduling.reserve({
+      'action': 'create',
+      'appointmentId': _appointmentsCollection.doc().id,
+      'petId': appointment.petId,
+      'hospitalId': appointment.hospitalId,
+      'serviceId': appointment.serviceId,
+      'vetId': appointment.vetId,
+      'dateTime': appointment.dateTime.toUtc().toIso8601String(),
+      'reason': appointment.reason,
+    });
+    return AppointmentModel.fromMap(data);
   }
+
+  Map<String, dynamic> _schedule(Map<String, dynamic> data) => {
+    'vetId': data['vetId'],
+    'hospitalId': data['hospitalId'],
+    'serviceId': data['serviceId'],
+    'dateTime': data['dateTime'],
+    'status': data['status'],
+    if (data['durationMinutes'] != null)
+      'durationMinutes': data['durationMinutes'],
+  };
 
   @override
   Future<List<Appointment>> getAppointments() async {
@@ -67,7 +75,48 @@ class FirebaseAppointmentRepository implements AppointmentRepository {
         .get();
 
     return snapshot.docs
-        .map((document) => AppointmentModel.fromMap(document.data()))
+        .map(
+          (document) => AppointmentModel.fromMap({
+            ...document.data(),
+            'appointmentId': document.id,
+          }),
+        )
+        .toList();
+  }
+
+  @override
+  Future<List<Appointment>> getAppointmentsByHospital(String hospitalId) async {
+    final snapshot = await _appointmentsCollection
+        .where('hospitalId', isEqualTo: hospitalId)
+        .get();
+
+    return snapshot.docs
+        .map(
+          (document) => AppointmentModel.fromMap({
+            ...document.data(),
+            'appointmentId': document.id,
+          }),
+        )
+        .toList();
+  }
+
+  @override
+  Future<List<Appointment>> getAppointmentsByVeterinarian({
+    required String vetId,
+    required String hospitalId,
+  }) async {
+    final snapshot = await _appointmentsCollection
+        .where('vetId', isEqualTo: vetId)
+        .where('hospitalId', isEqualTo: hospitalId)
+        .get();
+
+    return snapshot.docs
+        .map(
+          (document) => AppointmentModel.fromMap({
+            ...document.data(),
+            'appointmentId': document.id,
+          }),
+        )
         .toList();
   }
 
@@ -87,53 +136,167 @@ class FirebaseAppointmentRepository implements AppointmentRepository {
       return null;
     }
 
-    return AppointmentModel.fromMap(data);
+    return AppointmentModel.fromMap({...data, 'appointmentId': document.id});
   }
 
   @override
   Future<void> updateAppointment(Appointment appointment) async {
-    final ownerId = _currentUserId;
-
-    final document = await _appointmentsCollection
-        .doc(appointment.appointmentId)
-        .get();
-
-    if (!document.exists) {
-      throw const AppointmentRepositoryException('Appointment was not found.');
-    }
-
-    final existingData = document.data();
-
-    if (existingData == null || existingData['ownerId'] != ownerId) {
-      throw const AppointmentRepositoryException(
-        'You are not authorized to update this appointment.',
-      );
-    }
-
-    final appointmentModel = AppointmentModel.fromEntity(
-      Appointment(
-        appointmentId: appointment.appointmentId,
-        ownerId: ownerId,
-        petId: appointment.petId,
-        hospitalId: appointment.hospitalId,
-        serviceId: appointment.serviceId,
-        vetId: appointment.vetId,
-        dateTime: appointment.dateTime,
-        reason: appointment.reason,
-        status: appointment.status,
-        queueId: appointment.queueId,
-        createdAt: appointment.createdAt,
-      ),
-    );
-
-    await document.reference.update(appointmentModel.toMap());
+    _currentUserId;
+    await _scheduling.reserve({
+      'action': 'update',
+      'appointmentId': appointment.appointmentId,
+      'hospitalId': appointment.hospitalId,
+      'serviceId': appointment.serviceId,
+      'vetId': appointment.vetId,
+      'dateTime': appointment.dateTime.toUtc().toIso8601String(),
+      'reason': appointment.reason,
+    });
   }
 
   @override
-  Future<void> cancelAppointment(String appointmentId) async {
-    throw UnimplementedError(
-      'Appointment cancellation requires the agreed appointment status value.',
+  Future<void> reassignVeterinarian({
+    required String appointmentId,
+    required String hospitalId,
+    required String vetId,
+  }) async {
+    _currentUserId;
+    await _scheduling.reserve({
+      'action': 'reassign',
+      'appointmentId': appointmentId,
+      'hospitalId': hospitalId,
+      'vetId': vetId,
+    });
+  }
+
+  @override
+  Future<void> cancelAppointment(String appointmentId) {
+    return _transitionAppointmentStatus(
+      appointmentId: appointmentId,
+      allowedCurrentStatuses: const {'pending', 'confirmed'},
+      nextStatus: 'cancelled',
+      failureMessage:
+          'Only pending or confirmed appointments can be cancelled.',
     );
+  }
+
+  @override
+  Future<void> confirmAppointment(String appointmentId) {
+    return _transitionAppointmentStatus(
+      appointmentId: appointmentId,
+      allowedCurrentStatuses: const {'pending'},
+      nextStatus: 'confirmed',
+      failureMessage: 'Only pending appointments can be confirmed.',
+    );
+  }
+
+  @override
+  Future<void> rejectAppointment(String appointmentId) {
+    return _transitionAppointmentStatus(
+      appointmentId: appointmentId,
+      allowedCurrentStatuses: const {'pending'},
+      nextStatus: 'rejected',
+      failureMessage: 'Only pending appointments can be rejected.',
+    );
+  }
+
+  /// Applies an appointment status transition atomically.
+  ///
+  /// Firestore retries transactions when the document changes concurrently.
+  /// Authorization must still be enforced by Firestore security rules.
+  Future<void> _transitionAppointmentStatus({
+    required String appointmentId,
+    required Set<String> allowedCurrentStatuses,
+    required String nextStatus,
+    required String failureMessage,
+  }) async {
+    final appointmentReference = _appointmentsCollection.doc(appointmentId);
+
+    Future<void> runTransition({required bool includeVetCancellation}) {
+      return _firestore.runTransaction<void>((transaction) async {
+        final snapshot = await transaction.get(appointmentReference);
+
+        if (!snapshot.exists) {
+          throw const AppointmentRepositoryException(
+            'Appointment was not found.',
+          );
+        }
+
+        final data = snapshot.data();
+
+        if (data == null) {
+          throw const AppointmentRepositoryException(
+            'Appointment data was not found.',
+          );
+        }
+
+        final currentStatus = data['status'];
+
+        if (currentStatus is! String ||
+            !allowedCurrentStatuses.contains(currentStatus)) {
+          throw AppointmentRepositoryException(failureMessage);
+        }
+
+        transaction.set(
+          _firestore.collection('appointment_schedule').doc(appointmentId),
+          _schedule({...data, 'status': nextStatus}),
+        );
+        transaction.update(appointmentReference, {
+          'status': nextStatus,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        if (nextStatus == 'confirmed' || nextStatus == 'rejected') {
+          NotificationEvent.create(
+            transaction,
+            _firestore,
+            recipientId: data['ownerId'] as String,
+            type: 'appointment_$nextStatus',
+            message: nextStatus == 'confirmed'
+                ? 'Your appointment was confirmed.'
+                : 'Your appointment was rejected.',
+            targetType: 'appointment',
+            targetId: appointmentId,
+            details: {'appointmentTime': data['dateTime']},
+          );
+        }
+        if (nextStatus == 'cancelled' && includeVetCancellation) {
+          final recipientId =
+              await NotificationEvent.resolveVeterinarianRecipient(
+                transaction,
+                _firestore,
+                veterinarianId: data['vetId'] as String? ?? '',
+                hospitalId: data['hospitalId'] as String? ?? '',
+              );
+          if (recipientId != null) {
+            NotificationEvent.create(
+              transaction,
+              _firestore,
+              recipientId: recipientId,
+              type: 'appointment_cancelled_veterinarian',
+              message:
+                  'An appointment assigned to you was cancelled by the owner.',
+              targetType: 'appointment',
+              targetId: appointmentId,
+              details: {'appointmentTime': data['dateTime']},
+            );
+          }
+        }
+      });
+    }
+
+    if (nextStatus != 'cancelled') {
+      await runTransition(includeVetCancellation: false);
+      return;
+    }
+
+    try {
+      await runTransition(includeVetCancellation: true);
+    } on FirebaseException catch (error) {
+      // A malformed legacy veterinarian/Auth link must not block an otherwise
+      // authorized owner cancellation. Rules reject only the optional notice;
+      // retrying without it preserves the existing cancellation transition.
+      if (error.code != 'permission-denied') rethrow;
+      await runTransition(includeVetCancellation: false);
+    }
   }
 }
 

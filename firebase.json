@@ -37,6 +37,27 @@
       "enabled": true,
       "port": 4000
     },
-    "singleProjectMode": true
-  }
+    "singleProjectMode": true,
+    "firestore": {
+      "port": 8080
+    },
+    "functions": {
+      "port": 5001
+    },
+    "auth": {
+      "port": 9099
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "appointments",
+      "runtime": "nodejs22",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "*.log"
+      ]
+    }
+  ]
 }

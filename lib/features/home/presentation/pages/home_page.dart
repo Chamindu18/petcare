@@ -7,12 +7,17 @@ import '../../../notifications/domain/repositories/notification_repository.dart'
 import '../../../notifications/presentation/providers/notification_provider.dart';
 import '../../../pets/domain/entities/pet.dart';
 import '../../../pets/presentation/providers/pets_controller.dart';
+import 'pet_care_tips_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
     required this.petsController,
     required this.onMyPetsTap,
     required this.onAddPetTap,
+    required this.onAppointmentsTap,
+    required this.onAskAITap,
+    required this.onVeterinariansTap,
+    required this.onProfileTap,
     required this.userName,
     required this.photoUrl,
     this.notificationRepository,
@@ -22,6 +27,10 @@ class HomePage extends StatefulWidget {
   final PetsController petsController;
   final VoidCallback onMyPetsTap;
   final VoidCallback onAddPetTap;
+  final VoidCallback onAppointmentsTap;
+  final VoidCallback onAskAITap;
+  final VoidCallback onVeterinariansTap;
+  final VoidCallback onProfileTap;
   final String userName;
   final String? photoUrl;
   final NotificationRepository? notificationRepository;
@@ -67,6 +76,10 @@ class _HomePageState extends State<HomePage> {
     Navigator.pushNamed(context, AppRouter.notifications);
   }
 
+  void _openHospitals() {
+    Navigator.pushNamed(context, AppRouter.hospitalDiscovery);
+  }
+
   String get _greeting {
     final hour = DateTime.now().hour;
 
@@ -107,6 +120,7 @@ class _HomePageState extends State<HomePage> {
                           photoUrl: widget.photoUrl,
                           unreadCount: _notificationProvider.unreadCount,
                           onNotificationsTap: _openNotifications,
+                          onProfileTap: widget.onProfileTap,
                         ),
                         const SizedBox(height: 22),
                         _GreetingSection(
@@ -129,23 +143,38 @@ class _HomePageState extends State<HomePage> {
                           onAddPetTap: widget.onAddPetTap,
                         ),
                         const SizedBox(height: 24),
-                        const _SectionHeader(
-                          title: 'Quick Actions',
-                          actionLabel: 'See All',
-                        ),
+                        const _SectionHeader(title: 'Quick Actions'),
                         const SizedBox(height: 10),
-                        _QuickActions(onNotificationsTap: _openNotifications),
+                        _QuickActions(
+                          onNotificationsTap: _openNotifications,
+                          onHospitalsTap: _openHospitals,
+                          onAppointmentsTap: widget.onAppointmentsTap,
+                          onAskAITap: widget.onAskAITap,
+                          onVeterinariansTap: widget.onVeterinariansTap,
+                        ),
+
                         const SizedBox(height: 24),
-                        const _SectionHeader(
-                          title: 'Upcoming Appointment',
+                        _SectionHeader(
+                          title: 'Appointments',
                           actionLabel: 'See All',
+                          onActionTap: widget.onAppointmentsTap,
                         ),
                         const SizedBox(height: 10),
-                        const _EmptyAppointmentCard(),
                         const SizedBox(height: 24),
                         const _SectionHeader(title: 'More for Your Pets'),
                         const SizedBox(height: 10),
-                        const _HelpfulResources(),
+                        _HelpfulResources(
+                          onPetCareTipsTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const PetCareTipsPage(),
+                            ),
+                          ),
+                          onAdoptionTap: () => Navigator.pushNamed(
+                            context,
+                            AppRouter.ownerRehomingDashboard,
+                          ),
+                        ),
                       ]),
                     ),
                   ),
@@ -227,12 +256,14 @@ class _HomeHeader extends StatelessWidget {
     required this.photoUrl,
     required this.unreadCount,
     required this.onNotificationsTap,
+    required this.onProfileTap,
   });
 
   final String userName;
   final String? photoUrl;
   final int unreadCount;
   final VoidCallback onNotificationsTap;
+  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
@@ -300,34 +331,46 @@ class _HomeHeader extends StatelessWidget {
         ),
 
         const SizedBox(width: 10),
-        Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            color: AppTheme.secondary.withValues(alpha: 0.22),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppTheme.secondary.withValues(alpha: 0.35),
+        Tooltip(
+          message: 'Open profile',
+          child: Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: onProfileTap,
+              customBorder: const CircleBorder(),
+              child: Ink(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary.withValues(alpha: 0.22),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppTheme.secondary.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: ClipOval(
+                  child: photoUrl == null || photoUrl!.isEmpty
+                      ? const Icon(
+                          Icons.person_rounded,
+                          color: AppTheme.deepBrown,
+                          size: 24,
+                        )
+                      : Image.network(
+                          photoUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(
+                              Icons.person_rounded,
+                              color: AppTheme.deepBrown,
+                              size: 24,
+                            );
+                          },
+                        ),
+                ),
+              ),
             ),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: photoUrl == null
-              ? const Icon(
-                  Icons.person_rounded,
-                  color: AppTheme.deepBrown,
-                  size: 24,
-                )
-              : Image.network(
-                  photoUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Icon(
-                      Icons.person_rounded,
-                      color: AppTheme.deepBrown,
-                      size: 24,
-                    );
-                  },
-                ),
         ),
       ],
     );
@@ -809,10 +852,19 @@ class _PetImageFallback extends StatelessWidget {
 // -----------------------------------------------------------------------------
 
 class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.onNotificationsTap});
+  const _QuickActions({
+    required this.onNotificationsTap,
+    required this.onHospitalsTap,
+    required this.onAppointmentsTap,
+    required this.onAskAITap,
+    required this.onVeterinariansTap,
+  });
 
   final VoidCallback onNotificationsTap;
-
+  final VoidCallback onHospitalsTap;
+  final VoidCallback onAppointmentsTap;
+  final VoidCallback onAskAITap;
+  final VoidCallback onVeterinariansTap;
   @override
   Widget build(BuildContext context) {
     return GridView.count(
@@ -830,20 +882,26 @@ class _QuickActions extends StatelessWidget {
           enabled: true,
           onTap: onNotificationsTap,
         ),
-        const _QuickActionCard(
-          icon: Icons.calendar_month_rounded,
-          title: 'Appointments',
-          subtitle: 'Coming soon',
+        _QuickActionCard(
+          icon: Icons.medical_services_outlined,
+          title: 'Find Veterinarians',
+          subtitle: 'Find a veterinarian',
+          enabled: true,
+          onTap: onVeterinariansTap,
         ),
-        const _QuickActionCard(
+        _QuickActionCard(
           icon: Icons.psychology_rounded,
-          title: 'AI Assistant',
-          subtitle: 'Coming soon',
+          title: 'Ask AI',
+          subtitle: 'Get pet care advice',
+          enabled: true,
+          onTap: onAskAITap,
         ),
-        const _QuickActionCard(
-          icon: Icons.location_on_rounded,
-          title: 'Find Vets',
-          subtitle: 'Coming soon',
+        _QuickActionCard(
+          icon: Icons.local_hospital_rounded,
+          title: 'Find Hospitals',
+          subtitle: 'Find nearby care',
+          enabled: true,
+          onTap: onHospitalsTap,
         ),
       ],
     );
@@ -935,113 +993,37 @@ class _QuickActionCard extends StatelessWidget {
 }
 
 // -----------------------------------------------------------------------------
-// Appointment
-// -----------------------------------------------------------------------------
-
-class _EmptyAppointmentCard extends StatelessWidget {
-  const _EmptyAppointmentCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.24)),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.deepBrown.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 55,
-            height: 55,
-            decoration: BoxDecoration(
-              color: AppTheme.secondary.withValues(alpha: 0.18),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.calendar_month_rounded,
-              color: AppTheme.deepBrown,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'No appointments yet',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppTheme.espresso,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Your upcoming appointments will appear here.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.deepBrown,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: AppTheme.background,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.arrow_forward_rounded,
-              color: AppTheme.deepBrown,
-              size: 18,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// -----------------------------------------------------------------------------
 // Helpful resources
 // -----------------------------------------------------------------------------
 
 class _HelpfulResources extends StatelessWidget {
-  const _HelpfulResources();
+  const _HelpfulResources({
+    required this.onPetCareTipsTap,
+    required this.onAdoptionTap,
+  });
+
+  final VoidCallback onPetCareTipsTap;
+  final VoidCallback onAdoptionTap;
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       children: [
         Expanded(
           child: _ResourceCard(
             icon: Icons.lightbulb_outline_rounded,
             title: 'Pet Care Tips',
             subtitle: 'Helpful guidance',
+            onTap: onPetCareTipsTap,
           ),
         ),
-        SizedBox(width: 10),
+        const SizedBox(width: 10),
         Expanded(
           child: _ResourceCard(
             icon: Icons.favorite_border_rounded,
             title: 'Adoption',
-            subtitle: 'Coming soon',
+            subtitle: 'Adoption & rehoming',
+            onTap: onAdoptionTap,
           ),
         ),
       ],
@@ -1054,64 +1036,70 @@ class _ResourceCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 92,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppTheme.secondary.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(12),
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        height: 92,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTheme.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.22)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppTheme.secondary.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: AppTheme.deepBrown, size: 21),
             ),
-            child: Icon(icon, color: AppTheme.deepBrown, size: 21),
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.espresso,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.espresso,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.deepBrown,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.deepBrown,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

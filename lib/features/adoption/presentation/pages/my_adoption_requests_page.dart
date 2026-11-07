@@ -4,12 +4,18 @@ import '../../../../app/theme/app_theme.dart';
 import '../../data/repositories/firebase_adoption_request_repository.dart';
 import '../../domain/entities/adoption_request.dart';
 import '../../domain/repositories/adoption_request_repository.dart';
+import '../../domain/repositories/adoption_request_withdrawal_repository.dart';
 import '../providers/my_adoption_requests_provider.dart';
 
 class MyAdoptionRequestsPage extends StatefulWidget {
-  const MyAdoptionRequestsPage({super.key, this.adoptionRequestRepository});
+  const MyAdoptionRequestsPage({
+    super.key,
+    this.adoptionRequestRepository,
+    this.withdrawalRepository,
+  });
 
   final AdoptionRequestRepository? adoptionRequestRepository;
+  final AdoptionRequestWithdrawalRepository? withdrawalRepository;
 
   @override
   State<MyAdoptionRequestsPage> createState() => _MyAdoptionRequestsPageState();
@@ -17,16 +23,26 @@ class MyAdoptionRequestsPage extends StatefulWidget {
 
 class _MyAdoptionRequestsPageState extends State<MyAdoptionRequestsPage> {
   late final MyAdoptionRequestsProvider _provider;
+  late final AdoptionRequestWithdrawalRepository? _withdrawalRepository;
 
   @override
   void initState() {
     super.initState();
 
-    _provider = MyAdoptionRequestsProvider(
-      repository:
-          widget.adoptionRequestRepository ??
-          FirebaseAdoptionRequestRepository(),
-    );
+    final AdoptionRequestRepository repository =
+        widget.adoptionRequestRepository ?? FirebaseAdoptionRequestRepository();
+    _provider = MyAdoptionRequestsProvider(repository: repository);
+
+    final injectedWithdrawalRepository = widget.withdrawalRepository;
+    if (injectedWithdrawalRepository != null) {
+      _withdrawalRepository = injectedWithdrawalRepository;
+    } else if (repository is AdoptionRequestWithdrawalRepository) {
+      // The explicit cast avoids Dart inferring Object? for the conditional
+      // expression when the repository implements two unrelated interfaces.
+      _withdrawalRepository = repository as AdoptionRequestWithdrawalRepository;
+    } else {
+      _withdrawalRepository = null;
+    }
 
     _provider.startListening();
   }
@@ -35,6 +51,47 @@ class _MyAdoptionRequestsPageState extends State<MyAdoptionRequestsPage> {
   void dispose() {
     _provider.dispose();
     super.dispose();
+  }
+
+  Future<void> _confirmWithdrawal(AdoptionRequest request) async {
+    final repository = _withdrawalRepository;
+    if (repository == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Withdraw this adoption request?'),
+        content: const Text(
+          'The request will be marked Withdrawn and retained in your history.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Keep request'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Withdraw'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await repository.withdrawRequest(requestId: request.requestId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Adoption request withdrawn.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to withdraw this request. Refresh and try again.'),
+        ),
+      );
+    }
   }
 
   @override
@@ -62,7 +119,14 @@ class _MyAdoptionRequestsPageState extends State<MyAdoptionRequestsPage> {
             itemCount: _provider.requests.length,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
-              return _AdoptionRequestCard(request: _provider.requests[index]);
+              final request = _provider.requests[index];
+              return _AdoptionRequestCard(
+                request: request,
+                onWithdraw: request.status.toLowerCase() == 'pending' &&
+                        _withdrawalRepository != null
+                    ? () => _confirmWithdrawal(request)
+                    : null,
+              );
             },
           );
         },
@@ -72,9 +136,10 @@ class _MyAdoptionRequestsPageState extends State<MyAdoptionRequestsPage> {
 }
 
 class _AdoptionRequestCard extends StatelessWidget {
-  const _AdoptionRequestCard({required this.request});
+  const _AdoptionRequestCard({required this.request, this.onWithdraw});
 
   final AdoptionRequest request;
+  final VoidCallback? onWithdraw;
 
   @override
   Widget build(BuildContext context) {
@@ -123,6 +188,17 @@ class _AdoptionRequestCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium
                           ?.copyWith(color: AppTheme.espresso),
+                    ),
+                  ],
+                  if (onWithdraw != null) ...[
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: onWithdraw,
+                        icon: const Icon(Icons.undo_rounded, size: 18),
+                        label: const Text('Withdraw request'),
+                      ),
                     ),
                   ],
                 ],

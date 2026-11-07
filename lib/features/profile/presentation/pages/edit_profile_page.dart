@@ -38,7 +38,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
 
     _fullNameController = TextEditingController(text: widget.profile.fullName);
-
     _phoneController = TextEditingController(text: widget.profile.phone);
   }
 
@@ -50,10 +49,69 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.dispose();
   }
 
+  String _normalizeFullName(String value) {
+    return value.trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  String _normalizePhone(String value) {
+    return value.trim().replaceAll(RegExp(r'[\s()-]'), '');
+  }
+
+  String? _validateFullName(String? value) {
+    final fullName = _normalizeFullName(value ?? '');
+
+    if (fullName.isEmpty) {
+      return 'Full name is required.';
+    }
+
+    if (fullName.runes.length < 2) {
+      return 'Full name must contain at least 2 characters.';
+    }
+
+    if (fullName.runes.length > 80) {
+      return 'Full name must not exceed 80 characters.';
+    }
+
+    if (RegExp(r'\d').hasMatch(fullName)) {
+      return 'Full name cannot contain numbers.';
+    }
+
+    return null;
+  }
+
+  String? _validatePhone(String? value) {
+    final phone = _normalizePhone(value ?? '');
+
+    // A phone number is optional for accounts without a contact number.
+    if (phone.isEmpty) {
+      return null;
+    }
+
+    final isLocalNumber = RegExp(r'^0[1-9]\d{8}$').hasMatch(phone);
+    final isInternationalNumber = RegExp(r'^\+94[1-9]\d{8}$').hasMatch(phone);
+
+    if (!isLocalNumber && !isInternationalNumber) {
+      return 'Enter a valid Sri Lankan number '
+          '(e.g. 0771234567 or +94771234567).';
+    }
+
+    return null;
+  }
+
   Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) {
+    // Protect against repeated submissions from any entry point.
+    if (_isSaving) {
       return;
     }
+
+    final form = _formKey.currentState;
+
+    if (form == null || !form.validate()) {
+      return;
+    }
+
+    final fullName = _normalizeFullName(_fullNameController.text);
+    final phone = _normalizePhone(_phoneController.text);
 
     FocusScope.of(context).unfocus();
 
@@ -62,10 +120,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     });
 
     try {
-      await _profileProvider.updateProfile(
-        fullName: _fullNameController.text,
-        phone: _phoneController.text,
-      );
+      await _profileProvider.updateProfile(fullName: fullName, phone: phone);
 
       if (!mounted) {
         return;
@@ -76,16 +131,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
       );
 
       Navigator.of(context).pop();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to update your profile. Please try again.'),
-        ),
-      );
+      final message = error is ProfileRepositoryException
+          ? error.message
+          : 'Unable to update your profile. Please try again.';
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) {
         setState(() {
@@ -93,14 +149,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
         });
       }
     }
-  }
-
-  String? _validateFullName(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Full name is required.';
-    }
-
-    return null;
   }
 
   @override
@@ -130,6 +178,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
             TextFormField(
               controller: _fullNameController,
               textInputAction: TextInputAction.next,
+              textCapitalization: TextCapitalization.words,
+              autofillHints: const [AutofillHints.name],
+              maxLength: 80,
               enabled: !_isSaving,
               decoration: const InputDecoration(
                 labelText: 'Full Name',
@@ -142,11 +193,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
               controller: _phoneController,
               keyboardType: TextInputType.phone,
               textInputAction: TextInputAction.done,
+              autofillHints: const [AutofillHints.telephoneNumber],
               enabled: !_isSaving,
               decoration: const InputDecoration(
                 labelText: 'Phone Number',
+                hintText: '0771234567 or +94771234567',
                 prefixIcon: Icon(Icons.phone_outlined),
               ),
+              validator: _validatePhone,
               onFieldSubmitted: (_) => _saveProfile(),
             ),
             const SizedBox(height: 28),
@@ -154,11 +208,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
               height: 52,
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _saveProfile,
+                style: ElevatedButton.styleFrom(
+                  disabledBackgroundColor: AppTheme.primary.withValues(
+                    alpha: 0.65,
+                  ),
+                  disabledForegroundColor: AppTheme.white,
+                ),
                 child: _isSaving
                     ? const SizedBox(
                         width: 22,
                         height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppTheme.white,
+                          ),
+                        ),
                       )
                     : const Text('Save Changes'),
               ),

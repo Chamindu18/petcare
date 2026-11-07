@@ -28,6 +28,7 @@ class FirebaseProfileRepository implements ProfileRepository {
     return user.uid;
   }
 
+  
   @override
   Stream<UserProfile?> watchCurrentProfile() {
     final userId = _currentUserId;
@@ -37,7 +38,13 @@ class FirebaseProfileRepository implements ProfileRepository {
         return null;
       }
 
-      return UserProfileModel.fromMap(snapshot.data()!);
+      final authUser = _auth.currentUser;
+
+      return UserProfileModel.fromMap(
+        snapshot.data()!,
+        uid: snapshot.id,
+        photoUrl: authUser?.photoURL,
+      );
     });
   }
 
@@ -46,7 +53,13 @@ class FirebaseProfileRepository implements ProfileRepository {
     required String fullName,
     required String phone,
   }) async {
-    final userId = _currentUserId;
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      throw const ProfileRepositoryException(
+        'You must be signed in to update your profile.',
+      );
+    }
 
     final normalizedFullName = fullName.trim();
     final normalizedPhone = phone.trim();
@@ -55,14 +68,39 @@ class FirebaseProfileRepository implements ProfileRepository {
       throw const ProfileRepositoryException('Full name cannot be empty.');
     }
 
-    await _usersCollection.doc(userId).update({
-      'fullName': normalizedFullName,
-      'displayName': normalizedFullName,
-      'phone': normalizedPhone,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    final previousDisplayName = user.displayName;
 
-    await _auth.currentUser?.updateDisplayName(normalizedFullName);
+    // Update Auth first because the home dashboard reads this display name.
+    try {
+      await user.updateDisplayName(normalizedFullName);
+    } catch (_) {
+      throw const ProfileRepositoryException(
+        'Unable to update your account name. Please try again.',
+      );
+    }
+
+    try {
+      await _usersCollection.doc(user.uid).update({
+        'fullName': normalizedFullName,
+        'displayName': normalizedFullName,
+        'phone': normalizedPhone,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {
+      // Firestore failed after Auth was updated.
+      // Attempt to restore the previous Auth display name.
+      try {
+        await user.updateDisplayName(previousDisplayName);
+      } catch (_) {
+        throw const ProfileRepositoryException(
+          'Your account name changed, but your profile could not be saved '
+          'and the previous name could not be restored. Please contact '
+          'support before retrying.',
+        );
+      }
+
+      rethrow;
+    }
   }
 
   @override

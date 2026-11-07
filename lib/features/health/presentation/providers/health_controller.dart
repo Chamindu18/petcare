@@ -311,4 +311,10 @@ class HealthController extends ChangeNotifier {
     _isLoading = value;
     notifyListeners();
   }
+
+  bool get hasData =>
+      _medicalConditions.isNotEmpty ||
+      _vaccinations.isNotEmpty ||
+      _treatments.isNotEmpty ||
+      _healthMeasurements.isNotEmpty;
 }

@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../app/router/app_router.dart';
 import '../../data/repositories/firebase_notification_repository.dart';
 import '../../domain/entities/notification.dart' as notification_entity;
 import '../providers/notification_provider.dart';
 import '../../domain/repositories/notification_repository.dart';
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key, this.notificationRepository});
+  const NotificationsPage({
+    super.key,
+    this.notificationRepository,
+    this.onOpenAppointment,
+    this.onOpenAppointmentById,
+  });
 
   final NotificationRepository? notificationRepository;
+  final VoidCallback? onOpenAppointment;
+  final ValueChanged<String>? onOpenAppointmentById;
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
 }
@@ -81,8 +89,33 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
               return _NotificationCard(
                 notification: notification,
-                onTap: () {
-                  _notificationProvider.markAsRead(notification.notificationId);
+                onTap: () async {
+                  await _notificationProvider.markAsRead(
+                    notification.notificationId,
+                  );
+                  if (!context.mounted) return;
+                  if (notification.targetType == 'appointment') {
+                    if (widget.onOpenAppointmentById != null) {
+                      widget.onOpenAppointmentById!(notification.targetId);
+                      return;
+                    }
+                    if (widget.onOpenAppointment != null) {
+                      widget.onOpenAppointment!();
+                      return;
+                    }
+                  }
+                  final route = switch (notification.targetType) {
+                    'appointment' || 'queue' => AppRouter.myAppointments,
+                    'adoption_request'
+                        when notification.type ==
+                                'adoption_request_submitted' ||
+                            notification.type ==
+                                'adoption_request_withdrawn' =>
+                      AppRouter.adoptionRequests,
+                    'adoption_request' => AppRouter.myAdoptionRequests,
+                    _ => null,
+                  };
+                  if (route != null) Navigator.of(context).pushNamed(route);
                 },
               );
             },
@@ -130,6 +163,16 @@ class _NotificationCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
+                      _titleFor(notification.type),
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: AppTheme.espresso,
+                        fontWeight: notification.read
+                            ? FontWeight.w500
+                            : FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
                       notification.message,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppTheme.espresso,
@@ -138,6 +181,22 @@ class _NotificationCard extends StatelessWidget {
                             : FontWeight.w600,
                       ),
                     ),
+                    if (notification.appointmentTime case final time?) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Scheduled: ${time.toLocal().day}/${time.toLocal().month}/${time.toLocal().year} '
+                        '${time.toLocal().hour.toString().padLeft(2, '0')}:'
+                        '${time.toLocal().minute.toString().padLeft(2, '0')}',
+                      ),
+                    ],
+                    if (notification.queueNumber case final number?) ...[
+                      const SizedBox(height: 4),
+                      Text('Queue number: $number'),
+                    ],
+                    if (notification.listingName case final name?) ...[
+                      const SizedBox(height: 4),
+                      Text('Listing: $name'),
+                    ],
                     const SizedBox(height: 6),
                     Text(
                       _formatDate(notification.createdAt),
@@ -165,6 +224,28 @@ class _NotificationCard extends StatelessWidget {
       ),
     );
   }
+
+  String _titleFor(String type) => switch (type) {
+    'appointment_requested' => 'New appointment request',
+    'appointment_assigned' => 'New appointment assigned',
+    'appointment_reassigned' => 'Appointment reassigned',
+    'appointment_unassigned' => 'Appointment removed',
+    'appointment_cancelled_veterinarian' => 'Appointment cancelled',
+    'appointment_confirmed' => 'Appointment confirmed',
+    'appointment_rejected' => 'Appointment rejected',
+    'queue_checked_in' => 'Queue check-in',
+    'patient_checked_in' => 'Patient checked in',
+    'queue_called' => 'Called to consultation',
+    'queue_in_consultation' => 'Consultation started',
+    'queue_completed' => 'Consultation completed',
+    'queue_skipped' => 'Queue entry skipped',
+    'queue_cancelled' => 'Queue entry cancelled',
+    'adoption_accepted' => 'Adoption request accepted',
+    'adoption_rejected' => 'Adoption request rejected',
+    'adoption_request_submitted' => 'New adoption request',
+    'adoption_request_withdrawn' => 'Adoption request withdrawn',
+    _ => 'Notification',
+  };
 
   String _formatDate(DateTime dateTime) {
     final now = DateTime.now();

@@ -124,23 +124,6 @@ class _SearchAndFilterSection extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 10),
-          SizedBox(
-            height: 52,
-            width: 52,
-            child: OutlinedButton(
-              onPressed: () {},
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.deepBrown,
-                side: const BorderSide(color: AppTheme.secondary),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                padding: EdgeInsets.zero,
-              ),
-              child: const Icon(Icons.tune_rounded),
-            ),
-          ),
         ],
       ),
     );
@@ -236,41 +219,41 @@ class _ListingImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (imageAsset == null || imageAsset!.isEmpty) {
-      return Container(
-        width: 88,
-        height: 88,
-        decoration: BoxDecoration(
-          color: AppTheme.secondary,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: const Icon(
-          Icons.pets_rounded,
-          size: 36,
-          color: AppTheme.deepBrown,
-        ),
-      );
+    final imageUrl = imageAsset?.trim();
+
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return _buildPlaceholder();
     }
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
-      child: Image.asset(
-        imageAsset!,
-        width: 88,
-        height: 88,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) {
-          return Container(
-            width: 88,
-            height: 88,
-            color: AppTheme.secondary,
-            child: const Icon(
-              Icons.pets_rounded,
-              size: 36,
-              color: AppTheme.deepBrown,
-            ),
-          );
-        },
+      child: SizedBox(
+        width: 110,
+        height: 110,
+        child: Image.network(
+          imageUrl,
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) {
+            return _buildPlaceholder();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      width: 110,
+      height: 110,
+      decoration: BoxDecoration(
+        color: AppTheme.secondary,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.pets_rounded,
+        size: 36,
+        color: AppTheme.deepBrown,
       ),
     );
   }

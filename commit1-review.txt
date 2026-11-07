@@ -1,0 +1,269 @@
+diff --git a/lib/features/queue/domain/entities/queue_status.dart b/lib/features/queue/domain/entities/queue_status.dart
+index a2628dd..0c2788a 100644
+--- a/lib/features/queue/domain/entities/queue_status.dart
++++ b/lib/features/queue/domain/entities/queue_status.dart
+@@ -56,4 +56,35 @@ enum QueueStatus {
+   /// Whether the patient has been called or is in consultation.
+   bool get isInProgress =>
+       this == QueueStatus.called || this == QueueStatus.inConsultation;
++
++  /// Whether this status may move directly to [next].
++  ///
++  /// The main lifecycle is waiting -> called -> in_consultation -> completed.
++  /// Active entries may also become skipped or cancelled. Terminal entries
++  /// cannot be reopened.
++  bool canTransitionTo(QueueStatus next) {
++    if (isTerminal || this == next) return false;
++
++    return switch (this) {
++      QueueStatus.waiting => switch (next) {
++        QueueStatus.called ||
++        QueueStatus.skipped ||
++        QueueStatus.cancelled => true,
++        _ => false,
++      },
++      QueueStatus.called => switch (next) {
++        QueueStatus.inConsultation ||
++        QueueStatus.skipped ||
++        QueueStatus.cancelled => true,
++        _ => false,
++      },
++      QueueStatus.inConsultation => switch (next) {
++        QueueStatus.completed || QueueStatus.cancelled => true,
++        _ => false,
++      },
++      QueueStatus.completed ||
++      QueueStatus.skipped ||
++      QueueStatus.cancelled => false,
++    };
++  }
+ }
+diff --git a/lib/features/queue/domain/repositories/queue_repository.dart b/lib/features/queue/domain/repositories/queue_repository.dart
+index 68d87f7..68be6c2 100644
+--- a/lib/features/queue/domain/repositories/queue_repository.dart
++++ b/lib/features/queue/domain/repositories/queue_repository.dart
+@@ -60,13 +60,15 @@ abstract interface class StaffQueueCommandRepository {
+   /// Performs one valid operational queue status transition.
+   ///
+   /// Allowed transitions:
+-  /// waiting -> in_consultation -> completed
++  /// waiting -> called -> in_consultation -> completed
++  ///
++  /// Waiting and called entries may also be skipped or cancelled, and an
++  /// in-consultation entry may be cancelled. Terminal entries cannot be
++  /// reopened or changed through this workflow.
+   ///
+   /// The expected status provides optimistic concurrency protection:
+   /// a transaction must reject the operation if the persisted status
+   /// has changed since it was read.
+-  ///
+-  /// Completed entries cannot be reopened through this workflow.
+   Future<Queue> transitionStatus({
+     required String queueId,
+     required String hospitalId,
+diff --git a/lib/features/queue/domain/utils/queue_position_calculator.dart b/lib/features/queue/domain/utils/queue_position_calculator.dart
+new file mode 100644
+index 0000000..b278d60
+--- /dev/null
++++ b/lib/features/queue/domain/utils/queue_position_calculator.dart
+@@ -0,0 +1,55 @@
++import '../entities/queue.dart';
++import '../entities/queue_status.dart';
++
++/// Derives waiting positions without adding stored position writes.
++///
++/// Callers must provide queue entries from one hospital and one hospital day.
++/// Terminal, called, and in-consultation entries do not consume a waiting
++/// position.
++class QueuePositionCalculator {
++  const QueuePositionCalculator._();
++
++  /// Returns waiting positions keyed by queue ID.
++  ///
++  /// Waiting entries are ordered by their allocated queue number. Invalid or
++  /// unsupported statuses are excluded from the result.
++  static Map<String, int> calculate({
++    required String hospitalId,
++    required Iterable<Queue> hospitalDayEntries,
++  }) {
++    final normalizedHospitalId = hospitalId.trim();
++
++    final waitingEntries =
++        hospitalDayEntries
++            .where(
++              (entry) =>
++                  entry.hospitalId == normalizedHospitalId &&
++                  entry.queueStatus == QueueStatus.waiting,
++            )
++            .toList()
++          ..sort((a, b) {
++            final byNumber = a.queueNumber.compareTo(b.queueNumber);
++            return byNumber != 0 ? byNumber : a.queueId.compareTo(b.queueId);
++          });
++
++    return {
++      for (var index = 0; index < waitingEntries.length; index++)
++        waitingEntries[index].queueId: index + 1,
++    };
++  }
++
++  /// Returns the derived waiting position for [entry], or zero when the entry
++  /// is not currently waiting.
++  static int positionFor({
++    required Queue entry,
++    required Iterable<Queue> hospitalDayEntries,
++  }) {
++    if (entry.queueStatus != QueueStatus.waiting) return 0;
++
++    return calculate(
++          hospitalId: entry.hospitalId,
++          hospitalDayEntries: hospitalDayEntries,
++        )[entry.queueId] ??
++        0;
++  }
++}
+diff --git a/test/features/queue/domain/repositories/queue_repository_test.dart b/test/features/queue/domain/repositories/queue_repository_test.dart
+index bc24811..aa9fe40 100644
+--- a/test/features/queue/domain/repositories/queue_repository_test.dart
++++ b/test/features/queue/domain/repositories/queue_repository_test.dart
+@@ -58,6 +58,38 @@ void main() {
+       expect(StaffQueueStatus.inConsultation.isInProgress, isTrue);
+     });
+ 
++    test('allows only the forward lifecycle and terminal exits', () {
++      final expected = {
++        StaffQueueStatus.waiting: {
++          StaffQueueStatus.called,
++          StaffQueueStatus.skipped,
++          StaffQueueStatus.cancelled,
++        },
++        StaffQueueStatus.called: {
++          StaffQueueStatus.inConsultation,
++          StaffQueueStatus.skipped,
++          StaffQueueStatus.cancelled,
++        },
++        StaffQueueStatus.inConsultation: {
++          StaffQueueStatus.completed,
++          StaffQueueStatus.cancelled,
++        },
++        StaffQueueStatus.completed: <StaffQueueStatus>{},
++        StaffQueueStatus.skipped: <StaffQueueStatus>{},
++        StaffQueueStatus.cancelled: <StaffQueueStatus>{},
++      };
++
++      for (final status in StaffQueueStatus.values) {
++        for (final next in StaffQueueStatus.values) {
++          expect(
++            status.canTransitionTo(next),
++            expected[status]!.contains(next),
++            reason: '${status.value} -> ${next.value}',
++          );
++        }
++      }
++    });
++
+     test('returns null when an optional status cannot be parsed', () {
+       expect(StaffQueueStatus.tryParse(null), isNull);
+       expect(StaffQueueStatus.tryParse('unknown'), isNull);
+diff --git a/test/features/queue/domain/utils/queue_position_calculator_test.dart b/test/features/queue/domain/utils/queue_position_calculator_test.dart
+new file mode 100644
+index 0000000..0faccc6
+--- /dev/null
++++ b/test/features/queue/domain/utils/queue_position_calculator_test.dart
+@@ -0,0 +1,96 @@
++import 'package:flutter_test/flutter_test.dart';
++import 'package:petcare/features/queue/domain/entities/queue.dart';
++import 'package:petcare/features/queue/domain/utils/queue_position_calculator.dart';
++
++void main() {
++  final now = DateTime.utc(2026, 11, 3, 10);
++
++  Queue entry(
++    String id,
++    int number,
++    String status, {
++    String hospital = 'hospital',
++    DateTime? createdAt,
++  }) => Queue(
++    queueId: id,
++    appointmentId: 'appointment-$id',
++    hospitalId: hospital,
++    ownerId: 'owner',
++    petId: 'pet',
++    queueNumber: number,
++    currentServing: 0,
++    position: number,
++    status: status,
++    updatedAt: now,
++    createdAt: createdAt,
++  );
++
++  test('waiting entries are numbered by allocation order', () {
++    final entries = [
++      entry('c', 3, 'waiting'),
++      entry('a', 1, 'waiting'),
++      entry('b', 2, 'waiting'),
++    ];
++
++    expect(
++      QueuePositionCalculator.calculate(
++        hospitalId: 'hospital',
++        hospitalDayEntries: entries,
++      ),
++      {'a': 1, 'b': 2, 'c': 3},
++    );
++  });
++
++  test('non-waiting and other-hospital entries do not consume positions', () {
++    final entries = [
++      entry('a', 1, 'waiting'),
++      entry('b', 2, 'called'),
++      entry('c', 3, 'in_consultation'),
++      entry('d', 4, 'completed'),
++      entry('e', 5, 'cancelled'),
++      entry('f', 6, 'waiting', hospital: 'other'),
++      entry('g', 7, 'waiting'),
++    ];
++
++    expect(
++      QueuePositionCalculator.calculate(
++        hospitalId: 'hospital',
++        hospitalDayEntries: entries,
++      ),
++      {'a': 1, 'g': 2},
++    );
++    expect(
++      QueuePositionCalculator.positionFor(
++        entry: entries[2],
++        hospitalDayEntries: entries,
++      ),
++      0,
++    );
++    expect(
++      QueuePositionCalculator.positionFor(
++        entry: entries[6],
++        hospitalDayEntries: entries,
++      ),
++      2,
++    );
++  });
++
++  test(
++    'unknown statuses are excluded and duplicate numbers are deterministic',
++    () {
++      final entries = [
++        entry('z', 2, 'waiting'),
++        entry('y', 2, 'waiting'),
++        entry('x', 1, 'unknown'),
++      ];
++
++      expect(
++        QueuePositionCalculator.calculate(
++          hospitalId: 'hospital',
++          hospitalDayEntries: entries,
++        ),
++        {'y': 1, 'z': 2},
++      );
++    },
++  );
++}

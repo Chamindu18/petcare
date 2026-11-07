@@ -3,9 +3,9 @@ import 'package:flutter/foundation.dart';
 import '../../domain/repositories/adoption_request_repository.dart';
 
 class AdoptionRequestProvider extends ChangeNotifier {
-  AdoptionRequestProvider({required this._repository});
+  AdoptionRequestProvider({required this.repository});
 
-  final AdoptionRequestRepository _repository;
+  final AdoptionRequestRepository repository;
 
   bool _isSubmitting = false;
   bool _isSubmitted = false;
@@ -18,6 +18,8 @@ class AdoptionRequestProvider extends ChangeNotifier {
   Future<void> submitRequest({
     required String listingId,
     required String providerId,
+    String? recipientId,
+    String recipientType = 'adoption_provider',
     String? message,
   }) async {
     if (_isSubmitting) {
@@ -30,14 +32,16 @@ class AdoptionRequestProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _repository.createRequest(
+      await repository.createRequest(
         listingId: listingId,
         providerId: providerId,
+        recipientId: recipientId,
+        recipientType: recipientType,
         message: message,
       );
 
       _isSubmitted = true;
-    } catch (error) {
+    } catch (_) {
       _errorMessage =
           'Unable to submit your adoption request. Please try again.';
     } finally {

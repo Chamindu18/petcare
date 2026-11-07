@@ -1,19 +1,307 @@
 import 'package:flutter/material.dart';
 
+import '../../domain/entities/ai_message.dart';
+import '../../../pets/domain/entities/pet.dart';
+
+import '../../domain/entities/ai_pet_context.dart';
+
+import '../../domain/usecases/generate_local_health_summary.dart';
+import '../../domain/usecases/generate_local_preventive_care.dart';
+import '../../domain/usecases/generate_local_vet_prep.dart';
+
+import '../../domain/usecases/generate_pet_overview.dart';
+
+import '../../domain/usecases/create_health_summary_from_context.dart';
+
 class AIProvider extends ChangeNotifier {
   bool isLoading = false;
+  final GenerateLocalHealthSummary _healthSummaryGenerator =
+      const GenerateLocalHealthSummary();
+  final CreateHealthSummaryFromContext _contextSummaryGenerator =
+      const CreateHealthSummaryFromContext();
 
-  String aiResponse = '';
+  final GenerateLocalPreventiveCare _preventiveCareGenerator =
+      const GenerateLocalPreventiveCare();
 
-  Future<void> sendMessage(String message) async {
+  final GenerateLocalVetPrep _vetPrepGenerator = const GenerateLocalVetPrep();
+  final GeneratePetOverview _overviewGenerator = const GeneratePetOverview();
+
+  Map<String, dynamic>? petOverview;
+
+  final List<AIMessage> messages = [
+    AIMessage(
+      message: '''
+        👋 Welcome to PetCare AI
+
+        Ask me about your selected pet.
+
+        Quick examples:
+
+        • summary
+
+        • vaccinations
+
+        • conditions
+
+        • treatments
+
+        • vet advice
+        ''',
+      isUser: false,
+    ),
+  ];
+
+  String healthSummary = '';
+  String preventiveCare = '';
+  String vetVisitPrep = '';
+
+  Pet? _selectedPet;
+
+  Pet? get selectedPet => _selectedPet;
+
+  void setSelectedPet(Pet pet) {
+    _selectedPet = pet;
+    notifyListeners();
+  }
+
+  Future<void> sendPetAwareMessage({
+    required String text,
+    required AIPetContext? context,
+  }) async {
+    if (text.trim().isEmpty) {
+      return;
+    }
+
+    addUserMessage(text);
+
     isLoading = true;
     notifyListeners();
 
-    await Future.delayed(const Duration(seconds: 2));
+    await Future.delayed(const Duration(milliseconds: 500));
 
-    aiResponse = "This is a dummy AI response.";
+    String response;
+
+    if (context == null) {
+      response =
+          'Please select a pet first to receive personalised AI assistance.';
+    } else {
+      final question = text.toLowerCase();
+
+      if (question.contains('summary')) {
+        response =
+            '''
+            ${context.pet.name} currently has:
+
+            • ${context.conditions.length} medical conditions
+
+            • ${context.vaccinations.length} vaccinations
+
+            • ${context.treatments.length} treatments
+
+            • ${context.measurements.length} health measurements
+            ''';
+      } else if (question.contains('vaccination')) {
+        response =
+            '''
+              ${context.pet.name} has
+              ${context.vaccinations.length}
+              recorded vaccinations.
+              ''';
+      } else if (question.contains('condition')) {
+        response =
+            '''
+            ${context.pet.name} has
+            ${context.conditions.length}
+            recorded medical conditions.
+            ''';
+      } else if (question.contains('treatment')) {
+        response =
+            '''
+              ${context.pet.name} has
+              ${context.treatments.length}
+              recorded treatments.
+              ''';
+      } else if (question.contains('vet')) {
+        response = '''
+          Suggested vet discussion topics:
+
+          • Current medical conditions
+
+          • Vaccination history
+
+          • Treatments
+
+          • Recent measurements
+          ''';
+      } else {
+        response = '''
+          I can help with:
+
+          • Health Summary
+
+          • Vaccinations
+
+          • Medical Conditions
+
+          • Treatments
+
+          • Vet Visit Preparation
+
+          Try asking:
+
+          "summary"
+
+          "vaccinations"
+
+          "conditions"
+
+          "vet advice"
+          ''';
+      }
+    }
+
+    addAssistantMessage(response);
 
     isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> generateHealthSummary() async {
+    isLoading = true;
+    notifyListeners();
+
+    await Future.delayed(const Duration(seconds: 1));
+
+    healthSummary = '''
+  No pet health records connected yet.
+
+  Health summaries will be generated
+  from the selected pet records.
+  ''';
+
+    isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> generatePreventiveCare() async {
+    isLoading = true;
+    notifyListeners();
+
+    await Future.delayed(const Duration(seconds: 1));
+
+    preventiveCare = '''
+  No preventive recommendations available.
+
+  Recommendations will be generated
+  from the selected pet records.
+  ''';
+
+    isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> generateVetVisitPrep() async {
+    isLoading = true;
+    notifyListeners();
+
+    await Future.delayed(const Duration(seconds: 1));
+
+    vetVisitPrep = '''
+  No visit preparation data available.
+
+  Preparation notes will be generated
+  from the selected pet records.
+  ''';
+
+    isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> buildHealthSummary(AIPetContext context) async {
+    isLoading = true;
+
+    notifyListeners();
+
+    healthSummary = _healthSummaryGenerator(context);
+
+    isLoading = false;
+
+    notifyListeners();
+  }
+
+  Future<void> buildPreventiveCare(AIPetContext context) async {
+    isLoading = true;
+
+    notifyListeners();
+
+    preventiveCare = _preventiveCareGenerator(context);
+
+    isLoading = false;
+
+    notifyListeners();
+  }
+
+  Future<void> buildVetVisitPrep(AIPetContext context) async {
+    isLoading = true;
+
+    notifyListeners();
+
+    vetVisitPrep = _vetPrepGenerator(context);
+
+    isLoading = false;
+
+    notifyListeners();
+  }
+
+  Future<void> buildPetOverview(AIPetContext context) async {
+    petOverview = _overviewGenerator(context);
+
+    notifyListeners();
+  }
+
+  Future<void> loadContextSummary(AIPetContext context) async {
+    isLoading = true;
+
+    notifyListeners();
+
+    petOverview = _overviewGenerator(context);
+
+    healthSummary = _healthSummaryGenerator(context);
+
+    preventiveCare = _preventiveCareGenerator(context);
+
+    vetVisitPrep = _vetPrepGenerator(context);
+
+    isLoading = false;
+
+    notifyListeners();
+  }
+
+  bool hasContext() {
+    return petOverview != null;
+  }
+
+  Future<void> buildSummaryFromContext(AIPetContext context) async {
+    isLoading = true;
+
+    notifyListeners();
+
+    healthSummary = _contextSummaryGenerator(context);
+
+    isLoading = false;
+
+    notifyListeners();
+  }
+
+  void addUserMessage(String message) {
+    messages.add(AIMessage(message: message, isUser: true));
+
+    notifyListeners();
+  }
+
+  void addAssistantMessage(String message) {
+    messages.add(AIMessage(message: message, isUser: false));
+
     notifyListeners();
   }
 }

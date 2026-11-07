@@ -1,20 +1,46 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'app/router/app_router.dart';
 import 'app/theme/app_theme.dart';
+import 'core/config/firebase_emulator_config.dart';
 import 'core/services/deep_link_service.dart';
 import 'features/auth/presentation/pages/splash_page.dart';
+import 'features/notifications/data/owner_reminder_service.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Firebase.initializeApp(
+    options: FirebaseEmulatorConfig.enabled
+        ? FirebaseEmulatorConfig.firebaseOptions
+        : DefaultFirebaseOptions.currentPlatform,
+  );
 
+  if (FirebaseEmulatorConfig.enabled) {
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: false,
+    );
+    await FirebaseAuth.instance.useAuthEmulator(
+      FirebaseEmulatorConfig.host,
+      FirebaseEmulatorConfig.authPort,
+    );
+    FirebaseFirestore.instance.useFirestoreEmulator(
+      FirebaseEmulatorConfig.host,
+      FirebaseEmulatorConfig.firestorePort,
+    );
+  }
+
+  unawaited(
+    OwnerReminderService().start().catchError((Object error) {
+      debugPrint('Unable to initialize owner reminders: $error');
+    }),
+  );
   runApp(const PetCareApp());
 }
 

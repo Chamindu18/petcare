@@ -8,6 +8,9 @@ class Notification {
     required this.targetType,
     required this.targetId,
     required this.createdAt,
+    this.appointmentTime,
+    this.queueNumber,
+    this.listingName,
   });
 
   final String notificationId;
@@ -18,4 +21,7 @@ class Notification {
   final String targetType;
   final String targetId;
   final DateTime createdAt;
+  final DateTime? appointmentTime;
+  final int? queueNumber;
+  final String? listingName;
 }

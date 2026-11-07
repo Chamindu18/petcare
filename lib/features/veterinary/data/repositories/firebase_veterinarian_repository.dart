@@ -16,6 +16,23 @@ class FirebaseVeterinarianRepository implements VeterinarianRepository {
       _firestore.collection('veterinarians');
 
   @override
+  Future<List<Veterinarian>> getVeterinarians() async {
+    // Doctor discovery only shows active veterinarians.
+    final snapshot = await _veterinariansCollection
+        .where('active', isEqualTo: true)
+        .get();
+
+    return snapshot.docs
+        .map(
+          (document) => VeterinarianModel.fromMap({
+            ...document.data(),
+            'vetId': document.id,
+          }),
+        )
+        .toList();
+  }
+
+  @override
   Future<List<Veterinarian>> getVeterinariansByHospital(
     String hospitalId,
   ) async {
@@ -26,7 +43,12 @@ class FirebaseVeterinarianRepository implements VeterinarianRepository {
         .get();
 
     return snapshot.docs
-        .map((document) => VeterinarianModel.fromMap(document.data()))
+        .map(
+          (document) => VeterinarianModel.fromMap({
+            ...document.data(),
+            'vetId': document.id,
+          }),
+        )
         .toList();
   }
 
@@ -45,6 +67,48 @@ class FirebaseVeterinarianRepository implements VeterinarianRepository {
       return null;
     }
 
-    return VeterinarianModel.fromMap(data);
+    return VeterinarianModel.fromMap({...data, 'vetId': document.id});
   }
+
+  @override
+  Future<void> updateVeterinarianProfile({
+    required String vetId,
+    required String name,
+    String? profileImageUrl,
+    String? specialty,
+    String? qualifications,
+    int? experienceYears,
+    String? bio,
+  }) async {
+    if (vetId.trim().isEmpty) {
+      throw const VeterinarianRepositoryException(
+        'A valid veterinarian ID is required.',
+      );
+    }
+
+    await _veterinariansCollection.doc(vetId.trim()).update({
+      'name': name.trim(),
+      'profileImageUrl': _normalize(profileImageUrl),
+      'specialty': _normalize(specialty),
+      'qualifications': _normalize(qualifications),
+      'experienceYears': experienceYears,
+      'bio': _normalize(bio),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  String? _normalize(String? value) {
+    final trimmed = value?.trim();
+
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+}
+
+class VeterinarianRepositoryException implements Exception {
+  const VeterinarianRepositoryException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }

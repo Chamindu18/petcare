@@ -23,6 +23,7 @@ class AdoptionRequestPage extends StatefulWidget {
 class _AdoptionRequestPageState extends State<AdoptionRequestPage> {
   late final AdoptionRequestProvider _provider;
   late final TextEditingController _messageController;
+
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   @override
@@ -55,6 +56,8 @@ class _AdoptionRequestPageState extends State<AdoptionRequestPage> {
     await _provider.submitRequest(
       listingId: widget.listing.listingId,
       providerId: widget.listing.providerId,
+      recipientId: widget.listing.effectiveListingOwnerId,
+      recipientType: widget.listing.listingOwnerType,
       message: _messageController.text.trim(),
     );
 
