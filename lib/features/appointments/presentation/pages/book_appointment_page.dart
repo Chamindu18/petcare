@@ -266,7 +266,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         date: selectedDate,
         veterinarianId: selectedVeterinarian.vetId,
         operatingHours: operatingHours,
-        serviceDurationMinutes: 15,
+        serviceDurationMinutes: selectedService.duration ?? 0,
         now: _hospitalNow,
       );
 
@@ -666,7 +666,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
     final allSlots = AppointmentSlotGenerator.generate(
       date: _selectedDate!,
       operatingHours: hours,
-      serviceDurationMinutes: 15,
+      serviceDurationMinutes: _selectedService!.duration ?? 0,
       veterinarianId: _selectedVeterinarian!.vetId,
       existingAppointments: const [],
       appointmentDurations: const {},

@@ -37,7 +37,7 @@ test('authenticated callable transport serializes concurrent bookings and reject
     assert.deepEqual(responses.map(r => r.status).sort(), [200, 409]);
     const result = await responses.find(r => r.status === 200).json();
     assert.equal(result.result.ownerId, uid);
-    assert.equal(result.result.durationMinutes, 15);
+    assert.equal(result.result.durationMinutes, 30);
     assert.equal((await db.collection('appointments').where('hospitalId', '==', 'transport-hospital').get()).size, 1);
     assert.equal((await db.collection('appointment_schedule').where('hospitalId', '==', 'transport-hospital').get()).size, 1);
     const notices = (await db.collection('notifications').where('recipientUserId', '==', 'transport-staff').get()).docs;

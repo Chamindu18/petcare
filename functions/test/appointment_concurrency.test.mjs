@@ -64,7 +64,7 @@ test('six simultaneous requests for one interval have one winner and no orphan d
   await counts(1);
   assert.equal((await db.collection('appointment_booking_locks').get()).size, 1);
   const winner = (await db.collection('appointments').get()).docs[0];
-  assert.equal((await db.doc(`appointment_schedule/${winner.id}`).get()).data().durationMinutes, 15);
+  assert.equal((await db.doc(`appointment_schedule/${winner.id}`).get()).data().durationMinutes, 30);
 });
 
 test('booking notifies verified hospital staff and the assigned veterinarian once', async () => {
@@ -225,11 +225,21 @@ test('legacy appointments without projections still prevent overlapping booking'
 
 test('snapshotted duration is stable when the service duration changes', async () => {
   await book('first');
-  await db.doc('services/service-a').update({duration: 10});
-  assert.equal((await db.doc('appointments/first').get()).data().durationMinutes, 15);
-  await book('next-slot', {dateTime: '2026-11-10T09:15:00Z'});
+  await db.doc('services/service-a').update({duration: 15});
+  assert.equal((await db.doc('appointments/first').get()).data().durationMinutes, 30);
+  await assert.rejects(book('next-slot', {dateTime: '2026-11-10T09:15:00Z'}), error => error.code === 'already-exists');
   await book('adjacent', {dateTime: '2026-11-10T09:30:00Z'});
-  await counts(3);
+  await counts(2);
+});
+
+test('a 20-minute service blocks both intersecting 15-minute starts', async () => {
+  await db.doc('services/service-a').update({duration: 20});
+  await book('twenty');
+  assert.equal((await db.doc('appointments/twenty').get()).data().durationMinutes, 20);
+  await assert.rejects(book('overlap', {dateTime: '2026-11-10T09:15:00Z'}),
+    error => error.code === 'already-exists');
+  await book('next', {dateTime: '2026-11-10T09:30:00Z'});
+  await counts(2);
 });
 
 test('failed duplicate request ID cannot overwrite an existing booking', async () => {
@@ -265,7 +275,7 @@ test('owner cancellation releases a server-booked interval without corrupting du
   });
   await book('replacement');
   await counts(2);
-  assert.equal((await db.doc('appointments/first').get()).data().durationMinutes, 15);
+  assert.equal((await db.doc('appointments/first').get()).data().durationMinutes, 30);
 });
 
 test('staff rejection releases the reserved interval', async () => {
