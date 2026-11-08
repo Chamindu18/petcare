@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -77,6 +79,41 @@ Widget _testDashboard(String label) {
 
 void main() {
   group('RoleBasedHomePage', () {
+    testWidgets('rebuilds the destination when the account UID changes', (
+      tester,
+    ) async {
+      final profiles = StreamController<UserProfile?>();
+      addTearDown(profiles.close);
+      final repository = _FakeProfileRepository((_) => profiles.stream);
+      var builds = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RoleBasedHomePage(
+            profileRepository: repository,
+            ownerDashboardBuilder: () => _testDashboard('account ${++builds}'),
+          ),
+        ),
+      );
+      profiles.add(_profileWithRole('owner'));
+      await tester.pumpAndSettle();
+      expect(find.text('account 1'), findsOneWidget);
+
+      profiles.add(
+        UserProfile(
+          uid: 'second-user',
+          fullName: 'Second User',
+          displayName: 'Second User',
+          email: 'second@example.com',
+          phone: '0712345678',
+          role: 'owner',
+          notificationEnabled: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('account 2'), findsOneWidget);
+    });
+
     testWidgets('routes an owner to the owner dashboard destination', (
       tester,
     ) async {

@@ -99,7 +99,9 @@ class _RoleBasedHomePageState extends State<RoleBasedHomePage> {
     }
 
     final role = UserRoleX.tryParseFirestore(_profileProvider.profile?.role);
-    final roleKey = role?.firestoreValue ?? '__unknown';
+    final roleKey =
+        '${_profileProvider.profile?.uid ?? '__unknown'}:'
+        '${role?.firestoreValue ?? '__unknown'}';
 
     if (_destination != null && _destinationKey == roleKey) {
       return;
