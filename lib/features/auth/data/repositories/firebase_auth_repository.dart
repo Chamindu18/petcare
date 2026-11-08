@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../../../core/config/firebase_emulator_config.dart';
 import '../../domain/repositories/auth_repository.dart';
 
 class FirebaseAuthRepository implements AuthRepository {
@@ -246,7 +247,13 @@ class FirebaseAuthRepository implements AuthRepository {
         '${error.code}.',
       );
 
-      // Preserve the existing error behavior.
+      if (FirebaseEmulatorConfig.enabled && error.code == 'unknown') {
+        throw const AuthException(
+          'Google Sign-In could not be verified by the local Auth emulator. '
+          'Use the seeded demo email and password.',
+        );
+      }
+
       throw AuthException('Google authentication failed: ${error.code}');
     } on FirebaseException catch (error) {
       debugPrint(

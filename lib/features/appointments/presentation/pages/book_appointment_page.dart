@@ -21,6 +21,7 @@ import '../../domain/usecases/appointment_usecases.dart';
 import '../../domain/usecases/get_available_appointment_slots.dart';
 import '../../domain/utils/hospital_hours_parser.dart';
 import '../../domain/utils/appointment_slot_generator.dart';
+import '../widgets/appointment_slot_picker.dart';
 
 class BookAppointmentRouteArgs {
   const BookAppointmentRouteArgs({
@@ -661,13 +662,6 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       );
     }
 
-    if (_availableSlots.isEmpty) {
-      return const _SlotMessage(
-        icon: Icons.event_busy_rounded,
-        message: 'No appointment slots are available for this date.',
-      );
-    }
-
     final hours = HospitalHoursParser.forDate(_hospitalHours!, _selectedDate!)!;
     final allSlots = AppointmentSlotGenerator.generate(
       date: _selectedDate!,
@@ -680,53 +674,36 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
     final availableStarts = _availableSlots
         .map((slot) => slot.startTime)
         .toSet();
-    final now = _hospitalNow;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Available Slots',
-          style: Theme.of(context).textTheme.titleSmall
-              ?.copyWith(color: AppTheme.espresso, fontWeight: FontWeight.w800),
-        ),
-
-        const SizedBox(height: 10),
-
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 2.2,
-          ),
-          itemCount: allSlots.length,
-          itemBuilder: (context, index) {
-            final slot = allSlots[index];
-            final isPast = !slot.startTime.isAfter(now);
-            final isAvailable =
-                availableStarts.contains(slot.startTime) && !isPast;
-
-            final isSelected = _selectedSlot?.startTime == slot.startTime;
-
-            return _SlotButton(
-              slot: slot,
-              selected: isSelected,
-              available: isAvailable,
-              onTap: !isAvailable
-                  ? null
-                  : () {
-                      setState(() {
-                        _selectedSlot = slot;
-                      });
-                    },
-            );
-          },
-        ),
-      ],
+    if (allSlots.isEmpty) {
+      return const _SlotMessage(
+        icon: Icons.event_busy_rounded,
+        message: 'No appointment slots are available for this date.',
+      );
+    }
+    final picker = AppointmentSlotPicker(
+      key: ValueKey(
+        '${_selectedDate!.toIso8601String()}-'
+        '${_selectedVeterinarian!.vetId}-${_selectedService!.serviceId}',
+      ),
+      slots: allSlots,
+      availableStarts: availableStarts,
+      now: _hospitalNow,
+      selectedStart: _selectedSlot?.startTime,
+      onSelected: (slot) => setState(() => _selectedSlot = slot),
     );
+    if (_availableSlots.isEmpty) {
+      return Column(
+        children: [
+          const _SlotMessage(
+            icon: Icons.event_busy_rounded,
+            message: 'No appointment slots are available for this date.',
+          ),
+          const SizedBox(height: 12),
+          picker,
+        ],
+      );
+    }
+    return picker;
   }
 }
 
@@ -816,62 +793,6 @@ class _DateTimeButton extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SlotButton extends StatelessWidget {
-  const _SlotButton({
-    required this.slot,
-    required this.selected,
-    required this.available,
-    required this.onTap,
-  });
-
-  final AppointmentSlot slot;
-  final bool selected;
-  final bool available;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final time = TimeOfDay.fromDateTime(slot.startTime);
-
-    return Material(
-      color: selected
-          ? AppTheme.primary
-          : available
-          ? AppTheme.white
-          : AppTheme.background,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected
-                  ? AppTheme.primary
-                  : available
-                  ? AppTheme.deepBrown
-                  : AppTheme.background,
-            ),
-          ),
-          child: Text(
-            time.format(context),
-            style: TextStyle(
-              color: selected
-                  ? AppTheme.white
-                  : available
-                  ? AppTheme.espresso
-                  : AppTheme.deepBrown.withValues(alpha: 0.45),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
         ),
       ),
     );
