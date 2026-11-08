@@ -25,6 +25,37 @@ class _FakeNotificationRepository implements NotificationRepository {
 
 void main() {
   group('NotificationsPage', () {
+    testWidgets('staff queue notification opens the queue callback', (
+      tester,
+    ) async {
+      var openedQueue = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotificationsPage(
+            notificationRepository: _FakeNotificationRepository(
+              notifications: [
+                notification_entity.Notification(
+                  notificationId: 'queue-event',
+                  recipientUserId: 'staff-a',
+                  type: 'queue_called',
+                  message: 'A patient was called.',
+                  read: false,
+                  targetType: 'queue',
+                  targetId: 'queue-1',
+                  createdAt: DateTime(2026, 11, 7),
+                ),
+              ],
+            ),
+            onOpenQueue: () => openedQueue = true,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text('Called to consultation'));
+      await tester.pump();
+      expect(openedQueue, isTrue);
+    });
+
     testWidgets('shows empty state when there are no notifications', (
       tester,
     ) async {
@@ -148,8 +179,7 @@ void main() {
                       'adoption_request_submitted_listing-1_owner-1',
                   recipientUserId: 'provider-1',
                   type: 'adoption_request_submitted',
-                  message:
-                      'You received a new adoption application for Buddy.',
+                  message: 'You received a new adoption application for Buddy.',
                   read: false,
                   targetType: 'adoption_request',
                   targetId: 'request-1',

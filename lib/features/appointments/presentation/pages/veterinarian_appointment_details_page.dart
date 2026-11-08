@@ -39,6 +39,12 @@ class _VeterinarianAppointmentDetailsPageState
   bool _isProcessing = false;
   String? _actionErrorMessage;
 
+  @override
+  void didUpdateWidget(covariant VeterinarianAppointmentDetailsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_isProcessing) _appointment = widget.appointment;
+  }
+
   String get _status => _appointment.status.trim().toLowerCase();
 
   bool get _isPending => _status == 'pending';

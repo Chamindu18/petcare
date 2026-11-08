@@ -13,11 +13,13 @@ class NotificationsPage extends StatefulWidget {
     this.notificationRepository,
     this.onOpenAppointment,
     this.onOpenAppointmentById,
+    this.onOpenQueue,
   });
 
   final NotificationRepository? notificationRepository;
   final VoidCallback? onOpenAppointment;
   final ValueChanged<String>? onOpenAppointmentById;
+  final VoidCallback? onOpenQueue;
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
 }
@@ -94,6 +96,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     notification.notificationId,
                   );
                   if (!context.mounted) return;
+                  if (notification.targetType == 'queue' &&
+                      widget.onOpenQueue != null) {
+                    widget.onOpenQueue!();
+                    return;
+                  }
                   if (notification.targetType == 'appointment') {
                     if (widget.onOpenAppointmentById != null) {
                       widget.onOpenAppointmentById!(notification.targetId);
@@ -109,8 +116,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     'adoption_request'
                         when notification.type ==
                                 'adoption_request_submitted' ||
-                            notification.type ==
-                                'adoption_request_withdrawn' =>
+                            notification.type == 'adoption_request_withdrawn' =>
                       AppRouter.adoptionRequests,
                     'adoption_request' => AppRouter.myAdoptionRequests,
                     _ => null,

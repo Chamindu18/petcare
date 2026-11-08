@@ -85,13 +85,14 @@ class _FakeAppointmentRepository implements AppointmentRepository {
 Appointment _createAppointment({
   required String id,
   String status = 'pending',
+  String hospitalId = 'hospital-001',
   DateTime? dateTime,
 }) {
   return Appointment(
     appointmentId: id,
     ownerId: 'owner-001',
     petId: 'pet-001',
-    hospitalId: 'hospital-001',
+    hospitalId: hospitalId,
     serviceId: 'service-001',
     vetId: 'vet-001',
     dateTime: dateTime ?? DateTime(2026, 11, 10, 9),
@@ -134,6 +135,22 @@ Future<void> _scrollToText(WidgetTester tester, String text) async {
 
 void main() {
   group('StaffAppointmentsPage', () {
+    testWidgets('excludes appointments from another hospital', (tester) async {
+      final repository = _FakeAppointmentRepository(
+        appointments: [
+          _createAppointment(id: 'ours001'),
+          _createAppointment(id: 'other001', hospitalId: 'hospital-002'),
+        ],
+      );
+
+      await _pumpAppointmentsPage(tester, repository);
+
+      expect(find.text('All (1)'), findsOneWidget);
+      expect(find.text('Appointment #other001'), findsNothing);
+      await _scrollToText(tester, 'Appointment #ours001');
+      expect(find.text('Appointment #ours001'), findsOneWidget);
+    });
+
     testWidgets('loads appointments for the assigned hospital', (tester) async {
       final repository = _FakeAppointmentRepository(
         appointments: [_createAppointment(id: 'appt001')],

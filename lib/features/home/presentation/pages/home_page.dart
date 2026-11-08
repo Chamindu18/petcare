@@ -154,13 +154,6 @@ class _HomePageState extends State<HomePage> {
                         ),
 
                         const SizedBox(height: 24),
-                        _SectionHeader(
-                          title: 'Appointments',
-                          actionLabel: 'See All',
-                          onActionTap: widget.onAppointmentsTap,
-                        ),
-                        const SizedBox(height: 10),
-                        const SizedBox(height: 24),
                         const _SectionHeader(title: 'More for Your Pets'),
                         const SizedBox(height: 10),
                         _HelpfulResources(

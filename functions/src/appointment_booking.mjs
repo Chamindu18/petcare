@@ -114,14 +114,14 @@ export async function reserveAppointment(db, uid, input) {
     }
     const service = (await tx.get(db.collection('services').doc(serviceId))).data();
     if (service?.hospitalId !== hospitalId) fail('failed-precondition', 'Select a service at this hospital.');
-    // New appointments are exactly one 15-minute interval. Preserve the
-    // snapshotted duration of legacy appointments during reassignment.
-    const minutes = existing ? duration(existing.durationMinutes ?? service.duration) : 15;
+    // Preserve the service's duration at booking; existing snapshots remain
+    // authoritative when the service definition changes later.
+    const minutes = existing ? duration(existing.durationMinutes ?? service.duration) : duration(service.duration);
     const start = instant(action === 'reassign' ? existing.dateTime : input.dateTime);
     const end = start.getTime() + minutes * 60000;
     const window = hospitalWindow(hospital.hours, start);
     if (!window.exactMinute || window.localMinutes < window.opening || window.localMinutes + minutes > window.closing ||
-        (window.localMinutes - window.opening) % 15 !== 0) {
+        window.localMinutes % 15 !== 0) {
       fail('failed-precondition', 'Select a 15-minute slot within hospital operating hours.');
     }
     if (start.getTime() <= Date.now()) fail('failed-precondition', 'Select a future appointment slot.');

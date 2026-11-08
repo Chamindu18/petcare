@@ -10,8 +10,11 @@ export function scheduleForAppointment(data) {
       !(date && typeof date.toDate === 'function' && Number.isFinite(date.toDate().getTime()))) {
     throw new Error('Invalid dateTime');
   }
-  if (data.durationMinutes !== undefined && (!Number.isInteger(data.durationMinutes) || data.durationMinutes <= 0 || data.durationMinutes > 1440)) {
-    throw new Error('Invalid durationMinutes');
+  // A current service value cannot establish the historical duration of a
+  // legacy appointment. Do not create a projection that appears authoritative
+  // until its duration snapshot has been verified and backfilled separately.
+  if (!Number.isInteger(data.durationMinutes) || data.durationMinutes <= 0 || data.durationMinutes > 1440) {
+    throw new Error('Verified durationMinutes snapshot is required before projection backfill');
   }
   return Object.fromEntries(['vetId', 'hospitalId', 'serviceId', 'dateTime', 'status', 'durationMinutes']
     .filter(key => data[key] !== undefined).map(key => [key, data[key]]));

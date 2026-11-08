@@ -29,10 +29,12 @@ Future<void> main() async {
     await FirebaseAuth.instance.useAuthEmulator(
       FirebaseEmulatorConfig.host,
       FirebaseEmulatorConfig.authPort,
+      automaticHostMapping: FirebaseEmulatorConfig.automaticHostMapping,
     );
     FirebaseFirestore.instance.useFirestoreEmulator(
       FirebaseEmulatorConfig.host,
       FirebaseEmulatorConfig.firestorePort,
+      automaticHostMapping: FirebaseEmulatorConfig.automaticHostMapping,
     );
   }
 

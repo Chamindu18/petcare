@@ -177,6 +177,10 @@ class _StaffShellPageState extends State<StaffShellPage> {
                     Navigator.of(context).pop();
                     _onTabSelected(1);
                   },
+                  onOpenQueue: () {
+                    Navigator.of(context).pop();
+                    _onTabSelected(3);
+                  },
                 ),
               ),
             ),

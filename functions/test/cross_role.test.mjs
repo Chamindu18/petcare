@@ -42,7 +42,7 @@ test('real callable booking, staff decisions/reassignment, doctor visibility and
     const hospitalNow = new Date(Date.now() + 330 * 60000);
     const dayKey = hospitalNow.toISOString().slice(0, 10);
     const firstMinute = Math.ceil((hospitalNow.getUTCHours() * 60 + hospitalNow.getUTCMinutes() + 30) / 15) * 15;
-    assert.ok(firstMinute + 15 < 1439, 'Today must have room for two future test bookings');
+    assert.ok(firstMinute + 45 < 1439, 'Today must have room for two future test bookings');
     const slotTime = minute => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
     const day = Timestamp.fromDate(new Date(`${dayKey}T00:00:00Z`));
     const invoke = async input => {
@@ -58,7 +58,7 @@ test('real callable booking, staff decisions/reassignment, doctor visibility and
     assert.equal((await getDocs(query(collection(owner, 'veterinarians'), where('active', '==', true),
       where('hospitalId', '==', 'cross-hospital')))).size, 2);
     assert.equal((await create('cross-booking', slotTime(firstMinute))).status, 200);
-    assert.equal((await create('cross-reject', slotTime(firstMinute + 15))).status, 200);
+    assert.equal((await create('cross-reject', slotTime(firstMinute + 30))).status, 200);
     const appointmentRef = client => doc(client, 'appointments/cross-booking');
     const doctorQuery = (uid, vetId) => getDocs(query(collection(db(uid), 'appointments'),
       where('hospitalId', '==', 'cross-hospital'), where('vetId', '==', vetId)));

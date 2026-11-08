@@ -84,16 +84,20 @@ class _MyAdoptionListingsPageState extends State<MyAdoptionListingsPage> {
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final listing = _listingsProvider.listings[index];
+        final canEdit =
+            listing.status == 'draft' || listing.status == 'available';
         return _MyListingCard(
           listing: listing,
-          onTap: () async {
-            await Navigator.pushNamed(
-              context,
-              AppRouter.createEditAdoptionListing,
-              arguments: listing,
-            );
-            if (mounted) _listingsProvider.startListening();
-          },
+          onTap: !canEdit
+              ? null
+              : () async {
+                  await Navigator.pushNamed(
+                    context,
+                    AppRouter.createEditAdoptionListing,
+                    arguments: listing,
+                  );
+                  if (mounted) _listingsProvider.startListening();
+                },
         );
       },
     );
@@ -104,7 +108,7 @@ class _MyListingCard extends StatelessWidget {
   const _MyListingCard({required this.listing, required this.onTap});
 
   final AdoptionListing listing;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -164,6 +168,14 @@ class _MyListingCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (onTap == null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'This listing can no longer be edited.',
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: AppTheme.deepBrown),
+                      ),
+                    ],
                   ],
                 ),
               ),

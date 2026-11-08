@@ -1,0 +1,929 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // Helper Functions
+    // ============================================================
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isCurrentUser(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isOwner() {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.role == 'owner';
+    }
+
+    function isVeterinarian() {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.role == 'veterinarian';
+    }
+
+    function isVeterinaryStaff() {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.role == 'veterinary_staff';
+    }
+
+    function isAdoptionProvider() {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.role == 'adoption_provider';
+    }
+
+    function ownsPet(petId) {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/pets/$(petId)
+        )
+        && get(
+          /databases/$(database)/documents/pets/$(petId)
+        ).data.ownerId == request.auth.uid;
+    }
+
+    // Veterinarians retain their existing authenticated assignment path.
+    // The veterinarian directory remains separate from staff assignments.
+    function isVeterinarianForHospital(hospitalId) {
+      return signedIn()
+        && hospitalId is string
+        && hospitalId != 'unassigned'
+        && isVeterinarian()
+        && exists(
+          /databases/$(database)/documents/veterinarians/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.hospitalId == hospitalId;
+    }
+
+    // Staff access requires a trusted assignment document keyed by the
+    // authenticated UID. Inactive and unassigned records grant no access.
+    function isVeterinaryStaffForHospital(hospitalId) {
+      return signedIn()
+        && hospitalId is string
+        && hospitalId != 'unassigned'
+        && isVeterinaryStaff()
+        && exists(
+          /databases/$(database)/documents/hospital_staff/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/hospital_staff/$(request.auth.uid)
+        ).data.userId == request.auth.uid
+        && get(
+          /databases/$(database)/documents/hospital_staff/$(request.auth.uid)
+        ).data.hospitalId == hospitalId
+        && get(
+          /databases/$(database)/documents/hospital_staff/$(request.auth.uid)
+        ).data.active == true;
+    }
+
+    // Shared hospital-scoped access is limited to appointment and queue
+    // workflows. Other resources use the narrower veterinarian predicate.
+    function isVeterinaryUserForHospital(hospitalId) {
+      return isVeterinarianForHospital(hospitalId)
+        || isVeterinaryStaffForHospital(hospitalId);
+    }
+
+    // ============================================================
+    // Users
+    // ============================================================
+
+    match /users/{uid} {
+      // Users can read only their own profile.
+      allow read: if isCurrentUser(uid);
+
+      // Public registration can create owner profiles only.
+      // Require the complete, supported document schema.
+      allow create: if isCurrentUser(uid)
+        && request.resource.data.keys().hasAll([
+          'uid',
+          'fullName',
+          'displayName',
+          'email',
+          'phone',
+          'role',
+          'notificationEnabled',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'fullName',
+          'displayName',
+          'email',
+          'phone',
+          'role',
+          'notificationEnabled',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.role == 'owner'
+        && request.resource.data.fullName is string
+        && request.resource.data.fullName.size() > 0
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName
+          == request.resource.data.fullName
+        && request.resource.data.email is string
+        && request.resource.data.phone is string
+        && request.resource.data.notificationEnabled is bool
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      // Allow only approved profile updates.
+      // UID, role, email, creation time, and arbitrary fields
+      // cannot be changed by client-side updates.
+      allow update: if isCurrentUser(uid)
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly([
+            'fullName',
+            'displayName',
+            'phone',
+            'notificationEnabled',
+            'updatedAt'
+          ])
+        && request.resource.data.updatedAt == request.time
+        && (
+          !request.resource.data.diff(resource.data)
+            .affectedKeys()
+            .hasAny(['fullName', 'displayName'])
+          || (
+            request.resource.data.diff(resource.data)
+              .affectedKeys()
+              .hasAll(['fullName', 'displayName'])
+            && request.resource.data.fullName is string
+            && request.resource.data.fullName.size() > 0
+            && request.resource.data.displayName is string
+            && request.resource.data.displayName
+              == request.resource.data.fullName
+          )
+        )
+        && (
+          !request.resource.data.diff(resource.data)
+            .affectedKeys()
+            .hasAny(['phone'])
+          || request.resource.data.phone is string
+        )
+        && (
+          !request.resource.data.diff(resource.data)
+            .affectedKeys()
+            .hasAny(['notificationEnabled'])
+          || request.resource.data.notificationEnabled is bool
+        );
+
+      // Client-side profile deletion is disabled until a coordinated
+      // Firebase Authentication and Firestore deletion workflow exists.
+      allow delete: if false;
+    }
+
+    // ============================================================
+    // Pets
+    // ============================================================
+
+    match /pets/{petId} {
+      // Veterinary access requires a separate appointment/QR authorization flow.
+      allow read: if signedIn()
+        && resource.data.ownerId == request.auth.uid;
+
+      allow create: if isOwner()
+        && request.resource.data.ownerId == request.auth.uid;
+
+      allow update: if isOwner()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
+
+      allow delete: if isOwner()
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    // ============================================================
+    // Medical Conditions
+    // ============================================================
+
+    match /medical_conditions/{conditionId} {
+      allow read: if ownsPet(resource.data.petId);
+
+      allow create: if isOwner()
+        && ownsPet(request.resource.data.petId);
+
+      allow update: if isOwner()
+        && ownsPet(resource.data.petId)
+        && request.resource.data.petId == resource.data.petId;
+
+      allow delete: if isOwner()
+        && ownsPet(resource.data.petId);
+    }
+
+    // ============================================================
+    // Vaccinations
+    // ============================================================
+
+    match /vaccinations/{vaccinationId} {
+      allow read: if ownsPet(resource.data.petId);
+
+      allow create: if isOwner()
+        && ownsPet(request.resource.data.petId);
+
+      allow update: if isOwner()
+        && ownsPet(resource.data.petId)
+        && request.resource.data.petId == resource.data.petId;
+
+      allow delete: if isOwner()
+        && ownsPet(resource.data.petId);
+    }
+
+    // ============================================================
+    // Treatments
+    // ============================================================
+
+    match /treatments/{treatmentId} {
+      allow read: if ownsPet(resource.data.petId);
+
+      allow create: if isOwner()
+        && ownsPet(request.resource.data.petId);
+
+      allow update: if isOwner()
+        && ownsPet(resource.data.petId)
+        && request.resource.data.petId == resource.data.petId;
+
+      allow delete: if isOwner()
+        && ownsPet(resource.data.petId);
+    }
+
+    // ============================================================
+    // Health Measurements
+    // ============================================================
+
+    match /health_measurements/{measurementId} {
+      allow read: if ownsPet(resource.data.petId);
+
+      allow create: if isOwner()
+        && ownsPet(request.resource.data.petId);
+
+      allow update: if isOwner()
+        && ownsPet(resource.data.petId)
+        && request.resource.data.petId == resource.data.petId;
+
+      allow delete: if isOwner()
+        && ownsPet(resource.data.petId);
+    }
+
+    // ============================================================
+    // Hospitals
+    // ============================================================
+
+    match /hospitals/{hospitalId} {
+      // Hospital discovery is available to authenticated users.
+      allow read: if signedIn();
+
+      // Hospital creation is reserved for trusted provisioning/Admin SDK.
+      allow create: if false;
+
+      // Hospital configuration is veterinarian-managed, not staff-managed.
+      allow update, delete: if isVeterinarianForHospital(hospitalId);
+    }
+
+    // ============================================================
+    // Services
+    // ============================================================
+
+    match /services/{serviceId} {
+      allow read: if signedIn();
+
+      // Service documents must contain a hospitalId field. Until the app's
+      // service model/writers provide that field, client writes fail closed.
+      allow create: if request.resource.data.hospitalId is string
+        && isVeterinarianForHospital(request.resource.data.hospitalId);
+
+      allow update: if resource.data.hospitalId is string
+        && isVeterinarianForHospital(resource.data.hospitalId)
+        && request.resource.data.hospitalId == resource.data.hospitalId;
+
+      allow delete: if resource.data.hospitalId is string
+        && isVeterinarianForHospital(resource.data.hospitalId);
+    }
+
+    // ============================================================
+    // Hospital Staff Assignments
+    // ============================================================
+
+    match /hospital_staff/{staffUid} {
+      // A staff account may read its own assignment to resolve its hospital.
+      // Inactive assignments remain readable so the app can explain access state.
+      allow get: if isCurrentUser(staffUid) && isVeterinaryStaff();
+
+      // Staff cannot enumerate assignments or provision/change their access.
+      allow list, create, update, delete: if false;
+    }
+
+    // ============================================================
+    // Veterinarians
+    // ============================================================
+
+    match /veterinarians/{veterinarianId} {
+      allow read: if signedIn();
+
+      // A veterinarian may create only their own initially unassigned
+      // profile. Assigning a real hospital requires trusted provisioning.
+      allow create: if isVeterinarian()
+        && veterinarianId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.hospitalId == 'unassigned';
+
+      // Users cannot alter their identity or hospital assignment themselves.
+      allow update: if isVeterinarian()
+        && veterinarianId == request.auth.uid
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.hospitalId == resource.data.hospitalId;
+
+      allow delete: if isVeterinarian()
+        && veterinarianId == request.auth.uid;
+    }
+
+    // ============================================================
+    // Appointments
+    // ============================================================
+
+    // Keep appointment identity and ownership relationships immutable.
+    function appointmentIdentityIsPreserved() {
+      return request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.petId == resource.data.petId
+        && request.resource.data.hospitalId == resource.data.hospitalId
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    // Demo policy: pending owners can change only the visit reason.
+    function ownerCanEditPendingAppointment() {
+      return isOwner()
+        && resource.data.ownerId == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == resource.data.status
+        && appointmentIdentityIsPreserved()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'reason',
+          'updatedAt'
+        ]);
+    }
+
+    // Staff may change only reason/queue metadata, not occupancy or status.
+    function veterinaryUserCanEditAppointmentDetails() {
+      return isVeterinaryUserForHospital(resource.data.hospitalId)
+        && resource.data.status in ['pending', 'confirmed']
+        && request.resource.data.status == resource.data.status
+        && appointmentIdentityIsPreserved()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'reason',
+          'queueId',
+          'updatedAt'
+        ]);
+    }
+
+    // Goal A: privacy-safe availability projection; no client writes.
+    match /appointment_schedule/{appointmentId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /appointments/{appointmentId} {
+      // Owners can read their own appointments. Active staff and assigned
+      // veterinarians can read appointments in their hospital. List queries
+      // must include a matching hospitalId filter for Firestore to prove scope.
+      allow read: if signedIn()
+        && (
+          resource.data.ownerId == request.auth.uid
+          || isVeterinaryUserForHospital(resource.data.hospitalId)
+        );
+
+      // No client can establish a verified reservation under this policy.
+      allow create: if false;
+
+      // Scheduling, duration, identity and status remain immutable to clients.
+      allow update: if signedIn()
+        && (
+          ownerCanEditPendingAppointment()
+          || veterinaryUserCanEditAppointmentDetails()
+        );
+
+      // Deleting a canonical appointment would leave its projection behind.
+      allow delete: if false;
+    }
+
+    // ============================================================
+    // Queue Records
+    // ============================================================
+
+    match /queue_records/{queueId} {
+      // Hospital staff and assigned veterinarians must use a hospitalId-scoped
+      // query when listing queue records.
+      allow read: if signedIn()
+        && (
+          resource.data.ownerId == request.auth.uid
+          || isVeterinaryUserForHospital(resource.data.hospitalId)
+        );
+
+      // Queue creation is restricted to a veterinary user assigned to the
+      // hospital named on the new queue record.
+      allow create: if isVeterinaryUserForHospital(
+        request.resource.data.hospitalId
+      );
+
+      // Immutable relationship fields cannot be reassigned during updates.
+      // Queue state fields remain mutable for the hospital's veterinary users.
+      allow update: if isVeterinaryUserForHospital(resource.data.hospitalId)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.petId == resource.data.petId
+        && request.resource.data.appointmentId == resource.data.appointmentId
+        && request.resource.data.hospitalId == resource.data.hospitalId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'queueNumber',
+          'currentServing',
+          'position',
+          'updatedAt'
+        ]);
+
+      // Deletes authorize against the existing record. request.resource is
+      // undefined for deletes and must not be used here.
+      allow delete: if isVeterinaryUserForHospital(resource.data.hospitalId);
+    }
+
+    // ============================================================
+    // Notifications
+    // ============================================================
+
+    match /notifications/{notificationId} {
+      allow read: if signedIn()
+        && resource.data.recipientUserId == request.auth.uid;
+
+      // A recipient can mark a notification as read, but cannot change its
+      // recipient, content, target, type, or creation metadata.
+      allow update: if signedIn()
+        && resource.data.recipientUserId == request.auth.uid
+        && request.resource.data.recipientUserId == resource.data.recipientUserId
+        && request.resource.data.read == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'read'
+        ]);
+
+      // Notifications are created/deleted by trusted backend logic only.
+      allow create, delete: if false;
+    }
+
+    // ============================================================
+    // Adoption Listings
+    // ============================================================
+
+    function listingOwnerType(data) {
+      // Legacy listings were provider-owned and only have providerId.
+      return data.get('listingOwnerType', 'adoption_provider');
+    }
+
+    function listingOwnerId(data) {
+      return data.get('listingOwnerId', data.get('providerId', ''));
+    }
+
+    function ownsListing(data) {
+      return signedIn()
+        && listingOwnerId(data) == request.auth.uid
+        && (
+          (listingOwnerType(data) == 'owner' && isOwner())
+          ||
+          (
+            listingOwnerType(data) == 'adoption_provider'
+            && isAdoptionProvider()
+            && data.get('providerId', request.auth.uid) == request.auth.uid
+          )
+        );
+    }
+
+    function validListingFields(data) {
+      return data.keys().hasAll([
+          'listingOwnerType', 'listingOwnerId', 'petName', 'species',
+          'gender', 'description', 'location', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'providerId', 'listingOwnerType', 'listingOwnerId', 'petName',
+          'species', 'breed', 'ageDescription', 'gender', 'description',
+          'location', 'imageAsset', 'status', 'contactNote', 'acceptedRequestId',
+          'createdAt', 'updatedAt'
+        ])
+        && data.listingOwnerType in ['owner', 'adoption_provider']
+        && data.listingOwnerId is string
+        && data.petName is string
+        && data.petName.size() > 0
+        && data.species is string
+        && data.gender is string
+        && data.description is string
+        && data.location is string
+        && data.status in ['draft', 'available', 'reserved']
+        && (
+          (
+            data.status == 'reserved'
+            && data.get('acceptedRequestId', null) is string
+            && data.get('acceptedRequestId', '').size() > 0
+          )
+          ||
+          (
+            data.status != 'reserved'
+            && !data.keys().hasAny(['acceptedRequestId'])
+          )
+        )
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (!data.keys().hasAny(['breed']) || data.breed is string)
+        && (!data.keys().hasAny(['ageDescription']) || data.ageDescription is string)
+        && (!data.keys().hasAny(['imageAsset']) || data.imageAsset is string)
+        && (!data.keys().hasAny(['contactNote']) || data.contactNote is string);
+    }
+
+    // Older provider clients do not write canonical ownership fields. Their
+    // compatibility path remains provider-only and still binds providerId to
+    // the authenticated account. New owner listings never use this path.
+    function validLegacyProviderListingFields(data) {
+      return data.keys().hasAll([
+          'providerId', 'petName', 'species', 'gender', 'description',
+          'location', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'providerId', 'petName', 'species', 'breed', 'ageDescription',
+          'gender', 'description', 'location', 'imageAsset', 'status',
+          'contactNote', 'createdAt', 'updatedAt'
+        ])
+        && data.providerId is string
+        && data.petName is string
+        && data.petName.size() > 0
+        && data.species is string
+        && data.gender is string
+        && data.description is string
+        && data.location is string
+        && data.status in ['draft', 'available']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (!data.keys().hasAny(['breed']) || data.breed is string)
+        && (!data.keys().hasAny(['ageDescription']) || data.ageDescription is string)
+        && (!data.keys().hasAny(['imageAsset']) || data.imageAsset is string)
+        && (!data.keys().hasAny(['contactNote']) || data.contactNote is string);
+    }
+
+    function acceptedRequestMatchesReservation(listingId, requestId) {
+      let acceptedRequest = getAfter(
+        /databases/$(database)/documents/adoption_requests/$(requestId)
+      ).data;
+      return acceptedRequest.status == 'accepted'
+        && acceptedRequest.listingId == listingId
+        && acceptedRequest.recipientId == request.auth.uid
+        && acceptedRequest.recipientType == listingOwnerType(resource.data)
+        && acceptedRequest.acceptedAt == request.time
+        && acceptedRequest.updatedAt == request.time;
+    }
+
+    function listingCanBeReserved(listingId) {
+      return request.resource.data.status == 'reserved'
+        && request.resource.data.get('acceptedRequestId', null) is string
+        && request.resource.data.get('acceptedRequestId', '').size() > 0
+        && ownsListing(resource.data)
+        && resource.data.status == 'available'
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'acceptedRequestId', 'updatedAt'
+        ])
+        && acceptedRequestMatchesReservation(
+          listingId,
+          request.resource.data.acceptedRequestId
+        );
+    }
+
+    function normalListingCanBeUpdated() {
+      return (
+          ownsListing(resource.data)
+          && validListingFields(request.resource.data)
+          && request.resource.data.status in ['draft', 'available']
+          && request.resource.data.listingOwnerType == listingOwnerType(resource.data)
+          && request.resource.data.listingOwnerId == listingOwnerId(resource.data)
+          && request.resource.data.get('providerId', '')
+            == resource.data.get('providerId', '')
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'providerId', 'listingOwnerType', 'listingOwnerId', 'petName',
+            'species', 'breed', 'ageDescription', 'gender', 'description',
+            'location', 'imageAsset', 'status', 'contactNote', 'updatedAt'
+          ])
+        )
+        || (
+          // Compatibility for previously released provider clients.
+          isAdoptionProvider()
+          && resource.data.get('providerId', '') == request.auth.uid
+          && request.resource.data.get('providerId', '')
+            == resource.data.get('providerId', '')
+          && request.resource.data.get('listingOwnerType', null)
+            == resource.data.get('listingOwnerType', null)
+          && request.resource.data.get('listingOwnerId', null)
+            == resource.data.get('listingOwnerId', null)
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.updatedAt is timestamp
+          && (
+            validListingFields(request.resource.data)
+            || validLegacyProviderListingFields(request.resource.data)
+          )
+          && request.resource.data.status in ['draft', 'available']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'providerId', 'listingOwnerType', 'listingOwnerId', 'petName',
+            'createdAt', 'species', 'breed', 'ageDescription', 'gender',
+            'description', 'location', 'imageAsset', 'status', 'contactNote',
+            'updatedAt'
+          ])
+        );
+    }
+
+    match /adoption_listings/{listingId} {
+      // Signed-in users can browse published listings.
+      // Only providers can read their own drafts.
+      allow read: if signedIn()
+        && (
+          resource.data.status != 'draft'
+          || (
+            isAdoptionProvider()
+            && ownsListing(resource.data)
+          )
+        );
+
+      // Only adoption providers can create advertisements.
+      allow create: if isAdoptionProvider()
+        && (
+          (
+            validListingFields(request.resource.data)
+            && request.resource.data.listingOwnerType == 'adoption_provider'
+            && request.resource.data.listingOwnerId == request.auth.uid
+            && request.resource.data.providerId == request.auth.uid
+            && request.resource.data.status in ['draft', 'available']
+            && request.resource.data.createdAt == request.time
+            && request.resource.data.updatedAt == request.time
+          )
+          ||
+          (
+            validLegacyProviderListingFields(request.resource.data)
+            && request.resource.data.providerId == request.auth.uid
+          )
+        );
+
+      // Only adoption providers can update or reserve their listings.
+      allow update: if isAdoptionProvider()
+        && (
+          request.resource.data.status == 'reserved'
+            ? listingCanBeReserved(listingId)
+            : normalListingCanBeUpdated()
+        );
+
+      // Listings are retained rather than hard-deleted.
+      allow delete: if false;
+    }
+
+    // ============================================================
+    // Adoption Requests
+    // ============================================================
+
+    // Canonical fields are populated by current clients or the trusted
+    // backfill. This field-only predicate is suitable for list queries: it
+    // lets Firestore prove query authorization without turning rules into a
+    // post-query filter.
+    function canonicalRequestRecipient(data) {
+      return signedIn()
+        && data.get('recipientId', '') == request.auth.uid
+        && (
+          (data.get('recipientType', '') == 'owner' && isOwner())
+          ||
+          (data.get('recipientType', '') == 'adoption_provider'
+            && isAdoptionProvider())
+        );
+    }
+
+    // Direct reads and decisions also verify that the canonical recipient
+    // still owns the referenced listing. Do not fall back to providerId here:
+    // an unbackfilled legacy record is not evidence of current ownership.
+    function authorizedRequestRecipient(data) {
+      return canonicalRequestRecipient(data)
+        && data.listingId is string
+        && exists(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        )
+        && listingOwnerType(get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data) == data.recipientType
+        && listingOwnerId(get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data) == data.recipientId;
+    }
+
+    function validNewAdoptionRequest(data) {
+      return data.keys().hasAll([
+        'listingId', 'requesterId', 'recipientId', 'recipientType',
+        'status', 'submittedAt', 'updatedAt'
+      ])
+        && data.keys().hasOnly([
+          'listingId', 'requesterId', 'providerId', 'recipientId',
+          'recipientType', 'message', 'status', 'submittedAt', 'updatedAt'
+        ])
+        && data.listingId is string
+        && data.requesterId is string
+        && data.requesterId == request.auth.uid
+        && data.recipientId is string
+        && data.recipientId != request.auth.uid
+        && data.recipientType == 'adoption_provider'
+        && data.status == 'pending'
+        && data.submittedAt == request.time
+        && data.updatedAt == request.time
+        && (!data.keys().hasAny(['message']) ||
+          (data.message is string && data.message.size() <= 500))
+        && exists(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        )
+        && get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data.status == 'available'
+        && listingOwnerType(get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data) == 'adoption_provider'
+        && listingOwnerId(get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data) == data.recipientId
+        && get(
+          /databases/$(database)/documents/users/$(data.recipientId)
+        ).data.role == 'adoption_provider'
+        && data.get('providerId', '') == data.recipientId;
+    }
+
+    function ownerCanWithdrawRequest() {
+      return isOwner()
+        && resource.data.requesterId == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'withdrawn'
+        && request.resource.data.requesterId == resource.data.requesterId
+        && request.resource.data.listingId == resource.data.listingId
+        && request.resource.data.get('recipientId', null)
+          == resource.data.get('recipientId', null)
+        && request.resource.data.get('recipientType', null)
+          == resource.data.get('recipientType', null)
+        && request.resource.data.get('providerId', null)
+          == resource.data.get('providerId', null)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'updatedAt', 'closedAt'
+        ])
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.closedAt == request.time
+        && request.resource.data.get('acceptedAt', null)
+          == resource.data.get('acceptedAt', null);
+    }
+
+    function recipientCanDecideRequest(requestId) {
+      return authorizedRequestRecipient(resource.data)
+        && resource.data.status == 'pending'
+        && request.resource.data.status in ['accepted', 'rejected']
+        && request.resource.data.requesterId == resource.data.requesterId
+        && request.resource.data.listingId == resource.data.listingId
+        && request.resource.data.get('recipientId', null)
+          == resource.data.get('recipientId', null)
+        && request.resource.data.get('recipientType', null)
+          == resource.data.get('recipientType', null)
+        && request.resource.data.get('providerId', null)
+          == resource.data.get('providerId', null)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'updatedAt', 'acceptedAt', 'closedAt', 'providerNote'
+        ])
+        && request.resource.data.updatedAt == request.time
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['providerNote']) ||
+          (request.resource.data.providerNote is string
+            && request.resource.data.providerNote.size() <= 500))
+        && (
+          request.resource.data.status == 'accepted'
+          ? (
+              get(
+                /databases/$(database)/documents/adoption_listings/$(resource.data.listingId)
+              ).data.status == 'available'
+              && getAfter(
+                /databases/$(database)/documents/adoption_listings/$(resource.data.listingId)
+              ).data.status == 'reserved'
+              && getAfter(
+                /databases/$(database)/documents/adoption_listings/$(resource.data.listingId)
+              ).data.acceptedRequestId == requestId
+              && request.resource.data.acceptedAt == request.time
+              && request.resource.data.get('closedAt', null)
+                == resource.data.get('closedAt', null)
+          )
+          : (
+              request.resource.data.status == 'rejected'
+              && request.resource.data.closedAt == request.time
+              && request.resource.data.get('acceptedAt', null)
+                == resource.data.get('acceptedAt', null)
+          )
+        );
+    }
+
+    // Previously released clients submit provider requests with only
+    // providerId. Keep this path provider-only and validate it against the
+    // current available listing before allowing creation.
+    function validLegacyProviderRequest(data) {
+      return data.keys().hasAll([
+          'listingId', 'requesterId', 'providerId', 'status',
+          'submittedAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'listingId', 'requesterId', 'providerId', 'message', 'status',
+          'submittedAt', 'updatedAt'
+        ])
+        && data.listingId is string
+        && data.requesterId == request.auth.uid
+        && data.providerId is string
+        && data.providerId != request.auth.uid
+        && data.status == 'pending'
+        && data.submittedAt == request.time
+        && data.updatedAt == request.time
+        && (!data.keys().hasAny(['message']) ||
+          (data.message is string && data.message.size() <= 500))
+        && exists(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        )
+        && get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data.status == 'available'
+        && listingOwnerType(get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data) == 'adoption_provider'
+        && listingOwnerId(get(
+          /databases/$(database)/documents/adoption_listings/$(data.listingId)
+        ).data) == data.providerId
+        && get(
+          /databases/$(database)/documents/users/$(data.providerId)
+        ).data.role == 'adoption_provider';
+    }
+
+    match /adoption_requests/{requestId} {
+      // A direct recipient read also verifies the request's referenced listing.
+      // Legacy requests become directly readable after the trusted backfill
+      // writes canonical recipient fields for verified relationships.
+      allow get: if signedIn()
+        && (
+          resource.data.requesterId == request.auth.uid
+          || authorizedRequestRecipient(resource.data)
+        );
+
+      // List queries rely only on canonical recipient fields so Firestore can
+      // prove the query is scoped to one recipient. The trusted backfill must
+      // clear recipient fields on missing/mismatched legacy relationships
+      // before this rule is rolled out; rules do not filter query results.
+      allow list: if signedIn()
+        && (
+          resource.data.requesterId == request.auth.uid
+          || canonicalRequestRecipient(resource.data)
+        );
+
+      allow create: if isOwner()
+        && (validNewAdoptionRequest(request.resource.data)
+          || validLegacyProviderRequest(request.resource.data));
+
+      allow update: if request.resource.data.status == 'withdrawn'
+        ? ownerCanWithdrawRequest()
+        : recipientCanDecideRequest(requestId);
+
+      // Withdrawal retains history; clients cannot physically delete requests.
+      allow delete: if false;
+    }
+
+    // ============================================================
+    // Default Deny
+    // ============================================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
