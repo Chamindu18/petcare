@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/config/firebase_emulator_config.dart';
 import '../../../hospitals/data/repositories/firebase_hospital_repository.dart';
 import '../../../hospitals/domain/usecases/hospital_usecases.dart';
 import '../../../pets/domain/entities/pet.dart';
@@ -253,6 +255,17 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       return;
     }
 
+    if ((selectedService.duration ?? 0) <= 0) {
+      setState(() {
+        _availableSlots = [];
+        _selectedSlot = null;
+        _isLoadingSlots = false;
+        _closedDay = false;
+        _slotErrorMessage = 'This service has no valid appointment duration.';
+      });
+      return;
+    }
+
     setState(() {
       _availableSlots = [];
       _selectedSlot = null;
@@ -289,7 +302,9 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         _availableSlots = [];
         _isLoadingSlots = false;
         _slotErrorMessage =
-            'Unable to check appointment availability. Please try again.';
+            error is FirebaseException && error.code == 'permission-denied'
+            ? 'Appointment availability access was denied. Please contact the hospital.'
+            : 'Unable to check appointment availability. Please try again.';
       });
     }
   }
@@ -307,6 +322,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   }
 
   Future<void> _submitAppointment() async {
+    if (!FirebaseEmulatorConfig.enabled) return;
     if (!_canSubmit) {
       return;
     }
@@ -400,18 +416,33 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       body: _buildBody(),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-        child: ElevatedButton(
-          onPressed: _canSubmit ? _submitAppointment : null,
-          child: _isSubmitting
-              ? const SizedBox(
-                  height: 22,
-                  width: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.white),
-                  ),
-                )
-              : const Text('Book Appointment'),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!FirebaseEmulatorConfig.enabled) ...[
+              const Text(
+                'Appointment confirmation is unavailable in this live demo.',
+              ),
+              const SizedBox(height: 8),
+            ],
+            ElevatedButton(
+              onPressed: FirebaseEmulatorConfig.enabled && _canSubmit
+                  ? _submitAppointment
+                  : null,
+              child: _isSubmitting
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppTheme.white,
+                        ),
+                      ),
+                    )
+                  : const Text('Book Appointment'),
+            ),
+          ],
         ),
       ),
     );
