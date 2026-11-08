@@ -185,7 +185,7 @@ class _DashboardContent extends StatelessWidget {
           const SizedBox(height: 8),
 
           Text(
-            'Manage pets, adoption listings and requests.',
+            'Manage adoption listings and requests.',
             style: Theme.of(context).textTheme.bodyMedium
                 ?.copyWith(color: AppTheme.deepBrown),
           ),
