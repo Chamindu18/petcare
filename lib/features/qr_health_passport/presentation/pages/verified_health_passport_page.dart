@@ -172,7 +172,7 @@ class _VerifiedHealthPassportPageState
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Read-only appointment access. Information is shown exactly as recorded by the owner and is not a diagnosis.',
+                  'Read-only appointment access. Up to 12 most recently created health records are shown across all categories; older records may be omitted. This is not a complete medical history or a diagnosis.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AppTheme.deepBrown, fontSize: 12),
                 ),
