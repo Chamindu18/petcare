@@ -158,6 +158,12 @@ void main() {
     await _openSummary(tester);
     expect(find.text('Pet A'), findsWidgets);
     expect(find.text('1'), findsOneWidget);
+    expect(find.text('General Care Guidance'), findsOneWidget);
+    expect(find.text('AI Recommendation'), findsNothing);
+    expect(
+      find.textContaining("Continue monitoring your pet's health"),
+      findsOneWidget,
+    );
     await tester.pageBack();
     await tester.pumpAndSettle();
     await _select(tester, 'B');
@@ -167,6 +173,7 @@ void main() {
     await _openSummary(tester);
     expect(find.text('Pet B'), findsWidgets);
     expect(find.text('0'), findsNWidgets(4));
+    expect(find.text('General Care Guidance'), findsOneWidget);
     expect(find.text('Pet A'), findsNothing);
   });
 
@@ -203,6 +210,7 @@ void main() {
     await tester.tap(find.text('Health Summary').first);
     await tester.pump();
     expect(find.text('Please select a pet first.'), findsOneWidget);
+    expect(find.text('General Care Guidance'), findsNothing);
   });
 
   testWidgets('empty records produce an empty-state guidance response', (
