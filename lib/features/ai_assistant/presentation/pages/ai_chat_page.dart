@@ -32,6 +32,7 @@ class _AIChatPageState extends State<AIChatPage> {
   final AIProvider provider = AIProvider();
   final ScrollController _scrollController = ScrollController();
   AIPetContext? _activeContext;
+  int _selectionGeneration = 0;
 
   void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 100), () {
@@ -242,18 +243,27 @@ Please select a pet first.
 
   final CreatePetContext _createPetContext = const CreatePetContext();
   Future<void> _selectPet(Pet pet) async {
-    if (widget.healthController == null) {
+    final healthController = widget.healthController;
+    final generation = ++_selectionGeneration;
+    setState(() => _activeContext = null);
+    if (healthController == null) {
       return;
     }
 
-    await widget.healthController!.loadHealthRecords(pet.petId);
+    final loaded = await healthController.loadHealthRecords(pet.petId);
+    if (!mounted ||
+        generation != _selectionGeneration ||
+        !loaded ||
+        healthController.loadedPetId != pet.petId) {
+      return;
+    }
 
     final context = _createPetContext(
       pet: pet,
-      conditions: widget.healthController!.medicalConditions,
-      vaccinations: widget.healthController!.vaccinations,
-      treatments: widget.healthController!.treatments,
-      measurements: widget.healthController!.healthMeasurements,
+      conditions: healthController.medicalConditions,
+      vaccinations: healthController.vaccinations,
+      treatments: healthController.treatments,
+      measurements: healthController.healthMeasurements,
     );
 
     setState(() {

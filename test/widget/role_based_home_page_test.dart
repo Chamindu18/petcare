@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:petcare/app/router/role_based_home_page.dart';
+import 'package:petcare/features/auth/presentation/pages/complete_google_profile_page.dart';
 import 'package:petcare/features/home/presentation/pages/owner_shell_page.dart';
 import 'package:petcare/features/hospital_staff/domain/entities/hospital_staff_assignment.dart';
 import 'package:petcare/features/hospital_staff/domain/repositories/hospital_staff_assignment_repository.dart';
@@ -31,6 +33,24 @@ class _FakeProfileRepository implements ProfileRepository {
 
   @override
   Future<void> updateNotificationPreference({required bool enabled}) async {}
+}
+
+class _GoogleUser extends Fake implements User {
+  @override
+  String? get displayName => null;
+
+  @override
+  List<UserInfo> get providerData => [_GoogleProviderInfo()];
+}
+
+class _GoogleProviderInfo extends Fake implements UserInfo {
+  @override
+  String get providerId => 'google.com';
+}
+
+class _GoogleAuth extends Fake implements FirebaseAuth {
+  @override
+  User? get currentUser => _GoogleUser();
 }
 
 class _FakeHospitalStaffAssignmentRepository
@@ -79,6 +99,54 @@ Widget _testDashboard(String label) {
 
 void main() {
   group('RoleBasedHomePage', () {
+    testWidgets('missing Google profile requires a name and retries creation', (
+      tester,
+    ) async {
+      UserProfile? currentProfile;
+      final repository = _FakeProfileRepository(
+        (_) => Stream<UserProfile?>.value(currentProfile),
+      );
+      var attempts = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RoleBasedHomePage(
+            auth: _GoogleAuth(),
+            profileRepository: repository,
+            completeGoogleProfile: (name) async {
+              attempts++;
+              if (attempts == 1) throw StateError('temporary failure');
+              expect(name, 'Actual Owner');
+              currentProfile = _profileWithRole('owner');
+            },
+            ownerDashboardBuilder: () => _testDashboard('owner dashboard'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(CompleteGoogleProfilePage), findsOneWidget);
+      expect(find.text('owner dashboard'), findsNothing);
+
+      await tester.tap(find.text('Save profile'));
+      await tester.pump();
+      expect(find.text('Please enter your full name'), findsOneWidget);
+      expect(attempts, 0);
+
+      await tester.enterText(find.byType(TextFormField), '  Actual Owner  ');
+      await tester.tap(find.text('Save profile'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Unable to save your profile. Please try again.'),
+        findsOneWidget,
+      );
+      expect(find.text('owner dashboard'), findsNothing);
+
+      await tester.tap(find.text('Save profile'));
+      await tester.pumpAndSettle();
+      expect(attempts, 2);
+      expect(find.text('owner dashboard'), findsOneWidget);
+    });
+
     testWidgets('rebuilds the destination when the account UID changes', (
       tester,
     ) async {
