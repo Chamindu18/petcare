@@ -31,7 +31,7 @@ void main() {
         firestore: db,
       );
 
-  Future<void> seedPet(FakeFirebaseFirestore db) =>
+  Future<void> seedPet(FakeFirebaseFirestore db, {String imageUrl = ''}) =>
       db.collection('pets').doc(petId).set({
         'petId': petId,
         'ownerId': ownerId,
@@ -41,7 +41,7 @@ void main() {
         'dob': '2022-01-01T00:00:00.000',
         'gender': 'Male',
         'weight': 12.0,
-        'imageUrl': '',
+        'imageUrl': imageUrl,
         'notes': '',
         'status': 'active',
       });
@@ -54,14 +54,41 @@ void main() {
     'unreferenced pet leaves active list while ownership anchor remains',
     () async {
       final db = FakeFirebaseFirestore();
-      await seedPet(db);
+      await seedPet(db, imageUrl: 'https://res.cloudinary.com/example.jpg');
       final pets = repository(db);
 
       await pets.deletePet(petId);
 
       expect(await petStatus(db), 'deleted');
+      expect(
+        (await db.collection('pets').doc(petId).get()).data()?['imageUrl'],
+        '',
+      );
       expect(await pets.getPets(), isEmpty);
       expect((await pets.getPetById(petId))?.ownerId, ownerId);
+    },
+  );
+
+  test(
+    'cross-owner deletion leaves pet and image reference unchanged',
+    () async {
+      final db = FakeFirebaseFirestore();
+      await seedPet(db, imageUrl: 'https://res.cloudinary.com/example.jpg');
+      final otherOwner = FirebasePetRepository(
+        auth: MockFirebaseAuth(
+          signedIn: true,
+          mockUser: MockUser(uid: 'owner-b'),
+        ),
+        firestore: db,
+      );
+
+      await expectLater(
+        otherOwner.deletePet(petId),
+        throwsA(isA<PetRepositoryException>()),
+      );
+      final data = (await db.collection('pets').doc(petId).get()).data()!;
+      expect(data['status'], 'active');
+      expect(data['imageUrl'], 'https://res.cloudinary.com/example.jpg');
     },
   );
 

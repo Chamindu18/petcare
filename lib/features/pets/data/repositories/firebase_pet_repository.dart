@@ -184,7 +184,7 @@ class FirebasePetRepository implements PetRepository {
 
     // A tombstone also protects any legacy QR reference that cannot be listed
     // by the client under the current passport rules.
-    await document.reference.update({'status': 'deleted'});
+    await document.reference.update({'status': 'deleted', 'imageUrl': ''});
   }
 }
 

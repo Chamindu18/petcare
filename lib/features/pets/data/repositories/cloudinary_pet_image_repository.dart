@@ -123,14 +123,11 @@ class CloudinaryPetImageRepository implements PetImageRepository {
     if (imageUrl.trim().isEmpty) {
       return;
     }
-
-    final isCloudinaryUrl = imageUrl.contains('cloudinary.com');
-
-    if (!isCloudinaryUrl) {
-      return;
-    }
-
-    return;
+    // Unsigned uploads do not authorize deletion. A URL supplied by the client
+    // is not proof that the caller owns the hosted asset.
+    throw const PetImageRepositoryException(
+      'Hosted pet photo deletion is unavailable. The image may remain accessible at its URL.',
+    );
   }
 
   String _mapError(String responseBody) {

@@ -411,7 +411,7 @@ void main() {
         await expectLater(repository.deletePetImage(imageUrl: ''), completes);
       });
 
-      test('returns without throwing for non-Cloudinary URL', () async {
+      test('does not claim deletion of a non-Cloudinary URL', () async {
         final mockAuth = MockFirebaseAuth(signedIn: true);
         final mockClient = _MockHttpClient(
           (_) async => throw UnimplementedError(),
@@ -428,32 +428,35 @@ void main() {
             imageUrl:
                 'https://firebasestorage.googleapis.com/v0/b/test/o/image.jpg',
           ),
-          completes,
+          throwsA(isA<PetImageRepositoryException>()),
         );
       });
 
-      test(
-        'returns without throwing for Cloudinary URL (no-op in phase 1)',
-        () async {
-          final mockAuth = MockFirebaseAuth(signedIn: true);
-          final mockClient = _MockHttpClient(
-            (_) async => throw UnimplementedError(),
-          );
-          final repository = _createRepository(
-            cloudName: 'test-cloud',
-            uploadPreset: 'test-preset',
-            httpClient: mockClient,
-            auth: mockAuth,
-          );
+      test('reports that Cloudinary deletion is unavailable', () async {
+        final mockAuth = MockFirebaseAuth(signedIn: true);
+        final mockClient = _MockHttpClient(
+          (_) async => throw UnimplementedError(),
+        );
+        final repository = _createRepository(
+          cloudName: 'test-cloud',
+          uploadPreset: 'test-preset',
+          httpClient: mockClient,
+          auth: mockAuth,
+        );
 
-          await expectLater(
-            repository.deletePetImage(
-              imageUrl: 'https://res.cloudinary.com/test-cloud/image/upload/v123/pet-images/owner/pet/abc.jpg',
+        await expectLater(
+          repository.deletePetImage(
+            imageUrl: 'https://res.cloudinary.com/test-cloud/image/upload/v123/pet-images/owner/pet/abc.jpg',
+          ),
+          throwsA(
+            isA<PetImageRepositoryException>().having(
+              (error) => error.message,
+              'message',
+              contains('may remain accessible'),
             ),
-            completes,
-          );
-        },
-      );
+          ),
+        );
+      });
 
       test('does not make any HTTP request for Cloudinary URL', () async {
         final mockAuth = MockFirebaseAuth(signedIn: true);
@@ -470,8 +473,11 @@ void main() {
           auth: mockAuth,
         );
 
-        await repository.deletePetImage(
-          imageUrl: 'https://res.cloudinary.com/test-cloud/image/upload/v123/pet-images/owner/pet/abc.jpg',
+        await expectLater(
+          repository.deletePetImage(
+            imageUrl: 'https://res.cloudinary.com/test-cloud/image/upload/v123/pet-images/owner/pet/abc.jpg',
+          ),
+          throwsA(isA<PetImageRepositoryException>()),
         );
 
         expect(requestMade, isFalse);
