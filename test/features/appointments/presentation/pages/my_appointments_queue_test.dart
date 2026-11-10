@@ -179,7 +179,7 @@ Widget _pageFor({
 }
 
 void main() {
-  testWidgets('shows the linked queue and opens live details', (tester) async {
+  testWidgets('shows the linked queue and opens its details', (tester) async {
     final queues = _FakeQueueRepository(queue(), position: 2);
     await tester.pumpWidget(
       _pageFor(
@@ -189,7 +189,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Live queue'), findsOneWidget);
+    expect(find.text('Queue status'), findsOneWidget);
     expect(find.text('Queue number: 7'), findsOneWidget);
     expect(find.text('Waiting for your turn'), findsOneWidget);
 

@@ -7,7 +7,7 @@ import '../../domain/repositories/queue_repository.dart';
 import '../providers/owner_queue_provider.dart';
 import '../widgets/owner_queue_status_badge.dart';
 
-/// Owner-facing live queue details for one appointment.
+/// Owner-facing queue details for one appointment, refreshed on request.
 class OwnerQueueDetailsPage extends StatefulWidget {
   const OwnerQueueDetailsPage({
     required this.appointment,
@@ -35,11 +35,15 @@ class OwnerQueueDetailsPage extends StatefulWidget {
 }
 
 class _OwnerQueueDetailsPageState extends State<OwnerQueueDetailsPage> {
-  late final OwnerQueueProvider _provider;
+  late OwnerQueueProvider _provider;
 
   @override
   void initState() {
     super.initState();
+    _createProvider();
+  }
+
+  void _createProvider() {
     _provider = OwnerQueueProvider(
       queueRepository: widget.queueRepository,
       ownerQueueRepository: widget.ownerQueueRepository,
@@ -47,6 +51,18 @@ class _OwnerQueueDetailsPageState extends State<OwnerQueueDetailsPage> {
       initialQueue: widget.initialQueue,
     );
     _provider.load();
+  }
+
+  @override
+  void didUpdateWidget(covariant OwnerQueueDetailsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.appointment.appointmentId !=
+            widget.appointment.appointmentId ||
+        oldWidget.queueRepository != widget.queueRepository ||
+        oldWidget.ownerQueueRepository != widget.ownerQueueRepository) {
+      _provider.dispose();
+      _createProvider();
+    }
   }
 
   @override
@@ -59,7 +75,7 @@ class _OwnerQueueDetailsPageState extends State<OwnerQueueDetailsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(title: const Text('Live Queue')),
+      appBar: AppBar(title: const Text('Queue Details')),
       body: AnimatedBuilder(
         animation: _provider,
         builder: (context, _) {
@@ -105,7 +121,7 @@ class _OwnerQueueDetailsPageState extends State<OwnerQueueDetailsPage> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Pull down to refresh the queue status.',
+                  'Pull down to refresh the queue status and waiting position.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall
                       ?.copyWith(color: AppTheme.deepBrown),
