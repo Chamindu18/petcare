@@ -66,6 +66,7 @@ class FirebasePetRepository implements PetRepository {
 
     return snapshot.docs
         .map((document) => PetModel.fromMap(document.data()))
+        .where((pet) => pet.status != 'deleted')
         .toList();
   }
 
@@ -129,7 +130,9 @@ class FirebasePetRepository implements PetRepository {
   Future<void> deletePet(String petId) async {
     final ownerId = _currentUserId;
 
-    final document = await _petsCollection.doc(petId).get();
+    final document = await _petsCollection
+        .doc(petId)
+        .get(const GetOptions(source: Source.server));
 
     if (!document.exists) {
       return;
@@ -143,7 +146,45 @@ class FirebasePetRepository implements PetRepository {
       );
     }
 
-    await document.reference.delete();
+    if (data['status'] == 'deleted') return;
+
+    // Preserve the pet as the ownership anchor for retained records. A cached
+    // empty result must never authorize deletion while offline.
+    for (final collection in const [
+      'medical_conditions',
+      'vaccinations',
+      'treatments',
+      'health_measurements',
+    ]) {
+      final linked = await _firestore
+          .collection(collection)
+          .where('petId', isEqualTo: petId)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+      if (linked.docs.isNotEmpty) {
+        throw const PetRepositoryException(
+          'This pet has health records and cannot be deleted.',
+        );
+      }
+    }
+
+    // Any appointment status is retained history. The owner-scoped query is
+    // authorized by existing rules and does not need a new composite index.
+    final appointments = await _firestore
+        .collection('appointments')
+        .where('ownerId', isEqualTo: ownerId)
+        .get(const GetOptions(source: Source.server));
+    if (appointments.docs.any(
+      (appointment) => appointment.data()['petId'] == petId,
+    )) {
+      throw const PetRepositoryException(
+        'This pet has appointment history and cannot be deleted.',
+      );
+    }
+
+    // A tombstone also protects any legacy QR reference that cannot be listed
+    // by the client under the current passport rules.
+    await document.reference.update({'status': 'deleted', 'imageUrl': ''});
   }
 }
 

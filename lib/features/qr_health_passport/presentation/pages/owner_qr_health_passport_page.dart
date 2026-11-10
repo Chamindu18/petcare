@@ -206,6 +206,12 @@ class _OwnerQrHealthPassportPageState extends State<OwnerQrHealthPassportPage> {
             textAlign: TextAlign.center,
             style: TextStyle(color: AppTheme.deepBrown, height: 1.4),
           ),
+          const SizedBox(height: 8),
+          const Text(
+            'The passport shares up to 12 most recently created health records across all categories. Older records may be omitted; it is not a complete medical history.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppTheme.deepBrown, height: 1.4),
+          ),
         ],
       ),
     );

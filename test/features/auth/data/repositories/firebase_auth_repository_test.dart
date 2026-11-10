@@ -4,13 +4,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'package:petcare/features/auth/data/repositories/firebase_auth_repository.dart';
+import 'package:petcare/features/auth/domain/repositories/auth_repository.dart';
 
 class _FakeFirebaseUser extends Fake implements User {
+  _FakeFirebaseUser({this.name = 'New Test User', this.googleProvider = true});
+
+  final String? name;
+  final bool googleProvider;
   @override
   String get uid => 'test-privileged-user';
 
   @override
-  String? get displayName => 'New Test User';
+  String? get displayName => name;
+
+  @override
+  List<UserInfo> get providerData => googleProvider ? [_FakeUserInfo()] : [];
 
   @override
   String? get email => 'newowner@example.com';
@@ -25,6 +33,11 @@ class _FakeFirebaseUser extends Fake implements User {
   Future<void> reload() async {}
 }
 
+class _FakeUserInfo extends Fake implements UserInfo {
+  @override
+  String get providerId => 'google.com';
+}
+
 class _FakeUserCredential extends Fake implements UserCredential {
   _FakeUserCredential(this._user);
 
@@ -35,12 +48,19 @@ class _FakeUserCredential extends Fake implements UserCredential {
 }
 
 class _FakeFirebaseAuth extends Fake implements FirebaseAuth {
-  _FakeFirebaseAuth(this._userCredential);
+  _FakeFirebaseAuth(this._userCredential, {this.failGoogleSignIn = false});
 
   final UserCredential _userCredential;
+  final bool failGoogleSignIn;
+
+  @override
+  User? get currentUser => _userCredential.user;
 
   @override
   Future<UserCredential> signInWithCredential(AuthCredential credential) async {
+    if (failGoogleSignIn) {
+      throw FirebaseAuthException(code: 'invalid-credential');
+    }
     return _userCredential;
   }
 
@@ -85,6 +105,13 @@ class _FakeFirebaseFirestore extends Fake implements FirebaseFirestore {
   final _FakeCollectionReference _usersCollection;
 
   @override
+  Future<T> runTransaction<T>(
+    TransactionHandler<T> transactionHandler, {
+    Duration timeout = const Duration(seconds: 30),
+    int maxAttempts = 5,
+  }) => transactionHandler(_FakeTransaction(_usersCollection._userDocument));
+
+  @override
   CollectionReference<Map<String, dynamic>> collection(String collectionPath) {
     if (collectionPath != 'users') {
       throw StateError('Unexpected collection: $collectionPath');
@@ -113,15 +140,16 @@ class _FakeCollectionReference extends Fake
 }
 
 // Test double for a Firestore document.
-// ignore: subtype_of_sealed_class
+// ignore: subtype_of_sealed_class, must_be_immutable
 class _FakeDocumentReference extends Fake
     implements DocumentReference<Map<String, dynamic>> {
   _FakeDocumentReference(this._snapshot);
 
-  final DocumentSnapshot<Map<String, dynamic>> _snapshot;
+  DocumentSnapshot<Map<String, dynamic>> _snapshot;
 
   final List<Map<Object, Object?>> updates = [];
   final List<Map<String, dynamic>> setCalls = [];
+  bool failNextSet = false;
 
   @override
   Future<DocumentSnapshot<Map<String, dynamic>>> get([
@@ -138,6 +166,33 @@ class _FakeDocumentReference extends Fake
   @override
   Future<void> set(Map<String, dynamic> data, [SetOptions? options]) async {
     setCalls.add(Map<String, dynamic>.from(data));
+  }
+}
+
+class _FakeTransaction extends Fake implements Transaction {
+  _FakeTransaction(this.document);
+  final _FakeDocumentReference document;
+
+  @override
+  Future<DocumentSnapshot<T>> get<T extends Object?>(
+    DocumentReference<T> reference,
+  ) async => document._snapshot as DocumentSnapshot<T>;
+
+  @override
+  Transaction set<T>(
+    DocumentReference<T> reference,
+    T data, [
+    SetOptions? options,
+  ]) {
+    if (document.failNextSet) {
+      document.failNextSet = false;
+      throw FirebaseException(plugin: 'cloud_firestore', code: 'unavailable');
+    }
+    document.setCalls.add(
+      Map<String, dynamic>.from(data as Map<String, dynamic>),
+    );
+    document._snapshot = _FakeDocumentSnapshot(document.setCalls.last);
+    return this;
   }
 }
 
@@ -264,6 +319,130 @@ void main() {
         expect(fakeUserDocument.updates, isEmpty);
       },
     );
+
+    test(
+      'missing Google name waits for user input before creating a profile',
+      () async {
+        final document = _FakeDocumentReference(
+          _FakeDocumentSnapshot({}, exists: false),
+        );
+        final repository = FirebaseAuthRepository(
+          auth: _FakeFirebaseAuth(
+            _FakeUserCredential(_FakeFirebaseUser(name: null)),
+          ),
+          firestore: _FakeFirebaseFirestore(_FakeCollectionReference(document)),
+          googleSignIn: _FakeGoogleSignIn(),
+        );
+
+        await repository.signInWithGoogle();
+        expect(document.setCalls, isEmpty);
+        await expectLater(
+          repository.completeGoogleOwnerProfile('  '),
+          throwsA(isA<AuthException>()),
+        );
+        expect(document.setCalls, isEmpty);
+
+        await repository.completeGoogleOwnerProfile('  Actual Owner  ');
+        expect(document.setCalls, hasLength(1));
+        expect(document.setCalls.single['fullName'], 'Actual Owner');
+        expect(document.setCalls.single['displayName'], 'Actual Owner');
+        expect(document.setCalls.single['role'], 'owner');
+      },
+    );
+
+    test(
+      'failed profile creation can be retried without overwriting a role',
+      () async {
+        final document = _FakeDocumentReference(
+          _FakeDocumentSnapshot({}, exists: false),
+        )..failNextSet = true;
+        final repository = FirebaseAuthRepository(
+          auth: _FakeFirebaseAuth(
+            _FakeUserCredential(_FakeFirebaseUser(name: null)),
+          ),
+          firestore: _FakeFirebaseFirestore(_FakeCollectionReference(document)),
+          googleSignIn: _FakeGoogleSignIn(),
+        );
+
+        await expectLater(
+          repository.completeGoogleOwnerProfile('Actual Owner'),
+          throwsA(isA<AuthException>()),
+        );
+        expect(document.setCalls, isEmpty);
+
+        await repository.completeGoogleOwnerProfile('Actual Owner');
+        expect(document.setCalls, hasLength(1));
+        expect(document.setCalls.single['role'], 'owner');
+
+        await repository.completeGoogleOwnerProfile('Different Name');
+        expect(document.setCalls, hasLength(1));
+        expect(document.setCalls.single['fullName'], 'Actual Owner');
+      },
+    );
+
+    test('completion never replaces an existing privileged profile', () async {
+      final document = _FakeDocumentReference(
+        _FakeDocumentSnapshot({
+          'uid': 'test-privileged-user',
+          'role': 'veterinarian',
+          'fullName': 'Existing Vet',
+        }),
+      );
+      final repository = FirebaseAuthRepository(
+        auth: _FakeFirebaseAuth(
+          _FakeUserCredential(_FakeFirebaseUser(name: null)),
+        ),
+        firestore: _FakeFirebaseFirestore(_FakeCollectionReference(document)),
+        googleSignIn: _FakeGoogleSignIn(),
+      );
+
+      await repository.completeGoogleOwnerProfile('Other Name');
+      expect(document.setCalls, isEmpty);
+      expect(document.updates, isEmpty);
+      expect(document._snapshot.data()!['role'], 'veterinarian');
+    });
+
+    test('non-Google account cannot use Google profile completion', () async {
+      final document = _FakeDocumentReference(
+        _FakeDocumentSnapshot({}, exists: false),
+      );
+      final repository = FirebaseAuthRepository(
+        auth: _FakeFirebaseAuth(
+          _FakeUserCredential(
+            _FakeFirebaseUser(name: null, googleProvider: false),
+          ),
+        ),
+        firestore: _FakeFirebaseFirestore(_FakeCollectionReference(document)),
+        googleSignIn: _FakeGoogleSignIn(),
+      );
+
+      await expectLater(
+        repository.completeGoogleOwnerProfile('Unauthorized Name'),
+        throwsA(isA<AuthException>()),
+      );
+      expect(document.setCalls, isEmpty);
+    });
+
+    test('authentication failure does not create a profile', () async {
+      final document = _FakeDocumentReference(
+        _FakeDocumentSnapshot({}, exists: false),
+      );
+      final repository = FirebaseAuthRepository(
+        auth: _FakeFirebaseAuth(
+          _FakeUserCredential(_FakeFirebaseUser()),
+          failGoogleSignIn: true,
+        ),
+        firestore: _FakeFirebaseFirestore(_FakeCollectionReference(document)),
+        googleSignIn: _FakeGoogleSignIn(),
+      );
+
+      await expectLater(
+        repository.signInWithGoogle(),
+        throwsA(isA<AuthException>()),
+      );
+      expect(document.setCalls, isEmpty);
+      expect(document.updates, isEmpty);
+    });
   });
 
   group('FirebaseAuthRepository email registration', () {

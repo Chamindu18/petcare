@@ -68,6 +68,9 @@ class HealthController extends ChangeNotifier {
 
   bool _isLoading = false;
   String? _errorMessage;
+  int _loadGeneration = 0;
+  bool _loadingHealthRecords = false;
+  String? _loadedPetId;
 
   List<MedicalCondition> get medicalConditions =>
       List.unmodifiable(_medicalConditions);
@@ -82,13 +85,26 @@ class HealthController extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   String? get errorMessage => _errorMessage;
+  String? get loadedPetId => _loadedPetId;
 
   // ---------------------------------------------------------------------------
   // Load health records
   // ---------------------------------------------------------------------------
 
-  Future<void> loadHealthRecords(String petId) async {
-    await _run(() async {
+  Future<bool> loadHealthRecords(String petId) async {
+    if (_isLoading && !_loadingHealthRecords) return false;
+
+    final generation = ++_loadGeneration;
+    _loadingHealthRecords = true;
+    _loadedPetId = null;
+    _medicalConditions = [];
+    _vaccinations = [];
+    _treatments = [];
+    _healthMeasurements = [];
+    _errorMessage = null;
+    _setLoading(true);
+
+    try {
       final results = await Future.wait([
         _getMedicalConditions(petId),
         _getVaccinations(petId),
@@ -96,11 +112,23 @@ class HealthController extends ChangeNotifier {
         _getHealthMeasurements(petId),
       ]);
 
+      if (generation != _loadGeneration) return false;
       _medicalConditions = results[0] as List<MedicalCondition>;
       _vaccinations = results[1] as List<Vaccination>;
       _treatments = results[2] as List<Treatment>;
       _healthMeasurements = results[3] as List<HealthMeasurement>;
-    });
+      _loadedPetId = petId;
+      return true;
+    } catch (_) {
+      if (generation != _loadGeneration) return false;
+      _errorMessage = 'Unable to complete the health operation.';
+      return false;
+    } finally {
+      if (generation == _loadGeneration) {
+        _loadingHealthRecords = false;
+        _setLoading(false);
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------

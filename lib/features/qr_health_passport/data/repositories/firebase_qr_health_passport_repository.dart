@@ -35,8 +35,9 @@ class FirebaseQrHealthPassportRepository implements QrHealthPassportRepository {
        _firestore = firestore ?? FirebaseFirestore.instance,
        _random = secureRandom ?? Random.secure();
 
-  // Rules allow at most 20 distinct document access calls per batch. Keep
-  // source checks below that budget and fail rather than silently omit data.
+  // Rules allow at most 20 distinct document access calls per batch. Each
+  // projection checks its source document, in addition to shared appointment,
+  // pet, passport and veterinarian checks.
   static const _projectionLimit = 12;
 
   final FirebaseAuth _auth;
@@ -93,12 +94,21 @@ class FirebaseQrHealthPassportRepository implements QrHealthPassportRepository {
       _records('treatments', petId),
       _records('health_measurements', petId),
     ]);
-    if (records.fold<int>(0, (total, items) => total + items.length) >
-        _projectionLimit) {
-      throw const QrHealthPassportException(
-        'This pet has too many health records for one QR passport. Please contact the care team.',
-      );
-    }
+    final selected = <_PassportRecord>[
+      for (var index = 0; index < records.length; index++)
+        for (final document in records[index])
+          _PassportRecord(_recordCollections[index], document),
+    ];
+    // Sort the complete owner-authorized result so the summary is independent
+    // of Firestore's query order. Ties use collection and document ID.
+    selected.sort((a, b) {
+      final byDate = b.createdAt.compareTo(a.createdAt);
+      if (byDate != 0) return byDate;
+      final byCollection = a.collection.compareTo(b.collection);
+      return byCollection != 0
+          ? byCollection
+          : a.document.id.compareTo(b.document.id);
+    });
     _ensureSession(uid);
 
     final token = _newToken();
@@ -120,10 +130,19 @@ class FirebaseQrHealthPassportRepository implements QrHealthPassportRepository {
       'dob': pet['dob'],
     });
 
-    _copyRecords(batch, reference, 'medical_conditions', records[0]);
-    _copyRecords(batch, reference, 'vaccinations', records[1]);
-    _copyRecords(batch, reference, 'treatments', records[2]);
-    _copyRecords(batch, reference, 'health_measurements', records[3]);
+    for (final record in selected.take(_projectionLimit)) {
+      // Rules enforce this relationship too; keep the client from preparing a
+      // cross-pet projection even when given an inconsistent query result.
+      if (record.document.data()['petId'] != petId) {
+        throw const QrHealthPassportException(
+          'The pet health records are inconsistent.',
+        );
+      }
+      batch.set(
+        reference.collection(record.collection).doc(record.document.id),
+        record.document.data(),
+      );
+    }
 
     await batch.commit();
     _ensureSession(uid);
@@ -144,21 +163,16 @@ class FirebaseQrHealthPassportRepository implements QrHealthPassportRepository {
     final snapshot = await _firestore
         .collection(collection)
         .where('petId', isEqualTo: petId)
-        .limit(_projectionLimit + 1)
         .get();
     return snapshot.docs;
   }
 
-  void _copyRecords(
-    WriteBatch batch,
-    DocumentReference<Map<String, dynamic>> reference,
-    String collection,
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> records,
-  ) {
-    for (final record in records) {
-      batch.set(reference.collection(collection).doc(record.id), record.data());
-    }
-  }
+  static const _recordCollections = [
+    'medical_conditions',
+    'vaccinations',
+    'treatments',
+    'health_measurements',
+  ];
 
   String _newToken() {
     final bytes = List<int>.generate(32, (_) => _random.nextInt(256));
@@ -280,4 +294,14 @@ class FirebaseQrHealthPassportRepository implements QrHealthPassportRepository {
       );
     }
   }
+}
+
+class _PassportRecord {
+  _PassportRecord(this.collection, this.document);
+
+  final String collection;
+  final QueryDocumentSnapshot<Map<String, dynamic>> document;
+
+  DateTime get createdAt =>
+      DateTime.parse(document.data()['createdAt'] as String);
 }

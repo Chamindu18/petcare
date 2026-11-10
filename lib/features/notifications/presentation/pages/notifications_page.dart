@@ -26,6 +26,8 @@ class NotificationsPage extends StatefulWidget {
 
 class _NotificationsPageState extends State<NotificationsPage> {
   late final NotificationProvider _notificationProvider;
+  final Set<String> _openingNotifications = {};
+  bool _markingAll = false;
 
   @override
   void initState() {
@@ -60,7 +62,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               }
 
               return TextButton(
-                onPressed: _notificationProvider.markAllAsRead,
+                onPressed: _markingAll ? null : _markAllAsRead,
                 child: const Text('Mark all read'),
               );
             },
@@ -91,44 +93,80 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
               return _NotificationCard(
                 notification: notification,
-                onTap: () async {
-                  await _notificationProvider.markAsRead(
-                    notification.notificationId,
-                  );
-                  if (!context.mounted) return;
-                  if (notification.targetType == 'queue' &&
-                      widget.onOpenQueue != null) {
-                    widget.onOpenQueue!();
-                    return;
-                  }
-                  if (notification.targetType == 'appointment') {
-                    if (widget.onOpenAppointmentById != null) {
-                      widget.onOpenAppointmentById!(notification.targetId);
-                      return;
-                    }
-                    if (widget.onOpenAppointment != null) {
-                      widget.onOpenAppointment!();
-                      return;
-                    }
-                  }
-                  final route = switch (notification.targetType) {
-                    'appointment' || 'queue' => AppRouter.myAppointments,
-                    'adoption_request'
-                        when notification.type ==
-                                'adoption_request_submitted' ||
-                            notification.type == 'adoption_request_withdrawn' =>
-                      AppRouter.adoptionRequests,
-                    'adoption_request' => AppRouter.myAdoptionRequests,
-                    _ => null,
-                  };
-                  if (route != null) Navigator.of(context).pushNamed(route);
-                },
+                onTap: () => _openNotification(notification),
               );
             },
           );
         },
       ),
     );
+  }
+
+  Future<void> _markAllAsRead() async {
+    if (_markingAll) return;
+    _markingAll = true;
+    final updated = await _notificationProvider.markAllAsRead();
+    _markingAll = false;
+    if (!mounted) return;
+    if (!updated) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Unable to mark all notifications as read. Please try again.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _openNotification(
+    notification_entity.Notification notification,
+  ) async {
+    if (!_openingNotifications.add(notification.notificationId)) return;
+    try {
+      if (!notification.read) {
+        final updated = await _notificationProvider.markAsRead(
+          notification.notificationId,
+        );
+        if (!mounted) return;
+        if (!updated) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Unable to mark notification as read. Please try again.',
+              ),
+            ),
+          );
+        }
+      }
+      if (!mounted || notification.targetId.trim().isEmpty) return;
+      if (notification.targetType == 'queue' && widget.onOpenQueue != null) {
+        widget.onOpenQueue!();
+        return;
+      }
+      if (notification.targetType == 'appointment') {
+        if (widget.onOpenAppointmentById != null) {
+          widget.onOpenAppointmentById!(notification.targetId);
+          return;
+        }
+        if (widget.onOpenAppointment != null) {
+          widget.onOpenAppointment!();
+          return;
+        }
+      }
+      final route = switch (notification.targetType) {
+        'appointment' || 'queue' => AppRouter.myAppointments,
+        'adoption_request'
+            when notification.type == 'adoption_request_submitted' ||
+                notification.type == 'adoption_request_withdrawn' =>
+          AppRouter.adoptionRequests,
+        'adoption_request' => AppRouter.myAdoptionRequests,
+        _ => null,
+      };
+      if (route != null) Navigator.of(context).pushNamed(route);
+    } finally {
+      _openingNotifications.remove(notification.notificationId);
+    }
   }
 }
 

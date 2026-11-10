@@ -293,8 +293,8 @@ service cloud.firestore {
         && resource.data.ownerId == request.auth.uid
         && request.resource.data.ownerId == resource.data.ownerId;
 
-      allow delete: if isOwner()
-        && resource.data.ownerId == request.auth.uid;
+      // Hard deletion strands retained records and appointment/QR references.
+      allow delete: if false;
     }
 
     // ============================================================

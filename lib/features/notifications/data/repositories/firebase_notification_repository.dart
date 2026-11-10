@@ -33,7 +33,7 @@ class FirebaseNotificationRepository implements NotificationRepository {
         .collection('notifications')
         .where('recipientUserId', isEqualTo: user.uid)
         .orderBy('createdAt', descending: true)
-        .snapshots()
+        .snapshots(includeMetadataChanges: true)
         .map(
           (snapshot) =>
               snapshot.docs.map(NotificationModel.fromFirestore).toList(),

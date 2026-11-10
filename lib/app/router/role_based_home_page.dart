@@ -7,6 +7,8 @@ import '../../features/adoption/data/repositories/firebase_adoption_request_repo
 import '../../features/adoption/presentation/pages/adoption_provider_dashboard_page.dart';
 import '../../features/adoption/presentation/providers/my_adoption_listings_provider.dart';
 import '../../features/adoption/presentation/providers/received_adoption_requests_provider.dart';
+import '../../features/auth/data/repositories/firebase_auth_repository.dart';
+import '../../features/auth/presentation/pages/complete_google_profile_page.dart';
 import '../../features/home/presentation/pages/owner_shell_page.dart';
 import '../../features/hospital_staff/data/repositories/firebase_hospital_staff_assignment_repository.dart';
 import '../../features/hospital_staff/domain/entities/hospital_staff_assignment.dart';
@@ -19,6 +21,7 @@ import '../../features/profile/domain/repositories/profile_repository.dart';
 import '../../features/profile/presentation/providers/profile_provider.dart';
 import '../../features/veterinary/presentation/pages/veterinarian_dashboard_page.dart';
 import '../../shared/enums/user_role.dart';
+import 'app_router.dart';
 
 class RoleBasedHomePage extends StatefulWidget {
   const RoleBasedHomePage({
@@ -29,6 +32,7 @@ class RoleBasedHomePage extends StatefulWidget {
     this.ownerDashboardBuilder,
     this.adoptionProviderDashboardBuilder,
     this.staffWorkspaceBuilder,
+    this.completeGoogleProfile,
   });
 
   final FirebaseAuth? auth;
@@ -49,6 +53,7 @@ class RoleBasedHomePage extends StatefulWidget {
     HospitalStaffAssignment assignment,
   )?
   staffWorkspaceBuilder;
+  final Future<void> Function(String fullName)? completeGoogleProfile;
 
   @override
   State<RoleBasedHomePage> createState() => _RoleBasedHomePageState();
@@ -117,6 +122,32 @@ class _RoleBasedHomePageState extends State<RoleBasedHomePage> {
 
   Widget _destinationForRole(UserRole? role, UserProfile? profile) {
     if (role == null) {
+      final user = widget.auth?.currentUser;
+      if (profile == null &&
+          user != null &&
+          user.providerData.any(
+            (provider) => provider.providerId == 'google.com',
+          )) {
+        return CompleteGoogleProfilePage(
+          initialName: user.displayName?.trim() ?? '',
+          onComplete: (fullName) async {
+            await (widget.completeGoogleProfile ??
+                FirebaseAuthRepository(auth: widget.auth)
+                    .completeGoogleOwnerProfile)(fullName);
+            if (mounted) _retry();
+          },
+          onSignOut: () async {
+            await FirebaseAuthRepository(auth: widget.auth).signOut();
+            if (mounted) {
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                AppRouter.login,
+                (route) => false,
+              );
+            }
+          },
+        );
+      }
       return const _HomeMessagePage(
         title: 'Account role unavailable',
         message:

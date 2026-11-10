@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:petcare/app/router/app_router.dart';
@@ -7,21 +10,47 @@ import 'package:petcare/features/notifications/domain/repositories/notification_
 import 'package:petcare/features/notifications/presentation/pages/notifications_page.dart';
 
 class _FakeNotificationRepository implements NotificationRepository {
-  _FakeNotificationRepository({this.notifications = const []});
+  _FakeNotificationRepository({
+    this.notifications = const [],
+    this.notificationsStream,
+    this.onMarkAsRead,
+  });
 
   final List<notification_entity.Notification> notifications;
+  final Stream<List<notification_entity.Notification>>? notificationsStream;
+  final Future<void> Function(String)? onMarkAsRead;
+  int readUpdateCount = 0;
 
   @override
   Stream<List<notification_entity.Notification>> watchNotifications() {
-    return Stream.value(notifications);
+    return notificationsStream ?? Stream.value(notifications);
   }
 
   @override
-  Future<void> markAsRead({required String notificationId}) async {}
+  Future<void> markAsRead({required String notificationId}) async {
+    readUpdateCount++;
+    await onMarkAsRead?.call(notificationId);
+  }
 
   @override
   Future<void> markAllAsRead() async {}
 }
+
+notification_entity.Notification _notification({
+  String id = 'notice-1',
+  String targetType = 'appointment',
+  String targetId = 'appointment-1',
+  bool read = false,
+}) => notification_entity.Notification(
+  notificationId: id,
+  recipientUserId: 'owner-1',
+  type: 'appointment_confirmed',
+  message: 'Your appointment was confirmed.',
+  read: read,
+  targetType: targetType,
+  targetId: targetId,
+  createdAt: DateTime(2026, 11, 7),
+);
 
 void main() {
   group('NotificationsPage', () {
@@ -284,5 +313,164 @@ void main() {
         expect(openedId, isNull);
       },
     );
+
+    testWidgets('successful read update opens the appointment', (tester) async {
+      final repository = _FakeNotificationRepository(
+        notifications: [_notification()],
+      );
+      String? openedId;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotificationsPage(
+            notificationRepository: repository,
+            onOpenAppointmentById: (id) => openedId = id,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text('Appointment confirmed'));
+      await tester.pump();
+      expect(repository.readUpdateCount, 1);
+      expect(openedId, 'appointment-1');
+      expect(find.textContaining('Unable to mark'), findsNothing);
+    });
+
+    testWidgets('failed read update keeps inbox and opens destination', (
+      tester,
+    ) async {
+      final repository = _FakeNotificationRepository(
+        notifications: [_notification()],
+        onMarkAsRead: (_) async => throw FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'unavailable',
+        ),
+      );
+      String? openedId;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotificationsPage(
+            notificationRepository: repository,
+            onOpenAppointmentById: (id) => openedId = id,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text('Appointment confirmed'));
+      await tester.pump();
+      expect(openedId, 'appointment-1');
+      expect(
+        find.text('Unable to mark notification as read. Please try again.'),
+        findsOneWidget,
+      );
+      expect(find.text('Unable to load notifications'), findsNothing);
+      expect(find.text('Mark all read'), findsOneWidget);
+      expect(find.text('Your appointment was confirmed.'), findsOneWidget);
+    });
+
+    testWidgets('repeated taps while read update is pending run once', (
+      tester,
+    ) async {
+      final pending = Completer<void>();
+      final repository = _FakeNotificationRepository(
+        notifications: [_notification()],
+        onMarkAsRead: (_) => pending.future,
+      );
+      var opens = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotificationsPage(
+            notificationRepository: repository,
+            onOpenAppointment: () => opens++,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text('Appointment confirmed'));
+      await tester.tap(find.text('Appointment confirmed'));
+      await tester.pump();
+      expect(repository.readUpdateCount, 1);
+      expect(opens, 0);
+      expect(find.text('Mark all read'), findsOneWidget);
+      pending.complete();
+      await tester.pump();
+      expect(opens, 1);
+    });
+
+    testWidgets('missing and unknown destinations do not navigate', (
+      tester,
+    ) async {
+      final repository = _FakeNotificationRepository(
+        notifications: [
+          _notification(id: 'missing', targetId: ''),
+          _notification(id: 'unknown', targetType: 'unknown'),
+        ],
+      );
+      var opens = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotificationsPage(
+            notificationRepository: repository,
+            onOpenAppointment: () => opens++,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text('Your appointment was confirmed.').first);
+      await tester.pump();
+      await tester.tap(find.text('Your appointment was confirmed.').last);
+      await tester.pump();
+      expect(opens, 0);
+      expect(repository.readUpdateCount, 2);
+      expect(find.byType(NotificationsPage), findsOneWidget);
+    });
+
+    testWidgets('denied notification stream shows no notification content', (
+      tester,
+    ) async {
+      final repository = _FakeNotificationRepository(
+        notificationsStream: Stream.error(
+          FirebaseException(
+            plugin: 'cloud_firestore',
+            code: 'permission-denied',
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotificationsPage(notificationRepository: repository),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('Unable to load notifications'), findsOneWidget);
+      expect(find.text('Your appointment was confirmed.'), findsNothing);
+    });
+
+    testWidgets('disposing page during update causes no late navigation', (
+      tester,
+    ) async {
+      final pending = Completer<void>();
+      final repository = _FakeNotificationRepository(
+        notifications: [_notification()],
+        onMarkAsRead: (_) => pending.future,
+      );
+      var opens = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotificationsPage(
+            notificationRepository: repository,
+            onOpenAppointment: () => opens++,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text('Appointment confirmed'));
+      await tester.pumpWidget(const MaterialApp(home: Scaffold()));
+      pending.completeError(
+        FirebaseException(plugin: 'cloud_firestore', code: 'unavailable'),
+      );
+      await tester.pump();
+      expect(opens, 0);
+      expect(tester.takeException(), isNull);
+    });
   });
 }

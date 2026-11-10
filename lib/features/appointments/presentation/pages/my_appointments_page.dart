@@ -273,7 +273,7 @@ class _QueueSection extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Live queue',
+                  'Queue status',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: AppTheme.espresso,
                     fontWeight: FontWeight.w800,

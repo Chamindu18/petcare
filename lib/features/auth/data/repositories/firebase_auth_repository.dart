@@ -207,21 +207,14 @@ class FirebaseAuthRepository implements AuthRepository {
       );
 
       if (!existingProfile.exists) {
-        debugPrint('GOOGLE AUTH STEP 7: Creating new owner profile...');
-
-        await profileRef.set({
-          'uid': user.uid,
-          'fullName': user.displayName ?? '',
-          'displayName': user.displayName ?? '',
-          'email': user.email ?? '',
-          'phone': user.phoneNumber ?? '',
-          'role': 'owner',
-          'notificationEnabled': true,
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-
-        debugPrint('GOOGLE AUTH STEP 7: Owner profile created.');
+        final name = user.displayName?.trim() ?? '';
+        if (name.isNotEmpty) {
+          debugPrint('GOOGLE AUTH STEP 7: Creating new owner profile...');
+          await _createOwnerProfileIfMissing(user, name);
+          debugPrint('GOOGLE AUTH STEP 7: Owner profile created.');
+        } else {
+          debugPrint('GOOGLE AUTH STEP 7: Profile needs a name.');
+        }
       } else {
         // Preserve existing profile fields, including the user's role.
         debugPrint('GOOGLE AUTH STEP 7: Updating existing profile timestamp.');
@@ -267,6 +260,56 @@ class FirebaseAuthRepository implements AuthRepository {
 
       rethrow;
     }
+  }
+
+  /// Completes a Google account whose Firestore profile is still missing.
+  /// Existing profiles, including provisioned roles, are never overwritten.
+  Future<void> completeGoogleOwnerProfile(String fullName) async {
+    final user = _auth.currentUser;
+    if (user == null ||
+        !user.providerData.any(
+          (provider) => provider.providerId == 'google.com',
+        )) {
+      throw const AuthException(
+        'Sign in with Google to complete your profile.',
+      );
+    }
+    final name = fullName.trim();
+    if (name.length < 2) {
+      throw const AuthException('Please enter your full name.');
+    }
+
+    try {
+      final created = await _createOwnerProfileIfMissing(user, name);
+      if (created && (user.displayName?.trim().isEmpty ?? true)) {
+        try {
+          await user.updateDisplayName(name);
+        } catch (_) {
+          // The Firestore profile is authoritative for routing and display.
+        }
+      }
+    } on FirebaseException catch (error) {
+      throw AuthException(_firestoreErrorMessage(error.code));
+    }
+  }
+
+  Future<bool> _createOwnerProfileIfMissing(User user, String name) async {
+    final profileRef = _firestore.collection('users').doc(user.uid);
+    return _firestore.runTransaction((transaction) async {
+      if ((await transaction.get(profileRef)).exists) return false;
+      transaction.set(profileRef, {
+        'uid': user.uid,
+        'fullName': name,
+        'displayName': name,
+        'email': user.email ?? '',
+        'phone': user.phoneNumber ?? '',
+        'role': 'owner',
+        'notificationEnabled': true,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      return true;
+    });
   }
 
   @override
