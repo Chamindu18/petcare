@@ -100,7 +100,11 @@ class FirebaseAuthRepository implements AuthRepository {
         password: password,
       );
     } on FirebaseAuthException catch (error) {
-      throw AuthException(_firebaseAuthErrorMessage(error.code));
+      throw AuthException(
+        error.code == 'user-disabled'
+            ? 'Invalid email or password. Please try again.'
+            : _firebaseAuthErrorMessage(error.code),
+      );
     }
   }
 
@@ -375,19 +379,18 @@ class FirebaseAuthRepository implements AuthRepository {
         return 'This account has been disabled.';
 
       case 'user-not-found':
-        return 'No account was found with this email.';
-
       case 'invalid-credential':
-        return 'The email or password is incorrect.';
-
       case 'wrong-password':
-        return 'The email or password is incorrect.';
+        return 'Invalid email or password. Please try again.';
 
       case 'too-many-requests':
         return 'Too many attempts. Please try again later.';
 
       case 'network-request-failed':
         return 'Network error. Check your connection and try again.';
+
+      case 'unavailable':
+        return 'The service is temporarily unavailable. Please try again later.';
 
       case 'expired-action-code':
         return 'This password reset link has expired.';

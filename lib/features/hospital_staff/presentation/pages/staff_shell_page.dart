@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../appointments/domain/repositories/appointment_repository.dart';
 import '../../../auth/domain/repositories/auth_repository.dart';
@@ -7,8 +8,6 @@ import '../../../hospitals/domain/repositories/hospital_repository.dart';
 import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
 import '../../../queue/domain/repositories/queue_repository.dart';
-import '../../../qr_health_passport/data/repositories/firebase_qr_health_passport_repository.dart';
-import '../../../qr_health_passport/presentation/pages/qr_scanner_page.dart';
 import '../../domain/entities/hospital_staff_assignment.dart';
 import 'staff_appointments_page.dart';
 import 'staff_hospital_overview_page.dart';
@@ -158,14 +157,9 @@ class _StaffShellPageState extends State<StaffShellPage> {
           IconButton(
             tooltip: 'Verify QR Health Passport',
             icon: const Icon(Icons.qr_code_scanner_rounded),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => QrScannerPage(
-                  repository: FirebaseQrHealthPassportRepository(),
-                  verificationOnly: true,
-                ),
-              ),
-            ),
+            onPressed: () =>
+                Navigator.of(context)
+                    .pushNamed(AppRouter.qrHealthPassportScanner),
           ),
           IconButton(
             tooltip: 'Notifications',

@@ -421,16 +421,47 @@ service cloud.firestore {
     // Veterinarians
     // ============================================================
 
+    // Directory identity is provisioned by trusted Admin SDK tooling. The
+    // client writer edits only the profile fields below; legacy records may
+    // use fullName and omit vetId, while new records use name and may carry
+    // a canonical vetId equal to the document ID.
+    function validVeterinarianProfile(data, changed) {
+      return data.keys().hasAll(['userId', 'hospitalId', 'active'])
+        && data.userId is string && data.userId.size() > 0
+        && data.userId.size() <= 128
+        && data.hospitalId is string && data.hospitalId.size() > 0
+        && data.hospitalId.size() <= 128
+        && data.active is bool
+        && (!changed.hasAny(['name']) ||
+          (data.get('name', null) is string && data.name.size() > 0
+            && data.name.size() <= 120))
+        && (!changed.hasAny(['fullName']) ||
+          (data.get('fullName', null) is string && data.fullName.size() > 0
+            && data.fullName.size() <= 120))
+        && (!changed.hasAny(['profileImageUrl']) ||
+          (data.get('profileImageUrl', null) == null ||
+            (data.profileImageUrl is string && data.profileImageUrl.size() <= 2048)))
+        && (!changed.hasAny(['specialty']) ||
+          (data.get('specialty', null) == null ||
+            (data.specialty is string && data.specialty.size() <= 120)))
+        && (!changed.hasAny(['qualifications']) ||
+          (data.get('qualifications', null) == null ||
+            (data.qualifications is string && data.qualifications.size() <= 500)))
+        && (!changed.hasAny(['experienceYears']) ||
+          (data.get('experienceYears', null) == null ||
+            (data.experienceYears is int && data.experienceYears >= 0
+              && data.experienceYears <= 80)))
+        && (!changed.hasAny(['bio']) ||
+          (data.get('bio', null) == null ||
+            (data.bio is string && data.bio.size() <= 2000)))
+        && data.get('updatedAt', null) == request.time;
+    }
+
     match /veterinarians/{veterinarianId} {
       allow read: if signedIn();
 
-      // A veterinarian may create only their own initially unassigned
-      // profile. Assigning a real hospital requires trusted provisioning.
-      allow create: if isVeterinarian()
-        && veterinarianId == request.auth.uid
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.hospitalId == 'unassigned'
-        && request.resource.data.get('active', false) == false;
+      // No client creates directory identity, even before hospital assignment.
+      allow create: if false;
 
       // Users cannot alter their identity or hospital assignment themselves.
       allow update: if isVeterinarian()
@@ -438,13 +469,19 @@ service cloud.firestore {
         && resource.data.userId == request.auth.uid
         && request.resource.data.userId == resource.data.userId
         && request.resource.data.hospitalId == resource.data.hospitalId
+        && request.resource.data.active == resource.data.active
+        && request.resource.data.get('vetId', veterinarianId) == veterinarianId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'name', 'fullName', 'profileImageUrl', 'specialty', 'qualifications',
           'experienceYears', 'bio', 'updatedAt'
-        ]);
+        ])
+        && validVeterinarianProfile(
+          request.resource.data,
+          request.resource.data.diff(resource.data).affectedKeys()
+        );
 
-      allow delete: if isVeterinarian()
-        && veterinarianId == request.auth.uid;
+      // Appointments, queues and QR grants retain the canonical directory ID.
+      allow delete: if false;
     }
 
     // ============================================================

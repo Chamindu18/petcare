@@ -48,10 +48,29 @@ class _FakeUserCredential extends Fake implements UserCredential {
 }
 
 class _FakeFirebaseAuth extends Fake implements FirebaseAuth {
-  _FakeFirebaseAuth(this._userCredential, {this.failGoogleSignIn = false});
+  _FakeFirebaseAuth(
+    this._userCredential, {
+    this.failGoogleSignIn = false,
+    this.emailSignInErrorCode,
+  });
 
   final UserCredential _userCredential;
   final bool failGoogleSignIn;
+  final String? emailSignInErrorCode;
+
+  @override
+  Future<UserCredential> signInWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {
+    if (emailSignInErrorCode case final code?) {
+      throw FirebaseAuthException(
+        code: code,
+        message: 'Sensitive backend detail',
+      );
+    }
+    return _userCredential;
+  }
 
   @override
   User? get currentUser => _userCredential.user;
@@ -213,6 +232,81 @@ class _FakeDocumentSnapshot extends Fake
 }
 
 void main() {
+  group('FirebaseAuthRepository email login', () {
+    const credentialMessage = 'Invalid email or password. Please try again.';
+
+    FirebaseAuthRepository repositoryFor({String? errorCode}) {
+      return FirebaseAuthRepository(
+        auth: _FakeFirebaseAuth(
+          _FakeUserCredential(_FakeFirebaseUser()),
+          emailSignInErrorCode: errorCode,
+        ),
+        firestore: _FakeFirebaseFirestore(
+          _FakeCollectionReference(
+            _FakeDocumentReference(_FakeDocumentSnapshot({}, exists: false)),
+          ),
+        ),
+        googleSignIn: _FakeGoogleSignIn(),
+      );
+    }
+
+    for (final code in [
+      'user-not-found',
+      'wrong-password',
+      'invalid-credential',
+      'user-disabled',
+    ]) {
+      test('$code uses the same safe credential error', () async {
+        final repository = repositoryFor(errorCode: code);
+
+        await expectLater(
+          repository.signInWithEmailPassword(
+            email: 'owner@example.com',
+            password: 'incorrect-password',
+          ),
+          throwsA(
+            isA<AuthException>().having(
+              (error) => error.message,
+              'message',
+              credentialMessage,
+            ),
+          ),
+        );
+      });
+    }
+
+    for (final entry in {
+      'network-request-failed':
+          'Network error. Check your connection and try again.',
+      'too-many-requests': 'Too many attempts. Please try again later.',
+      'unavailable':
+          'The service is temporarily unavailable. Please try again later.',
+    }.entries) {
+      test('${entry.key} retains an operational error', () async {
+        await expectLater(
+          repositoryFor(errorCode: entry.key).signInWithEmailPassword(
+            email: 'owner@example.com',
+            password: 'valid-password',
+          ),
+          throwsA(
+            isA<AuthException>().having(
+              (error) => error.message,
+              'message',
+              entry.value,
+            ),
+          ),
+        );
+      });
+    }
+
+    test('successful email sign-in completes', () async {
+      await repositoryFor().signInWithEmailPassword(
+        email: 'owner@example.com',
+        password: 'valid-password',
+      );
+    });
+  });
+
   group('FirebaseAuthRepository Google Sign-In', () {
     const existingPrivilegedRoles = <String>[
       'veterinarian',
