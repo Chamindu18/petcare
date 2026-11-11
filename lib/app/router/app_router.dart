@@ -84,6 +84,7 @@ import 'adoption_provider_access_gate.dart';
 import 'adoption_workspace_access_gate.dart';
 import 'owner_access_gate.dart';
 import 'protected_session_gate.dart';
+import 'qr_scanner_access_gate.dart';
 import 'role_based_home_page.dart';
 import '../../features/appointments/presentation/pages/my_appointments_page.dart';
 import '../../features/appointments/domain/entities/appointment.dart';
@@ -778,10 +779,15 @@ class AppRouter {
 
       case qrHealthPassportScanner:
         return MaterialPageRoute(
-          builder: (_) => QrScannerPage(
-            repository: FirebaseQrHealthPassportRepository(
-              auth: auth,
-              firestore: firestore ?? FirebaseFirestore.instance,
+          builder: (_) => QrScannerAccessGate(
+            auth: auth,
+            profileRepository: profileRepository,
+            childBuilder: (_, verificationOnly) => QrScannerPage(
+              verificationOnly: verificationOnly,
+              repository: FirebaseQrHealthPassportRepository(
+                auth: auth,
+                firestore: firestore ?? FirebaseFirestore.instance,
+              ),
             ),
           ),
           settings: settings,

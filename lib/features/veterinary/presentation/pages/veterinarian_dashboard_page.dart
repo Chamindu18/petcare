@@ -11,8 +11,6 @@ import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../../profile/domain/entities/user_profile.dart';
 import '../../../queue/domain/repositories/queue_repository.dart';
-import '../../../qr_health_passport/data/repositories/firebase_qr_health_passport_repository.dart';
-import '../../../qr_health_passport/presentation/pages/qr_scanner_page.dart';
 import '../providers/veterinarian_workspace_controller.dart';
 import 'veterinarian_queue_page.dart';
 import 'veterinarian_self_profile_page.dart';
@@ -693,12 +691,7 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
   }
 
   void _openQrScanner() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            QrScannerPage(repository: FirebaseQrHealthPassportRepository()),
-      ),
-    );
+    Navigator.of(context).pushNamed(AppRouter.qrHealthPassportScanner);
   }
 
   Future<void> _confirmLogout() async {
