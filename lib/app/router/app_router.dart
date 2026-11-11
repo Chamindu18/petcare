@@ -83,6 +83,7 @@ import '../../features/ai_assistant/presentation/pages/vet_visit_preparation_pag
 import 'adoption_provider_access_gate.dart';
 import 'adoption_workspace_access_gate.dart';
 import 'owner_access_gate.dart';
+import 'protected_session_gate.dart';
 import 'role_based_home_page.dart';
 import '../../features/appointments/presentation/pages/my_appointments_page.dart';
 import '../../features/appointments/domain/entities/appointment.dart';
@@ -169,6 +170,43 @@ class AppRouter {
     ownerQrHealthPassport,
   };
 
+  static const Set<String> _protectedRoutes = <String>{
+    home,
+    myPets,
+    notifications,
+    addPet,
+    adoptionListings,
+    adoptionPetDetails,
+    adoptionRequest,
+    myAdoptionListings,
+    adoptionProviderDashboard,
+    adoptionRequests,
+    createEditAdoptionListing,
+    adoptionRequestDetails,
+    ownerRehomingDashboard,
+    myAdoptionRequests,
+    editProfile,
+    notificationSettings,
+    privacySecurity,
+    helpSupport,
+    aboutPetCare,
+    petProfile,
+    hospitalDiscovery,
+    hospitalDetails,
+    veterinarianDiscovery,
+    veterinarianProfile,
+    bookAppointment,
+    appointmentConfirmation,
+    aiHub,
+    aiChat,
+    healthSummary,
+    preventiveInsights,
+    vetVisitPreparation,
+    myAppointments,
+    ownerQrHealthPassport,
+    qrHealthPassportScanner,
+  };
+
   // Public routes are handled here.
   // Protected routes are handled in onGenerateRoute()
   // so that authentication checks cannot be bypassed.
@@ -215,18 +253,25 @@ class AppRouter {
     FirebaseFirestore? firestore,
   ]) {
     final route = _buildRoute(settings, auth, profileRepository, firestore);
+    final sessionUid = auth.currentUser?.uid;
     if (route == null ||
-        auth.currentUser == null ||
-        !_ownerOnlyRoutes.contains(settings.name) ||
+        sessionUid == null ||
+        !_protectedRoutes.contains(settings.name) ||
         route is! MaterialPageRoute<dynamic>) {
       return route;
     }
-    // Reuse the route's builder and settings so route arguments remain intact.
+    final childBuilder = _ownerOnlyRoutes.contains(settings.name)
+        ? (BuildContext context) => OwnerAccessGate(
+            auth: auth,
+            profileRepository: profileRepository,
+            childBuilder: route.builder,
+          )
+        : route.builder;
     return MaterialPageRoute<dynamic>(
-      builder: (_) => OwnerAccessGate(
+      builder: (_) => ProtectedSessionGate(
         auth: auth,
-        profileRepository: profileRepository,
-        childBuilder: route.builder,
+        sessionUid: sessionUid,
+        childBuilder: childBuilder,
       ),
       settings: settings,
     );
@@ -239,45 +284,8 @@ class AppRouter {
     FirebaseFirestore? firestore,
   ]) {
     final isAuthenticated = auth.currentUser != null;
-    final protectedRoutes = {
-      home,
-      myPets,
-      notifications,
-      addPet,
-      adoptionListings,
-      adoptionPetDetails,
-      adoptionRequest,
-      myAdoptionListings,
-      adoptionProviderDashboard,
-      adoptionRequests,
-      createEditAdoptionListing,
-      adoptionRequestDetails,
-      ownerRehomingDashboard,
-      myAdoptionRequests,
-      editProfile,
-      notificationSettings,
-      privacySecurity,
-      helpSupport,
-      aboutPetCare,
-      petProfile,
-      hospitalDiscovery,
-      hospitalDetails,
-      veterinarianDiscovery,
-      veterinarianProfile,
-      bookAppointment,
-      appointmentConfirmation,
-      aiHub,
-      aiChat,
-      healthSummary,
-      preventiveInsights,
-      vetVisitPreparation,
-      myAppointments,
-      ownerQrHealthPassport,
-      qrHealthPassportScanner,
-    };
-
     // Protect routes that require authentication.
-    if (protectedRoutes.contains(settings.name) && !isAuthenticated) {
+    if (_protectedRoutes.contains(settings.name) && !isAuthenticated) {
       return MaterialPageRoute(
         builder: (_) => const LoginPage(),
         settings: settings,
@@ -826,9 +834,7 @@ class AppRouter {
 
         if (routeArguments is String) {
           return MaterialPageRoute(
-            builder: (_) => buildBookingPage(
-              hospitalId: routeArguments,
-            ),
+            builder: (_) => buildBookingPage(hospitalId: routeArguments),
             settings: settings,
           );
         }

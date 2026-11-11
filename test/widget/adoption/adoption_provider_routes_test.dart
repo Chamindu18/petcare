@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:petcare/app/router/adoption_provider_access_gate.dart';
 import 'package:petcare/app/router/adoption_workspace_access_gate.dart';
+import 'package:petcare/app/router/protected_session_gate.dart';
 import 'package:petcare/features/adoption/presentation/pages/adoption_listings_page.dart';
 
 import 'package:petcare/app/router/app_router.dart';
@@ -16,6 +17,16 @@ class _BuildContextStub implements BuildContext {
 }
 
 void main() {
+  Widget protectedChild(Route<dynamic> route) {
+    final boundary = (route as MaterialPageRoute).builder(
+      const _BuildContextStub(),
+    );
+    expect(boundary, isA<ProtectedSessionGate>());
+    return (boundary as ProtectedSessionGate).childBuilder(
+      const _BuildContextStub(),
+    );
+  }
+
   const protectedAdoptionRoutes = [
     AppRouter.adoptionListings,
     AppRouter.adoptionProviderDashboard,
@@ -72,9 +83,7 @@ void main() {
       final route = routeGenerator(RouteSettings(name: routeName));
       expect(route, isA<MaterialPageRoute>(), reason: routeName);
 
-      final page = (route! as MaterialPageRoute).builder(
-        const _BuildContextStub(),
-      );
+      final page = protectedChild(route!);
 
       expect(page, isA<AdoptionWorkspaceAccessGate>(), reason: routeName);
       expect((page as AdoptionWorkspaceAccessGate).allowedRoles, {
@@ -86,9 +95,7 @@ void main() {
       const RouteSettings(name: AppRouter.adoptionProviderDashboard),
     );
 
-    final dashboardPage = (dashboardRoute! as MaterialPageRoute).builder(
-      const _BuildContextStub(),
-    );
+    final dashboardPage = protectedChild(dashboardRoute!);
 
     expect(dashboardPage, isA<AdoptionProviderAccessGate>());
   });
@@ -103,9 +110,7 @@ void main() {
 
     expect(route, isA<MaterialPageRoute>());
 
-    final page = (route! as MaterialPageRoute).builder(
-      const _BuildContextStub(),
-    );
+    final page = protectedChild(route!);
 
     expect(page, isA<AdoptionListingsPage>());
   });
@@ -120,9 +125,7 @@ void main() {
 
     expect(route, isA<MaterialPageRoute>());
 
-    final page = (route! as MaterialPageRoute).builder(
-      const _BuildContextStub(),
-    );
+    final page = protectedChild(route!);
 
     expect(page, isA<AdoptionWorkspaceAccessGate>());
     expect((page as AdoptionWorkspaceAccessGate).allowedRoles, {'owner'});
