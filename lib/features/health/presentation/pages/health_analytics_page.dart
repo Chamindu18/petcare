@@ -21,6 +21,8 @@ class HealthAnalyticsPage extends StatefulWidget {
 }
 
 class _HealthAnalyticsPageState extends State<HealthAnalyticsPage> {
+  String? _pendingPetId;
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +42,19 @@ class _HealthAnalyticsPageState extends State<HealthAnalyticsPage> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant HealthAnalyticsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onControllerChanged);
+      widget.controller.addListener(_onControllerChanged);
+    }
+    if (oldWidget.pet.petId != widget.pet.petId ||
+        oldWidget.controller != widget.controller) {
+      _loadRecords();
+    }
+  }
+
   void _onControllerChanged() {
     if (mounted) {
       setState(() {});
@@ -47,7 +62,14 @@ class _HealthAnalyticsPageState extends State<HealthAnalyticsPage> {
   }
 
   Future<void> _loadRecords() async {
-    await widget.controller.loadHealthRecords(widget.pet.petId);
+    final petId = widget.pet.petId;
+    if (_pendingPetId == petId) return;
+    _pendingPetId = petId;
+    try {
+      await widget.controller.loadHealthRecords(petId);
+    } finally {
+      if (_pendingPetId == petId) _pendingPetId = null;
+    }
 
     if (mounted) {
       setState(() {});
@@ -75,12 +97,6 @@ class _HealthAnalyticsPageState extends State<HealthAnalyticsPage> {
         .where((record) => record.petId == petId)
         .toList();
 
-    final hasRecords =
-        conditions.isNotEmpty ||
-        vaccinations.isNotEmpty ||
-        treatments.isNotEmpty ||
-        measurements.isNotEmpty;
-
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(title: const Text('Health Analytics')),
@@ -92,17 +108,19 @@ class _HealthAnalyticsPageState extends State<HealthAnalyticsPage> {
           children: [
             _AnalyticsPetHeader(pet: widget.pet),
             const SizedBox(height: 22),
-            if (controller.isLoading && !hasRecords)
+            if (controller.isLoading ||
+                (controller.loadedPetId != petId &&
+                    controller.errorMessage == null))
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 48),
                 child: Center(child: CircularProgressIndicator()),
               )
-            else ...[
-              if (controller.errorMessage != null)
-                _AnalyticsErrorCard(
-                  message: controller.errorMessage!,
-                  onRetry: _loadRecords,
-                ),
+            else if (controller.errorMessage != null)
+              _AnalyticsErrorCard(
+                message: controller.errorMessage!,
+                onRetry: _loadRecords,
+              )
+            else if (controller.loadedPetId == petId) ...[
               _AnalyticsSectionHeading(
                 title: 'Health Overview',
                 subtitle:
