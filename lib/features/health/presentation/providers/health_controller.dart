@@ -71,6 +71,7 @@ class HealthController extends ChangeNotifier {
   int _loadGeneration = 0;
   bool _loadingHealthRecords = false;
   String? _loadedPetId;
+  bool _disposed = false;
 
   List<MedicalCondition> get medicalConditions =>
       List.unmodifiable(_medicalConditions);
@@ -92,7 +93,7 @@ class HealthController extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   Future<bool> loadHealthRecords(String petId) async {
-    if (_isLoading && !_loadingHealthRecords) return false;
+    if (_disposed || (_isLoading && !_loadingHealthRecords)) return false;
 
     final generation = ++_loadGeneration;
     _loadingHealthRecords = true;
@@ -112,7 +113,7 @@ class HealthController extends ChangeNotifier {
         _getHealthMeasurements(petId),
       ]);
 
-      if (generation != _loadGeneration) return false;
+      if (_disposed || generation != _loadGeneration) return false;
       _medicalConditions = results[0] as List<MedicalCondition>;
       _vaccinations = results[1] as List<Vaccination>;
       _treatments = results[2] as List<Treatment>;
@@ -120,11 +121,11 @@ class HealthController extends ChangeNotifier {
       _loadedPetId = petId;
       return true;
     } catch (_) {
-      if (generation != _loadGeneration) return false;
+      if (_disposed || generation != _loadGeneration) return false;
       _errorMessage = 'Unable to complete the health operation.';
       return false;
     } finally {
-      if (generation == _loadGeneration) {
+      if (!_disposed && generation == _loadGeneration) {
         _loadingHealthRecords = false;
         _setLoading(false);
       }
@@ -136,16 +137,32 @@ class HealthController extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   Future<bool> createMedicalCondition(MedicalCondition condition) async {
+    if (!_canCreateForPet(condition.petId)) return false;
     return _run(() async {
       final createdCondition = await _createMedicalCondition(condition);
-
+      if (_disposed) return;
+      if (createdCondition.petId != condition.petId ||
+          !_canCreateForPet(createdCondition.petId)) {
+        throw StateError('Created condition has a different pet.');
+      }
       _medicalConditions = [..._medicalConditions, createdCondition];
     });
   }
 
   Future<bool> updateMedicalCondition(MedicalCondition condition) async {
+    if (!_canMutateRecord(
+      condition.petId,
+      _medicalConditions.any(
+        (item) =>
+            item.conditionId == condition.conditionId &&
+            item.petId == condition.petId,
+      ),
+    )) {
+      return false;
+    }
     return _run(() async {
       await _updateMedicalCondition(condition);
+      if (_disposed) return;
 
       final index = _medicalConditions.indexWhere(
         (item) => item.conditionId == condition.conditionId,
@@ -163,11 +180,22 @@ class HealthController extends ChangeNotifier {
   }
 
   Future<bool> deleteMedicalCondition(String petId, String conditionId) async {
+    if (!_canMutateRecord(
+      petId,
+      _medicalConditions.any(
+        (item) => item.conditionId == conditionId && item.petId == petId,
+      ),
+    )) {
+      return false;
+    }
     return _run(() async {
       await _deleteMedicalCondition(petId, conditionId);
+      if (_disposed) return;
 
       _medicalConditions = _medicalConditions
-          .where((item) => item.conditionId != conditionId)
+          .where(
+            (item) => item.petId != petId || item.conditionId != conditionId,
+          )
           .toList();
     });
   }
@@ -177,16 +205,32 @@ class HealthController extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   Future<bool> createVaccination(Vaccination vaccination) async {
+    if (!_canCreateForPet(vaccination.petId)) return false;
     return _run(() async {
       final createdVaccination = await _createVaccination(vaccination);
-
+      if (_disposed) return;
+      if (createdVaccination.petId != vaccination.petId ||
+          !_canCreateForPet(createdVaccination.petId)) {
+        throw StateError('Created vaccination has a different pet.');
+      }
       _vaccinations = [..._vaccinations, createdVaccination];
     });
   }
 
   Future<bool> updateVaccination(Vaccination vaccination) async {
+    if (!_canMutateRecord(
+      vaccination.petId,
+      _vaccinations.any(
+        (item) =>
+            item.vaccinationId == vaccination.vaccinationId &&
+            item.petId == vaccination.petId,
+      ),
+    )) {
+      return false;
+    }
     return _run(() async {
       await _updateVaccination(vaccination);
+      if (_disposed) return;
 
       final index = _vaccinations.indexWhere(
         (item) => item.vaccinationId == vaccination.vaccinationId,
@@ -204,11 +248,23 @@ class HealthController extends ChangeNotifier {
   }
 
   Future<bool> deleteVaccination(String petId, String vaccinationId) async {
+    if (!_canMutateRecord(
+      petId,
+      _vaccinations.any(
+        (item) => item.vaccinationId == vaccinationId && item.petId == petId,
+      ),
+    )) {
+      return false;
+    }
     return _run(() async {
       await _deleteVaccination(petId, vaccinationId);
+      if (_disposed) return;
 
       _vaccinations = _vaccinations
-          .where((item) => item.vaccinationId != vaccinationId)
+          .where(
+            (item) =>
+                item.petId != petId || item.vaccinationId != vaccinationId,
+          )
           .toList();
     });
   }
@@ -218,16 +274,32 @@ class HealthController extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   Future<bool> createTreatment(Treatment treatment) async {
+    if (!_canCreateForPet(treatment.petId)) return false;
     return _run(() async {
       final createdTreatment = await _createTreatment(treatment);
-
+      if (_disposed) return;
+      if (createdTreatment.petId != treatment.petId ||
+          !_canCreateForPet(createdTreatment.petId)) {
+        throw StateError('Created treatment has a different pet.');
+      }
       _treatments = [..._treatments, createdTreatment];
     });
   }
 
   Future<bool> updateTreatment(Treatment treatment) async {
+    if (!_canMutateRecord(
+      treatment.petId,
+      _treatments.any(
+        (item) =>
+            item.treatmentId == treatment.treatmentId &&
+            item.petId == treatment.petId,
+      ),
+    )) {
+      return false;
+    }
     return _run(() async {
       await _updateTreatment(treatment);
+      if (_disposed) return;
 
       final index = _treatments.indexWhere(
         (item) => item.treatmentId == treatment.treatmentId,
@@ -245,11 +317,22 @@ class HealthController extends ChangeNotifier {
   }
 
   Future<bool> deleteTreatment(String petId, String treatmentId) async {
+    if (!_canMutateRecord(
+      petId,
+      _treatments.any(
+        (item) => item.treatmentId == treatmentId && item.petId == petId,
+      ),
+    )) {
+      return false;
+    }
     return _run(() async {
       await _deleteTreatment(petId, treatmentId);
+      if (_disposed) return;
 
       _treatments = _treatments
-          .where((item) => item.treatmentId != treatmentId)
+          .where(
+            (item) => item.petId != petId || item.treatmentId != treatmentId,
+          )
           .toList();
     });
   }
@@ -259,16 +342,32 @@ class HealthController extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   Future<bool> createHealthMeasurement(HealthMeasurement measurement) async {
+    if (!_canCreateForPet(measurement.petId)) return false;
     return _run(() async {
       final createdMeasurement = await _createHealthMeasurement(measurement);
-
+      if (_disposed) return;
+      if (createdMeasurement.petId != measurement.petId ||
+          !_canCreateForPet(createdMeasurement.petId)) {
+        throw StateError('Created measurement has a different pet.');
+      }
       _healthMeasurements = [..._healthMeasurements, createdMeasurement];
     });
   }
 
   Future<bool> updateHealthMeasurement(HealthMeasurement measurement) async {
+    if (!_canMutateRecord(
+      measurement.petId,
+      _healthMeasurements.any(
+        (item) =>
+            item.measurementId == measurement.measurementId &&
+            item.petId == measurement.petId,
+      ),
+    )) {
+      return false;
+    }
     return _run(() async {
       await _updateHealthMeasurement(measurement);
+      if (_disposed) return;
 
       final index = _healthMeasurements.indexWhere(
         (item) => item.measurementId == measurement.measurementId,
@@ -291,11 +390,23 @@ class HealthController extends ChangeNotifier {
     String petId,
     String measurementId,
   ) async {
+    if (!_canMutateRecord(
+      petId,
+      _healthMeasurements.any(
+        (item) => item.measurementId == measurementId && item.petId == petId,
+      ),
+    )) {
+      return false;
+    }
     return _run(() async {
       await _deleteHealthMeasurement(petId, measurementId);
+      if (_disposed) return;
 
       _healthMeasurements = _healthMeasurements
-          .where((item) => item.measurementId != measurementId)
+          .where(
+            (item) =>
+                item.petId != petId || item.measurementId != measurementId,
+          )
           .toList();
     });
   }
@@ -307,7 +418,7 @@ class HealthController extends ChangeNotifier {
   Future<bool> _run(Future<void> Function() operation) async {
     // Do not start a second operation while another is running.
     // Return false so the caller cannot incorrectly report success.
-    if (_isLoading) {
+    if (_disposed || _isLoading) {
       return false;
     }
 
@@ -317,17 +428,24 @@ class HealthController extends ChangeNotifier {
 
     try {
       await operation();
-      return true;
+      return !_disposed;
     } catch (_) {
+      if (_disposed) return false;
       _errorMessage = 'Unable to complete the health operation.';
       return false;
     } finally {
-      _setLoading(false);
+      if (!_disposed) _setLoading(false);
     }
   }
 
+  bool _canCreateForPet(String petId) =>
+      !_disposed && (_loadedPetId == null || _loadedPetId == petId);
+
+  bool _canMutateRecord(String petId, bool recordMatches) =>
+      !_disposed && _loadedPetId == petId && recordMatches;
+
   void clearError() {
-    if (_errorMessage == null) {
+    if (_disposed || _errorMessage == null) {
       return;
     }
 
@@ -338,6 +456,15 @@ class HealthController extends ChangeNotifier {
   void _setLoading(bool value) {
     _isLoading = value;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _loadGeneration++;
+    _isLoading = false;
+    _loadingHealthRecords = false;
+    super.dispose();
   }
 
   bool get hasData =>
