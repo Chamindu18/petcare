@@ -63,6 +63,10 @@ class OwnerQueueProvider extends ChangeNotifier {
     } catch (error) {
       if (!_disposed) {
         debugPrint('Owner queue loading error: $error');
+        // Do not keep displaying an unverified initial or previously loaded
+        // record after authorization or connectivity fails.
+        _queue = null;
+        _position = null;
         _errorMessage = 'Unable to load queue details. Please try again.';
       }
     } finally {

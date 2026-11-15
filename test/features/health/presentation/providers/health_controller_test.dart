@@ -37,6 +37,9 @@ import 'package:petcare/features/health/presentation/providers/health_controller
 
 class _FakeMedicalConditionRepository implements MedicalConditionRepository {
   List<MedicalCondition> records = [];
+  final requests = <String>[];
+  final pendingReads = <String, Completer<List<MedicalCondition>>>{};
+  int createCalls = 0;
 
   bool failRead = false;
   bool failCreate = false;
@@ -44,11 +47,14 @@ class _FakeMedicalConditionRepository implements MedicalConditionRepository {
   bool failDelete = false;
 
   Completer<MedicalCondition>? createGate;
+  Completer<void>? updateGate;
+  Completer<void>? deleteGate;
 
   @override
   Future<MedicalCondition> createMedicalCondition(
     MedicalCondition condition,
   ) async {
+    createCalls++;
     if (failCreate) {
       throw StateError('Medical condition creation failed');
     }
@@ -68,6 +74,9 @@ class _FakeMedicalConditionRepository implements MedicalConditionRepository {
 
   @override
   Future<List<MedicalCondition>> getMedicalConditions(String petId) async {
+    requests.add(petId);
+    final pending = pendingReads.remove(petId);
+    if (pending != null) return pending.future;
     if (failRead) {
       throw StateError('Medical condition loading failed');
     }
@@ -91,6 +100,8 @@ class _FakeMedicalConditionRepository implements MedicalConditionRepository {
 
   @override
   Future<void> updateMedicalCondition(MedicalCondition condition) async {
+    final gate = updateGate;
+    if (gate != null) await gate.future;
     if (failUpdate) {
       throw StateError('Medical condition update failed');
     }
@@ -106,6 +117,8 @@ class _FakeMedicalConditionRepository implements MedicalConditionRepository {
 
   @override
   Future<void> deleteMedicalCondition(String petId, String conditionId) async {
+    final gate = deleteGate;
+    if (gate != null) await gate.future;
     if (failDelete) {
       throw StateError('Medical condition deletion failed');
     }
@@ -118,6 +131,7 @@ class _FakeMedicalConditionRepository implements MedicalConditionRepository {
 
 class _FakeVaccinationRepository implements VaccinationRepository {
   List<Vaccination> records = [];
+  final requests = <String>[];
 
   bool failRead = false;
   bool failCreate = false;
@@ -136,6 +150,7 @@ class _FakeVaccinationRepository implements VaccinationRepository {
 
   @override
   Future<List<Vaccination>> getVaccinations(String petId) async {
+    requests.add(petId);
     if (failRead) {
       throw StateError('Vaccination loading failed');
     }
@@ -187,6 +202,7 @@ class _FakeVaccinationRepository implements VaccinationRepository {
 
 class _FakeTreatmentRepository implements TreatmentRepository {
   List<Treatment> records = [];
+  final requests = <String>[];
 
   bool failRead = false;
   bool failCreate = false;
@@ -205,6 +221,7 @@ class _FakeTreatmentRepository implements TreatmentRepository {
 
   @override
   Future<List<Treatment>> getTreatments(String petId) async {
+    requests.add(petId);
     if (failRead) {
       throw StateError('Treatment loading failed');
     }
@@ -252,6 +269,7 @@ class _FakeTreatmentRepository implements TreatmentRepository {
 
 class _FakeHealthMeasurementRepository implements HealthMeasurementRepository {
   List<HealthMeasurement> records = [];
+  final requests = <String>[];
 
   bool failRead = false;
   bool failCreate = false;
@@ -272,6 +290,7 @@ class _FakeHealthMeasurementRepository implements HealthMeasurementRepository {
 
   @override
   Future<List<HealthMeasurement>> getHealthMeasurements(String petId) async {
+    requests.add(petId);
     if (failRead) {
       throw StateError('Health measurement loading failed');
     }
@@ -721,6 +740,7 @@ void main() {
         );
 
         expect(secondResult, isFalse);
+        expect(harness.medicalConditionRepository.createCalls, 1);
 
         completer.complete(condition);
 
@@ -782,6 +802,389 @@ void main() {
           throwsUnsupportedError,
         );
       });
+    });
+
+    group('pet loads and retries', () {
+      test('empty result is a successful load for the requested pet', () async {
+        final h = _HealthControllerHarness();
+        addTearDown(h.dispose);
+        expect(await h.controller.loadHealthRecords('pet-1'), isTrue);
+        expect(h.controller.loadedPetId, 'pet-1');
+        expect(h.controller.hasData, isFalse);
+        expect(h.controller.errorMessage, isNull);
+        expect(h.medicalConditionRepository.requests, ['pet-1']);
+        expect(h.vaccinationRepository.requests, ['pet-1']);
+        expect(h.treatmentRepository.requests, ['pet-1']);
+        expect(h.healthMeasurementRepository.requests, ['pet-1']);
+      });
+
+      test(
+        'pet switch clears old records and ignores late old result',
+        () async {
+          final h = _HealthControllerHarness();
+          addTearDown(h.dispose);
+          h.seedRecords(medicalConditions: [_condition()]);
+          expect(await h.controller.loadHealthRecords('pet-1'), isTrue);
+          final oldGate = Completer<List<MedicalCondition>>();
+          final newGate = Completer<List<MedicalCondition>>();
+          h.medicalConditionRepository.pendingReads['pet-1'] = oldGate;
+          h.medicalConditionRepository.pendingReads['pet-2'] = newGate;
+          final oldLoad = h.controller.loadHealthRecords('pet-1');
+          expect(h.controller.isLoading, isTrue);
+          expect(h.controller.loadedPetId, isNull);
+          expect(h.controller.medicalConditions, isEmpty);
+          final newLoad = h.controller.loadHealthRecords('pet-2');
+          oldGate.complete([_condition()]);
+          expect(await oldLoad, isFalse);
+          expect(h.controller.isLoading, isTrue);
+          expect(h.controller.medicalConditions, isEmpty);
+          newGate.complete([_condition(id: 'condition-2', petId: 'pet-2')]);
+          expect(await newLoad, isTrue);
+          expect(h.controller.loadedPetId, 'pet-2');
+          expect(h.controller.medicalConditions.single.petId, 'pet-2');
+        },
+      );
+
+      test(
+        'failed load exposes safe error and retry restores records',
+        () async {
+          final h = _HealthControllerHarness();
+          addTearDown(h.dispose);
+          h.seedRecords(vaccinations: [_vaccination()]);
+          h.vaccinationRepository.failRead = true;
+          expect(await h.controller.loadHealthRecords('pet-1'), isFalse);
+          expect(h.controller.loadedPetId, isNull);
+          expect(h.controller.hasData, isFalse);
+          expect(
+            h.controller.errorMessage,
+            'Unable to complete the health operation.',
+          );
+          h.vaccinationRepository.failRead = false;
+          final gate = Completer<List<MedicalCondition>>();
+          h.medicalConditionRepository.pendingReads['pet-1'] = gate;
+          final retry = h.controller.loadHealthRecords('pet-1');
+          expect(h.controller.errorMessage, isNull);
+          expect(h.controller.isLoading, isTrue);
+          gate.complete([]);
+          expect(await retry, isTrue);
+          expect(h.controller.vaccinations.single.name, 'Rabies vaccine');
+          expect(h.controller.loadedPetId, 'pet-1');
+        },
+      );
+
+      test('writes are rejected during an active load', () async {
+        final h = _HealthControllerHarness();
+        addTearDown(h.dispose);
+        final gate = Completer<List<MedicalCondition>>();
+        h.medicalConditionRepository.pendingReads['pet-1'] = gate;
+        final load = h.controller.loadHealthRecords('pet-1');
+        expect(
+          await h.controller.createMedicalCondition(_condition()),
+          isFalse,
+        );
+        expect(h.medicalConditionRepository.createCalls, 0);
+        gate.complete([]);
+        expect(await load, isTrue);
+      });
+    });
+
+    group('repository write failures', () {
+      test(
+        'each create failure preserves the collection and reports false',
+        () async {
+          final h = _HealthControllerHarness();
+          addTearDown(h.dispose);
+          h.medicalConditionRepository.failCreate = true;
+          h.vaccinationRepository.failCreate = true;
+          h.treatmentRepository.failCreate = true;
+          h.healthMeasurementRepository.failCreate = true;
+          expect(
+            await h.controller.createMedicalCondition(_condition()),
+            isFalse,
+          );
+          expect(await h.controller.createVaccination(_vaccination()), isFalse);
+          expect(await h.controller.createTreatment(_treatment()), isFalse);
+          expect(
+            await h.controller.createHealthMeasurement(_measurement()),
+            isFalse,
+          );
+          expect(h.controller.hasData, isFalse);
+          expect(
+            h.controller.errorMessage,
+            'Unable to complete the health operation.',
+          );
+        },
+      );
+
+      test('each update failure preserves the loaded record', () async {
+        final h = _HealthControllerHarness();
+        addTearDown(h.dispose);
+        h.seedRecords(
+          medicalConditions: [_condition()],
+          vaccinations: [_vaccination()],
+          treatments: [_treatment()],
+          healthMeasurements: [_measurement()],
+        );
+        expect(await h.controller.loadHealthRecords('pet-1'), isTrue);
+        h.medicalConditionRepository.failUpdate = true;
+        h.vaccinationRepository.failUpdate = true;
+        h.treatmentRepository.failUpdate = true;
+        h.healthMeasurementRepository.failUpdate = true;
+        expect(
+          await h.controller.updateMedicalCondition(
+            _condition(name: 'changed'),
+          ),
+          isFalse,
+        );
+        expect(
+          await h.controller.updateVaccination(_vaccination(name: 'changed')),
+          isFalse,
+        );
+        expect(
+          await h.controller.updateTreatment(_treatment(name: 'changed')),
+          isFalse,
+        );
+        expect(
+          await h.controller.updateHealthMeasurement(_measurement(value: 99)),
+          isFalse,
+        );
+        expect(h.controller.medicalConditions.single.name, 'Skin condition');
+        expect(h.controller.vaccinations.single.name, 'Rabies vaccine');
+        expect(h.controller.treatments.single.name, 'Medication');
+        expect(h.controller.healthMeasurements.single.value, 12.5);
+        expect(
+          h.controller.errorMessage,
+          'Unable to complete the health operation.',
+        );
+      });
+
+      test('each delete failure preserves the loaded record', () async {
+        final h = _HealthControllerHarness();
+        addTearDown(h.dispose);
+        h.seedRecords(
+          medicalConditions: [_condition()],
+          vaccinations: [_vaccination()],
+          treatments: [_treatment()],
+          healthMeasurements: [_measurement()],
+        );
+        expect(await h.controller.loadHealthRecords('pet-1'), isTrue);
+        h.medicalConditionRepository.failDelete = true;
+        h.vaccinationRepository.failDelete = true;
+        h.treatmentRepository.failDelete = true;
+        h.healthMeasurementRepository.failDelete = true;
+        expect(
+          await h.controller.deleteMedicalCondition('pet-1', 'condition-1'),
+          isFalse,
+        );
+        expect(
+          await h.controller.deleteVaccination('pet-1', 'vaccination-1'),
+          isFalse,
+        );
+        expect(
+          await h.controller.deleteTreatment('pet-1', 'treatment-1'),
+          isFalse,
+        );
+        expect(
+          await h.controller.deleteHealthMeasurement('pet-1', 'measurement-1'),
+          isFalse,
+        );
+        expect(h.controller.medicalConditions, hasLength(1));
+        expect(h.controller.vaccinations, hasLength(1));
+        expect(h.controller.treatments, hasLength(1));
+        expect(h.controller.healthMeasurements, hasLength(1));
+      });
+
+      test('next operation clears previous error before notifying', () async {
+        final h = _HealthControllerHarness();
+        addTearDown(h.dispose);
+        h.medicalConditionRepository.failCreate = true;
+        expect(
+          await h.controller.createMedicalCondition(_condition()),
+          isFalse,
+        );
+        h.medicalConditionRepository.failCreate = false;
+        final errorsAtNotification = <String?>[];
+        h.controller.addListener(
+          () => errorsAtNotification.add(h.controller.errorMessage),
+        );
+        expect(await h.controller.createMedicalCondition(_condition()), isTrue);
+        expect(errorsAtNotification, [null, null]);
+        expect(h.controller.errorMessage, isNull);
+      });
+    });
+
+    test('pending load completes safely after controller disposal', () async {
+      final h = _HealthControllerHarness();
+      final gate = Completer<List<MedicalCondition>>();
+      h.medicalConditionRepository.pendingReads['pet-1'] = gate;
+      final load = h.controller.loadHealthRecords('pet-1');
+      h.dispose();
+      gate.complete([_condition()]);
+      expect(await load, isFalse);
+    });
+
+    test(
+      'delete for another pet must not remove the selected pet record',
+      () async {
+        final h = _HealthControllerHarness();
+        addTearDown(h.dispose);
+        h.seedRecords(medicalConditions: [_condition()]);
+        expect(await h.controller.loadHealthRecords('pet-1'), isTrue);
+        expect(
+          await h.controller.deleteMedicalCondition('pet-2', 'condition-1'),
+          isFalse,
+        );
+        expect(h.controller.medicalConditions, hasLength(1));
+        expect(h.controller.medicalConditions.single.petId, 'pet-1');
+        expect(h.medicalConditionRepository.records.single.petId, 'pet-1');
+      },
+    );
+
+    test(
+      'cross-pet updates and deletes are rejected for every collection',
+      () async {
+        final h = _HealthControllerHarness();
+        addTearDown(h.dispose);
+        h.seedRecords(
+          medicalConditions: [_condition()],
+          vaccinations: [_vaccination()],
+          treatments: [_treatment()],
+          healthMeasurements: [_measurement()],
+        );
+        expect(await h.controller.loadHealthRecords('pet-1'), isTrue);
+        expect(
+          await h.controller.updateMedicalCondition(
+            _condition(petId: 'pet-2', name: 'wrong pet'),
+          ),
+          isFalse,
+        );
+        expect(
+          await h.controller.updateVaccination(
+            _vaccination(petId: 'pet-2', name: 'wrong pet'),
+          ),
+          isFalse,
+        );
+        expect(
+          await h.controller.updateTreatment(
+            _treatment(petId: 'pet-2', name: 'wrong pet'),
+          ),
+          isFalse,
+        );
+        expect(
+          await h.controller.updateHealthMeasurement(
+            _measurement(petId: 'pet-2', value: 99),
+          ),
+          isFalse,
+        );
+        expect(
+          await h.controller.deleteVaccination('pet-2', 'vaccination-1'),
+          isFalse,
+        );
+        expect(
+          await h.controller.deleteTreatment('pet-2', 'treatment-1'),
+          isFalse,
+        );
+        expect(
+          await h.controller.deleteHealthMeasurement('pet-2', 'measurement-1'),
+          isFalse,
+        );
+        expect(h.controller.medicalConditions.single.petId, 'pet-1');
+        expect(h.controller.vaccinations.single.name, 'Rabies vaccine');
+        expect(h.controller.treatments.single.name, 'Medication');
+        expect(h.controller.healthMeasurements.single.value, 12.5);
+        expect(h.medicalConditionRepository.records.single.petId, 'pet-1');
+        expect(h.vaccinationRepository.records.single.name, 'Rabies vaccine');
+        expect(h.treatmentRepository.records.single.name, 'Medication');
+        expect(h.healthMeasurementRepository.records.single.value, 12.5);
+      },
+    );
+
+    test('cross-pet create is rejected after selecting a pet', () async {
+      final h = _HealthControllerHarness();
+      addTearDown(h.dispose);
+      expect(await h.controller.loadHealthRecords('pet-1'), isTrue);
+      expect(
+        await h.controller.createMedicalCondition(_condition(petId: 'pet-2')),
+        isFalse,
+      );
+      expect(
+        await h.controller.createVaccination(_vaccination(petId: 'pet-2')),
+        isFalse,
+      );
+      expect(
+        await h.controller.createTreatment(_treatment(petId: 'pet-2')),
+        isFalse,
+      );
+      expect(
+        await h.controller.createHealthMeasurement(
+          _measurement(petId: 'pet-2'),
+        ),
+        isFalse,
+      );
+      expect(h.controller.hasData, isFalse);
+      expect(h.medicalConditionRepository.records, isEmpty);
+      expect(h.vaccinationRepository.records, isEmpty);
+      expect(h.treatmentRepository.records, isEmpty);
+      expect(h.healthMeasurementRepository.records, isEmpty);
+    });
+
+    test('disposed controller ignores pending create completion', () async {
+      final h = _HealthControllerHarness();
+      final gate = Completer<MedicalCondition>();
+      h.medicalConditionRepository.createGate = gate;
+      final write = h.controller.createMedicalCondition(_condition());
+      h.dispose();
+      gate.complete(_condition());
+      expect(await write, isFalse);
+      expect(h.controller.medicalConditions, isEmpty);
+    });
+
+    test('disposed controller ignores pending update completion', () async {
+      final h = _HealthControllerHarness();
+      h.seedRecords(medicalConditions: [_condition()]);
+      expect(await h.controller.loadHealthRecords('pet-1'), isTrue);
+      final gate = Completer<void>();
+      h.medicalConditionRepository.updateGate = gate;
+      final write = h.controller.updateMedicalCondition(
+        _condition(name: 'changed'),
+      );
+      h.dispose();
+      gate.complete();
+      expect(await write, isFalse);
+      expect(h.controller.medicalConditions.single.name, 'Skin condition');
+    });
+
+    test('disposed controller ignores pending delete completion', () async {
+      final h = _HealthControllerHarness();
+      h.seedRecords(medicalConditions: [_condition()]);
+      expect(await h.controller.loadHealthRecords('pet-1'), isTrue);
+      final gate = Completer<void>();
+      h.medicalConditionRepository.deleteGate = gate;
+      final write = h.controller.deleteMedicalCondition('pet-1', 'condition-1');
+      h.dispose();
+      gate.complete();
+      expect(await write, isFalse);
+      expect(h.controller.medicalConditions, hasLength(1));
+    });
+
+    test('pet switch waits for an in-flight mutation', () async {
+      final h = _HealthControllerHarness();
+      addTearDown(h.dispose);
+      h.seedRecords(medicalConditions: [_condition()]);
+      expect(await h.controller.loadHealthRecords('pet-1'), isTrue);
+      final gate = Completer<void>();
+      h.medicalConditionRepository.updateGate = gate;
+      final write = h.controller.updateMedicalCondition(
+        _condition(name: 'changed'),
+      );
+      expect(await h.controller.loadHealthRecords('pet-2'), isFalse);
+      expect(h.controller.loadedPetId, 'pet-1');
+      gate.complete();
+      expect(await write, isTrue);
+      expect(h.controller.medicalConditions.single.name, 'changed');
+      expect(await h.controller.loadHealthRecords('pet-2'), isTrue);
+      expect(h.controller.loadedPetId, 'pet-2');
+      expect(h.controller.medicalConditions, isEmpty);
     });
   });
 }

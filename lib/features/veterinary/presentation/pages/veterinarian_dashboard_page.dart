@@ -107,6 +107,14 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
               ),
               actions: [
                 IconButton(
+                  tooltip: 'Scan QR Health Passport',
+                  onPressed: _openQrScanner,
+                  icon: const Icon(
+                    Icons.qr_code_scanner_rounded,
+                    color: AppTheme.deepBrown,
+                  ),
+                ),
+                IconButton(
                   tooltip: 'Notifications',
                   onPressed: _openNotifications,
                   icon: const Icon(
@@ -619,6 +627,10 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
       MaterialPageRoute<void>(
         builder: (_) => NotificationsPage(
           onOpenAppointmentById: _openNotificationAppointment,
+          onOpenQueue: () {
+            Navigator.of(context).pop();
+            _selectTab(2);
+          },
         ),
       ),
     );
@@ -644,9 +656,11 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
         builder: (_) => ListenableBuilder(
           listenable: _controller,
           builder: (context, _) {
+            final currentAppointment = _controller.appointmentById(
+              appointment.appointmentId,
+            );
             if (sessionRevision != _controller.sessionRevision ||
-                _controller.appointmentById(appointment.appointmentId) ==
-                    null ||
+                currentAppointment == null ||
                 _controller.loadErrorMessage != null) {
               return Scaffold(
                 appBar: AppBar(),
@@ -656,11 +670,14 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
               );
             }
             return VeterinarianAppointmentDetailsPage(
-              appointment: appointment,
-              serviceName: _controller.serviceNameFor(appointment.serviceId),
+              appointment: currentAppointment,
+              serviceName: _controller.serviceNameFor(
+                currentAppointment.serviceId,
+              ),
               hospitalName: _controller.hospital?.name,
               onConfirm: _controller.confirmAppointment,
               onReject: _controller.rejectAppointment,
+              onOpenHealthPassport: _openQrScanner,
               onManageQueue: () {
                 Navigator.of(context).pop();
                 _selectTab(2);
@@ -671,6 +688,10 @@ class _VeterinarianDashboardPageState extends State<VeterinarianDashboardPage> {
         ),
       ),
     );
+  }
+
+  void _openQrScanner() {
+    Navigator.of(context).pushNamed(AppRouter.qrHealthPassportScanner);
   }
 
   Future<void> _confirmLogout() async {

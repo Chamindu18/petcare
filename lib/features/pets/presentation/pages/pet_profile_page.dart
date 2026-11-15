@@ -159,7 +159,8 @@ class _PetProfilePageState extends State<PetProfilePage> {
           title: const Text('Delete Pet?'),
           content: Text(
             'Are you sure you want to delete ${_pet.name}? '
-            'This will remove the pet from your account.',
+            'This will remove the pet from your account. '
+            'Its photo may remain accessible at its hosted URL.',
           ),
           actions: [
             TextButton(

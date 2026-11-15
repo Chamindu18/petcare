@@ -85,6 +85,22 @@ void main() {
     expect(find.text('Adopted'), findsOneWidget);
   });
 
+  testWidgets('reserved listings do not open the edit form', (tester) async {
+    final repository = _FakeAdoptionListingRepository(
+      listings: [_createListing(status: 'reserved')],
+    );
+
+    await tester.pumpWidget(_buildPage(repository: repository));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reserved'), findsOneWidget);
+    expect(find.text('This listing can no longer be edited.'), findsOneWidget);
+    await tester.tap(find.text('Buddy'));
+    await tester.pumpAndSettle();
+    expect(find.text('My Adoption Listings'), findsOneWidget);
+    expect(find.text('Edit Adoption Listing'), findsNothing);
+  });
+
   testWidgets('shows empty state when there are no adoption listings', (
     tester,
   ) async {

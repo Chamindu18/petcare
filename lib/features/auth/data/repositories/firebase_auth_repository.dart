@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../../../core/config/firebase_emulator_config.dart';
 import '../../domain/repositories/auth_repository.dart';
 
 class FirebaseAuthRepository implements AuthRepository {
@@ -99,7 +100,11 @@ class FirebaseAuthRepository implements AuthRepository {
         password: password,
       );
     } on FirebaseAuthException catch (error) {
-      throw AuthException(_firebaseAuthErrorMessage(error.code));
+      throw AuthException(
+        error.code == 'user-disabled'
+            ? 'Invalid email or password. Please try again.'
+            : _firebaseAuthErrorMessage(error.code),
+      );
     }
   }
 
@@ -206,21 +211,14 @@ class FirebaseAuthRepository implements AuthRepository {
       );
 
       if (!existingProfile.exists) {
-        debugPrint('GOOGLE AUTH STEP 7: Creating new owner profile...');
-
-        await profileRef.set({
-          'uid': user.uid,
-          'fullName': user.displayName ?? '',
-          'displayName': user.displayName ?? '',
-          'email': user.email ?? '',
-          'phone': user.phoneNumber ?? '',
-          'role': 'owner',
-          'notificationEnabled': true,
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-
-        debugPrint('GOOGLE AUTH STEP 7: Owner profile created.');
+        final name = user.displayName?.trim() ?? '';
+        if (name.isNotEmpty) {
+          debugPrint('GOOGLE AUTH STEP 7: Creating new owner profile...');
+          await _createOwnerProfileIfMissing(user, name);
+          debugPrint('GOOGLE AUTH STEP 7: Owner profile created.');
+        } else {
+          debugPrint('GOOGLE AUTH STEP 7: Profile needs a name.');
+        }
       } else {
         // Preserve existing profile fields, including the user's role.
         debugPrint('GOOGLE AUTH STEP 7: Updating existing profile timestamp.');
@@ -246,7 +244,13 @@ class FirebaseAuthRepository implements AuthRepository {
         '${error.code}.',
       );
 
-      // Preserve the existing error behavior.
+      if (FirebaseEmulatorConfig.enabled && error.code == 'unknown') {
+        throw const AuthException(
+          'Google Sign-In could not be verified by the local Auth emulator. '
+          'Use the seeded demo email and password.',
+        );
+      }
+
       throw AuthException('Google authentication failed: ${error.code}');
     } on FirebaseException catch (error) {
       debugPrint(
@@ -260,6 +264,56 @@ class FirebaseAuthRepository implements AuthRepository {
 
       rethrow;
     }
+  }
+
+  /// Completes a Google account whose Firestore profile is still missing.
+  /// Existing profiles, including provisioned roles, are never overwritten.
+  Future<void> completeGoogleOwnerProfile(String fullName) async {
+    final user = _auth.currentUser;
+    if (user == null ||
+        !user.providerData.any(
+          (provider) => provider.providerId == 'google.com',
+        )) {
+      throw const AuthException(
+        'Sign in with Google to complete your profile.',
+      );
+    }
+    final name = fullName.trim();
+    if (name.length < 2) {
+      throw const AuthException('Please enter your full name.');
+    }
+
+    try {
+      final created = await _createOwnerProfileIfMissing(user, name);
+      if (created && (user.displayName?.trim().isEmpty ?? true)) {
+        try {
+          await user.updateDisplayName(name);
+        } catch (_) {
+          // The Firestore profile is authoritative for routing and display.
+        }
+      }
+    } on FirebaseException catch (error) {
+      throw AuthException(_firestoreErrorMessage(error.code));
+    }
+  }
+
+  Future<bool> _createOwnerProfileIfMissing(User user, String name) async {
+    final profileRef = _firestore.collection('users').doc(user.uid);
+    return _firestore.runTransaction((transaction) async {
+      if ((await transaction.get(profileRef)).exists) return false;
+      transaction.set(profileRef, {
+        'uid': user.uid,
+        'fullName': name,
+        'displayName': name,
+        'email': user.email ?? '',
+        'phone': user.phoneNumber ?? '',
+        'role': 'owner',
+        'notificationEnabled': true,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      return true;
+    });
   }
 
   @override
@@ -325,19 +379,18 @@ class FirebaseAuthRepository implements AuthRepository {
         return 'This account has been disabled.';
 
       case 'user-not-found':
-        return 'No account was found with this email.';
-
       case 'invalid-credential':
-        return 'The email or password is incorrect.';
-
       case 'wrong-password':
-        return 'The email or password is incorrect.';
+        return 'Invalid email or password. Please try again.';
 
       case 'too-many-requests':
         return 'Too many attempts. Please try again later.';
 
       case 'network-request-failed':
         return 'Network error. Check your connection and try again.';
+
+      case 'unavailable':
+        return 'The service is temporarily unavailable. Please try again later.';
 
       case 'expired-action-code':
         return 'This password reset link has expired.';

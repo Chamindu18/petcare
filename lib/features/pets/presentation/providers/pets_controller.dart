@@ -49,9 +49,7 @@ class PetsController extends ChangeNotifier {
       }
 
       final uploadPetImage = _uploadPetImage;
-      final deletePetImage = _deletePetImage;
-
-      if (uploadPetImage == null || deletePetImage == null) {
+      if (uploadPetImage == null) {
         await _deletePet(createdPet.petId);
 
         throw const PetOperationException(
@@ -73,11 +71,12 @@ class PetsController extends ChangeNotifier {
 
         _pets = [..._pets, savedPet];
       } catch (_) {
-        if (uploadedImageUrl != null) {
+        final deletePetImage = _deletePetImage;
+        if (uploadedImageUrl != null && deletePetImage != null) {
           try {
             await deletePetImage(imageUrl: uploadedImageUrl);
           } catch (_) {
-            // Best-effort cleanup.
+            // The uploaded asset may remain hosted if cleanup is unavailable.
           }
         }
 
@@ -112,9 +111,7 @@ class PetsController extends ChangeNotifier {
 
       if (imageBytes != null) {
         final uploadPetImage = _uploadPetImage;
-        final deletePetImage = _deletePetImage;
-
-        if (uploadPetImage == null || deletePetImage == null) {
+        if (uploadPetImage == null) {
           throw const PetOperationException(
             'Pet image storage is not configured.',
           );
@@ -138,7 +135,7 @@ class PetsController extends ChangeNotifier {
             try {
               await deletePetImage(imageUrl: newImageUrl);
             } catch (_) {
-              // Best-effort cleanup.
+              // The uploaded asset may remain hosted if cleanup is unavailable.
             }
           }
         }
@@ -154,8 +151,8 @@ class PetsController extends ChangeNotifier {
         try {
           await deletePetImage(imageUrl: oldImageUrl);
         } catch (_) {
-          // Firestore already contains the new state.
-          // Old image cleanup is best effort.
+          // Firestore already contains the new state. The old hosted image
+          // may remain accessible at its URL.
         }
       }
 
@@ -182,8 +179,7 @@ class PetsController extends ChangeNotifier {
         try {
           await deletePetImage(imageUrl: existingPet!.imageUrl);
         } catch (_) {
-          // Pet deletion already succeeded.
-          // Storage cleanup is best effort.
+          // Pet deletion already succeeded. The hosted image may remain.
         }
       }
 

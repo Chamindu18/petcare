@@ -3,7 +3,7 @@
   "private": true,
   "description": "Firestore Emulator security tests for PetCare+ workflows",
   "scripts": {
-    "demo:emulators": "firebase emulators:start --only auth,firestore,functions --project demo-petcare",
+    "demo:emulators": "node scripts/demo/start_emulators.mjs",
     "demo:seed": "node scripts/demo/seed_emulators.mjs",
     "test:rules": "firebase emulators:exec --only firestore --project demo-petcare \"node --test --test-concurrency=1 test/firestore/rules.test.mjs test/firestore/recipient_backfill_plan.test.mjs test/firestore/appointment_rules.test.mjs test/firestore/queue_rules.test.mjs test/firestore/notification_events.test.mjs test/firestore/appointment_concurrency.test.mjs functions/test/appointment_concurrency.test.mjs\"",
     "backfill:adoption-request-recipients": "node scripts/backfill-adoption-request-recipients.mjs",

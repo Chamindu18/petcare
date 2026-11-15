@@ -54,8 +54,13 @@ class StaffAppointmentProvider extends ChangeNotifier {
       if (_isDisposed) return;
 
       // Copy the collection before sorting to avoid modifying repository data.
-      final sortedAppointments = List<Appointment>.of(loadedAppointments)
-        ..sort((first, second) => first.dateTime.compareTo(second.dateTime));
+      final sortedAppointments =
+          loadedAppointments
+              .where((appointment) => appointment.hospitalId == _hospitalId)
+              .toList()
+            ..sort(
+              (first, second) => first.dateTime.compareTo(second.dateTime),
+            );
 
       _appointments = sortedAppointments;
     } catch (error, stackTrace) {

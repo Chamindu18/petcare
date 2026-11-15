@@ -7,6 +7,21 @@ import 'package:http/testing.dart';
 import 'package:petcare/features/appointments/data/datasources/appointment_scheduling_datasource.dart';
 
 void main() {
+  test('live demo rejects booking before contacting an undeployed callable', () async {
+    final source = FirebaseAppointmentSchedulingDataSource(
+      auth: MockFirebaseAuth(mockUser: MockUser(uid: 'owner'), signedIn: true),
+      client: MockClient((_) async => throw StateError('HTTP must not run')),
+    );
+    await expectLater(
+      source.reserve({'action': 'create'}),
+      throwsA(isA<StateError>().having(
+        (error) => error.message,
+        'message',
+        'Appointment confirmation is unavailable in this live demo.',
+      )),
+    );
+  });
+
   test(
     'network failures surface without reporting a successful booking',
     () async {

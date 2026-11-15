@@ -21,6 +21,7 @@ class AIHubPage extends StatefulWidget {
 
 class _AIHubPageState extends State<AIHubPage> {
   Pet? selectedPet;
+  int _contextGeneration = 0;
   @override
   void initState() {
     super.initState();
@@ -164,6 +165,7 @@ class _AIHubPageState extends State<AIHubPage> {
                                               if (pet == null) return;
                                               setState(() {
                                                 selectedPet = pet;
+                                                _currentContext = null;
                                               });
                                               await _buildContext();
                                             },
@@ -325,16 +327,30 @@ class _AIHubPageState extends State<AIHubPage> {
   final CreatePetContext _createPetContext = const CreatePetContext();
   AIPetContext? _currentContext;
   Future<void> _buildContext() async {
-    if (selectedPet == null || widget.healthController == null) {
+    final pet = selectedPet;
+    final controller = widget.healthController;
+    final generation = ++_contextGeneration;
+    if (pet == null || controller == null) {
       return;
     }
-    await widget.healthController!.loadHealthRecords(selectedPet!.petId);
-    _currentContext = _createPetContext(
-      pet: selectedPet!,
-      conditions: widget.healthController!.medicalConditions,
-      vaccinations: widget.healthController!.vaccinations,
-      treatments: widget.healthController!.treatments,
-      measurements: widget.healthController!.healthMeasurements,
+
+    final loaded = await controller.loadHealthRecords(pet.petId);
+    if (!mounted ||
+        generation != _contextGeneration ||
+        selectedPet?.petId != pet.petId ||
+        !loaded ||
+        controller.loadedPetId != pet.petId) {
+      return;
+    }
+
+    setState(
+      () => _currentContext = _createPetContext(
+        pet: pet,
+        conditions: controller.medicalConditions,
+        vaccinations: controller.vaccinations,
+        treatments: controller.treatments,
+        measurements: controller.healthMeasurements,
+      ),
     );
   }
 }

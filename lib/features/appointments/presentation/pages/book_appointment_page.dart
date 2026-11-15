@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/config/firebase_emulator_config.dart';
 import '../../../hospitals/data/repositories/firebase_hospital_repository.dart';
 import '../../../hospitals/domain/usecases/hospital_usecases.dart';
 import '../../../pets/domain/entities/pet.dart';
@@ -20,6 +22,8 @@ import '../../domain/entities/hospital_operating_hours.dart';
 import '../../domain/usecases/appointment_usecases.dart';
 import '../../domain/usecases/get_available_appointment_slots.dart';
 import '../../domain/utils/hospital_hours_parser.dart';
+import '../../domain/utils/appointment_slot_generator.dart';
+import '../widgets/appointment_slot_picker.dart';
 
 class BookAppointmentRouteArgs {
   const BookAppointmentRouteArgs({
@@ -48,6 +52,21 @@ class BookAppointmentPage extends StatefulWidget {
 }
 
 class _BookAppointmentPageState extends State<BookAppointmentPage> {
+  DateTime get _hospitalNow {
+    final clock = DateTime.now().toUtc().add(
+      const Duration(hours: 5, minutes: 30),
+    );
+    return DateTime(
+      clock.year,
+      clock.month,
+      clock.day,
+      clock.hour,
+      clock.minute,
+      clock.second,
+      clock.millisecond,
+    );
+  }
+
   late final GetServicesByHospital _getServicesByHospital;
   late final GetVeterinariansByHospital _getVeterinariansByHospital;
   late final GetHospitalById _getHospitalById;
@@ -66,7 +85,9 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
 
   List<AppointmentSlot> _availableSlots = [];
 
-  HospitalOperatingHours? _operatingHours;
+  String? _hospitalHours;
+  bool _closedDay = false;
+  String? _slotErrorMessage;
 
   bool _isLoading = true;
   bool _isLoadingSlots = false;
@@ -122,8 +143,6 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         throw StateError('Hospital was not found.');
       }
 
-      final operatingHours = HospitalHoursParser.parse(hospital.hours);
-
       final services = await _getServicesByHospital(widget.hospitalId);
 
       final veterinarians = await _getVeterinariansByHospital(
@@ -149,7 +168,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         _services = services;
         _veterinarians = veterinarians;
         _selectedVeterinarian = selectedVeterinarian;
-        _operatingHours = operatingHours;
+        _hospitalHours = hospital.hours;
         _isLoading = false;
       });
     } catch (error) {
@@ -165,7 +184,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   }
 
   Future<void> _selectDate() async {
-    final now = DateTime.now();
+    final now = _hospitalNow;
 
     final selectedDate = await showDatePicker(
       context: context,
@@ -189,41 +208,70 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   }
 
   Future<void> _loadAvailableSlots() async {
+    final requestId = ++_availabilityRequestId;
     final selectedDate = _selectedDate;
     final selectedService = _selectedService;
     final selectedVeterinarian = _selectedVeterinarian;
-    final operatingHours = _operatingHours;
+    final hospitalHours = _hospitalHours;
 
     if (selectedDate == null ||
         selectedService == null ||
         selectedVeterinarian == null ||
-        operatingHours == null) {
+        hospitalHours == null) {
+      if (mounted) {
+        setState(() {
+          _availableSlots = [];
+          _selectedSlot = null;
+          _isLoadingSlots = false;
+          _closedDay = false;
+          _slotErrorMessage = null;
+        });
+      }
       return;
     }
 
-    final serviceDuration = selectedService.duration;
-
-    if (serviceDuration == null || serviceDuration <= 0) {
-      if (!mounted) {
-        return;
-      }
-
+    final HospitalOperatingHours? operatingHours;
+    try {
+      operatingHours = HospitalHoursParser.forDate(hospitalHours, selectedDate);
+    } on FormatException {
       setState(() {
         _availableSlots = [];
+        _selectedSlot = null;
         _isLoadingSlots = false;
+        _closedDay = false;
+        _slotErrorMessage = 'Hospital operating hours are missing or invalid.';
       });
-
-      _showMessage('The selected service does not have a valid duration.');
-
       return;
     }
 
-    final requestId = ++_availabilityRequestId;
+    if (operatingHours == null) {
+      setState(() {
+        _closedDay = true;
+        _availableSlots = [];
+        _selectedSlot = null;
+        _isLoadingSlots = false;
+        _slotErrorMessage = null;
+      });
+      return;
+    }
+
+    if ((selectedService.duration ?? 0) <= 0) {
+      setState(() {
+        _availableSlots = [];
+        _selectedSlot = null;
+        _isLoadingSlots = false;
+        _closedDay = false;
+        _slotErrorMessage = 'This service has no valid appointment duration.';
+      });
+      return;
+    }
 
     setState(() {
       _availableSlots = [];
       _selectedSlot = null;
       _isLoadingSlots = true;
+      _closedDay = false;
+      _slotErrorMessage = null;
     });
 
     try {
@@ -231,7 +279,8 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         date: selectedDate,
         veterinarianId: selectedVeterinarian.vetId,
         operatingHours: operatingHours,
-        serviceDurationMinutes: serviceDuration,
+        serviceDurationMinutes: selectedService.duration ?? 0,
+        now: _hospitalNow,
       );
 
       if (!mounted || requestId != _availabilityRequestId) {
@@ -242,19 +291,21 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
         _availableSlots = slots;
         _isLoadingSlots = false;
       });
-    } catch (error) {
+    } catch (error, stackTrace) {
       if (!mounted || requestId != _availabilityRequestId) {
         return;
       }
 
+      debugPrint('Appointment availability failed: $error\n$stackTrace');
+
       setState(() {
         _availableSlots = [];
         _isLoadingSlots = false;
+        _slotErrorMessage =
+            error is FirebaseException && error.code == 'permission-denied'
+            ? 'Appointment availability access was denied. Please contact the hospital.'
+            : 'Unable to check appointment availability. Please try again.';
       });
-
-      _showMessage(
-        'Unable to load available appointment slots. Please try again.',
-      );
     }
   }
 
@@ -271,6 +322,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   }
 
   Future<void> _submitAppointment() async {
+    if (!FirebaseEmulatorConfig.enabled) return;
     if (!_canSubmit) {
       return;
     }
@@ -280,7 +332,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
     final veterinarian = _selectedVeterinarian!;
     final dateTime = _selectedDateTime!;
 
-    if (dateTime.isBefore(DateTime.now())) {
+    if (!dateTime.isAfter(_hospitalNow)) {
       _showMessage('Please select a future appointment slot.');
       return;
     }
@@ -364,18 +416,33 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       body: _buildBody(),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-        child: ElevatedButton(
-          onPressed: _canSubmit ? _submitAppointment : null,
-          child: _isSubmitting
-              ? const SizedBox(
-                  height: 22,
-                  width: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.white),
-                  ),
-                )
-              : const Text('Book Appointment'),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!FirebaseEmulatorConfig.enabled) ...[
+              const Text(
+                'Appointment confirmation is unavailable in this live demo.',
+              ),
+              const SizedBox(height: 8),
+            ],
+            ElevatedButton(
+              onPressed: FirebaseEmulatorConfig.enabled && _canSubmit
+                  ? _submitAppointment
+                  : null,
+              child: _isSubmitting
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppTheme.white,
+                        ),
+                      ),
+                    )
+                  : const Text('Book Appointment'),
+            ),
+          ],
         ),
       ),
     );
@@ -591,6 +658,13 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       );
     }
 
+    if (_veterinarians.isEmpty) {
+      return const _SlotMessage(
+        icon: Icons.person_off_outlined,
+        message: 'No eligible veterinarian is assigned to this hospital.',
+      );
+    }
+
     if (_selectedService == null || _selectedVeterinarian == null) {
       return const _SlotMessage(
         icon: Icons.info_outline_rounded,
@@ -605,52 +679,62 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
       );
     }
 
-    if (_availableSlots.isEmpty) {
+    if (_closedDay) {
       return const _SlotMessage(
         icon: Icons.event_busy_rounded,
-        message: 'No appointment slots are currently available for this date.',
+        message: 'This hospital is closed on the selected day.',
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Available Slots',
-          style: Theme.of(context).textTheme.titleSmall
-              ?.copyWith(color: AppTheme.espresso, fontWeight: FontWeight.w800),
-        ),
+    if (_slotErrorMessage != null) {
+      return _SlotMessage(
+        icon: Icons.error_outline_rounded,
+        message: _slotErrorMessage!,
+      );
+    }
 
-        const SizedBox(height: 10),
-
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 2.2,
-          ),
-          itemCount: _availableSlots.length,
-          itemBuilder: (context, index) {
-            final slot = _availableSlots[index];
-
-            final isSelected = _selectedSlot == slot;
-
-            return _SlotButton(
-              slot: slot,
-              selected: isSelected,
-              onTap: () {
-                setState(() {
-                  _selectedSlot = slot;
-                });
-              },
-            );
-          },
-        ),
-      ],
+    final hours = HospitalHoursParser.forDate(_hospitalHours!, _selectedDate!)!;
+    final allSlots = AppointmentSlotGenerator.generate(
+      date: _selectedDate!,
+      operatingHours: hours,
+      serviceDurationMinutes: _selectedService!.duration ?? 0,
+      veterinarianId: _selectedVeterinarian!.vetId,
+      existingAppointments: const [],
+      appointmentDurations: const {},
     );
+    final availableStarts = _availableSlots
+        .map((slot) => slot.startTime)
+        .toSet();
+    if (allSlots.isEmpty) {
+      return const _SlotMessage(
+        icon: Icons.event_busy_rounded,
+        message: 'No appointment slots are available for this date.',
+      );
+    }
+    final picker = AppointmentSlotPicker(
+      key: ValueKey(
+        '${_selectedDate!.toIso8601String()}-'
+        '${_selectedVeterinarian!.vetId}-${_selectedService!.serviceId}',
+      ),
+      slots: allSlots,
+      availableStarts: availableStarts,
+      now: _hospitalNow,
+      selectedStart: _selectedSlot?.startTime,
+      onSelected: (slot) => setState(() => _selectedSlot = slot),
+    );
+    if (_availableSlots.isEmpty) {
+      return Column(
+        children: [
+          const _SlotMessage(
+            icon: Icons.event_busy_rounded,
+            message: 'No appointment slots are available for this date.',
+          ),
+          const SizedBox(height: 12),
+          picker,
+        ],
+      );
+    }
+    return picker;
   }
 }
 
@@ -740,48 +824,6 @@ class _DateTimeButton extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SlotButton extends StatelessWidget {
-  const _SlotButton({
-    required this.slot,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final AppointmentSlot slot;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final time = TimeOfDay.fromDateTime(slot.startTime);
-
-    return Material(
-      color: selected ? AppTheme.primary : AppTheme.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? AppTheme.primary : AppTheme.deepBrown,
-            ),
-          ),
-          child: Text(
-            time.format(context),
-            style: TextStyle(
-              color: selected ? AppTheme.white : AppTheme.espresso,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
         ),
       ),
     );

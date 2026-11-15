@@ -7,6 +7,7 @@ import 'package:petcare/app/theme/app_theme.dart';
 import 'package:petcare/features/appointments/domain/entities/appointment.dart';
 import 'package:petcare/features/appointments/domain/repositories/appointment_repository.dart';
 import 'package:petcare/features/appointments/domain/usecases/appointment_usecases.dart';
+import 'package:petcare/features/appointments/presentation/pages/veterinarian_appointment_details_page.dart';
 import 'package:petcare/features/appointments/presentation/widgets/veterinarian_appointment_card.dart';
 import 'package:petcare/features/auth/domain/repositories/auth_repository.dart';
 import 'package:petcare/features/hospitals/domain/entities/hospital.dart';
@@ -196,6 +197,42 @@ Future<void> _pumpDashboard(
 }
 
 void main() {
+  testWidgets('open details reflect refreshed appointment status', (
+    tester,
+  ) async {
+    final pending = _appointment();
+    final confirmed = Appointment(
+      appointmentId: pending.appointmentId,
+      ownerId: pending.ownerId,
+      petId: pending.petId,
+      hospitalId: pending.hospitalId,
+      serviceId: pending.serviceId,
+      vetId: pending.vetId,
+      dateTime: pending.dateTime,
+      reason: pending.reason,
+      status: 'confirmed',
+      createdAt: pending.createdAt,
+    );
+
+    Widget details(Appointment appointment) => MaterialApp(
+      home: VeterinarianAppointmentDetailsPage(
+        appointment: appointment,
+        serviceName: 'General Consultation',
+        onConfirm: (_) async => true,
+        onReject: (_) async => true,
+      ),
+    );
+
+    await tester.pumpWidget(details(pending));
+    await tester.scrollUntilVisible(find.text('Confirm appointment'), 200);
+    expect(find.text('Confirm appointment'), findsOneWidget);
+
+    await tester.pumpWidget(details(confirmed));
+    await tester.scrollUntilVisible(find.text('Open pet health passport'), 200);
+    expect(find.text('Confirm appointment'), findsNothing);
+    expect(find.text('Open pet health passport'), findsOneWidget);
+  });
+
   group('VeterinarianDashboardPage quick actions', () {
     for (final size in const [
       Size(320, 640),

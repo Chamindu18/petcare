@@ -37,8 +37,36 @@ class FirebaseAppointmentAvailabilityRepository
 
     for (final document in snapshot.docs) {
       final data = document.data();
+      final rawTime = data['dateTime'];
+      final DateTime utcTime;
+      if (rawTime is Timestamp) {
+        utcTime = rawTime.toDate().toUtc();
+      } else {
+        final text = rawTime as String;
+        final parsed = DateTime.parse(text);
+        utcTime =
+            RegExp(r'(Z|[+-]\d{2}:\d{2})$', caseSensitive: false).hasMatch(text)
+            ? parsed.toUtc()
+            : DateTime.utc(
+                parsed.year,
+                parsed.month,
+                parsed.day,
+                parsed.hour,
+                parsed.minute,
+                parsed.second,
+                parsed.millisecond,
+              ).subtract(const Duration(hours: 5, minutes: 30));
+      }
+      final hospitalTime = utcTime.add(const Duration(hours: 5, minutes: 30));
       final appointment = AppointmentModel.fromMap({
         ...data,
+        'dateTime': DateTime(
+          hospitalTime.year,
+          hospitalTime.month,
+          hospitalTime.day,
+          hospitalTime.hour,
+          hospitalTime.minute,
+        ).toIso8601String(),
         'appointmentId': document.id,
         'ownerId': '',
         'petId': '',

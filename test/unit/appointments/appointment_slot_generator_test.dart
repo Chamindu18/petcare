@@ -32,6 +32,61 @@ Appointment _testAppointment({
 
 void main() {
   group('AppointmentSlotGenerator', () {
+    test('8 AM to 8 PM exposes 48 fifteen-minute slots', () {
+      final slots = AppointmentSlotGenerator.generate(
+        date: DateTime(2026, 11, 10),
+        operatingHours: const HospitalOperatingHours(
+          openingMinutes: 480,
+          closingMinutes: 1200,
+        ),
+        serviceDurationMinutes: 15,
+        veterinarianId: _veterinarianId,
+        existingAppointments: const [],
+        appointmentDurations: const {},
+      );
+      expect(slots, hasLength(48));
+      expect(slots.first.startTime, DateTime(2026, 11, 10, 8));
+      expect(slots.last.startTime, DateTime(2026, 11, 10, 19, 45));
+      expect(slots.last.endTime, DateTime(2026, 11, 10, 20));
+    });
+    test('a genuinely fully booked date has no available slots', () {
+      final date = DateTime(2026, 11, 20);
+      final bookings = List.generate(
+        48,
+        (index) => Appointment(
+          appointmentId: 'booked_$index',
+          ownerId: 'owner',
+          petId: 'pet',
+          hospitalId: 'hospital',
+          serviceId: 'service',
+          vetId: _veterinarianId,
+          dateTime: DateTime(
+            2026,
+            11,
+            20,
+            8,
+          ).add(Duration(minutes: index * 15)),
+          reason: '',
+          status: 'confirmed',
+          createdAt: DateTime(2026, 11, 1),
+        ),
+      );
+      final slots = AppointmentSlotGenerator.generate(
+        date: date,
+        operatingHours: const HospitalOperatingHours(
+          openingMinutes: 480,
+          closingMinutes: 1200,
+        ),
+        serviceDurationMinutes: 15,
+        veterinarianId: _veterinarianId,
+        existingAppointments: bookings,
+        appointmentDurations: {
+          for (final booking in bookings)
+            booking.appointmentId: const Duration(minutes: 15),
+        },
+      );
+      expect(slots, isEmpty);
+    });
     test('generates slots within hospital operating hours', () {
       final slots = AppointmentSlotGenerator.generate(
         date: DateTime(2026, 11, 1),
@@ -42,9 +97,10 @@ void main() {
         appointmentDurations: const {},
       );
 
-      expect(slots, hasLength(8));
+      expect(slots, hasLength(15));
       expect(slots.first.startTime, DateTime(2026, 11, 1, 8));
       expect(slots.first.endTime, DateTime(2026, 11, 1, 8, 30));
+      expect(slots[1].startTime, DateTime(2026, 11, 1, 8, 15));
       expect(slots.last.startTime, DateTime(2026, 11, 1, 11, 30));
       expect(slots.last.endTime, DateTime(2026, 11, 1, 12));
     });
@@ -59,7 +115,7 @@ void main() {
         appointmentDurations: const {},
       );
 
-      expect(slots, hasLength(4));
+      expect(slots, hasLength(13));
       expect(slots.last.endTime, DateTime(2026, 11, 1, 12));
     });
 
@@ -99,7 +155,7 @@ void main() {
         isFalse,
       );
 
-      expect(slots, hasLength(7));
+      expect(slots, hasLength(12));
     });
 
     test('confirmed appointments continue to reserve their slots', () {
@@ -119,7 +175,7 @@ void main() {
         isFalse,
       );
 
-      expect(slots, hasLength(7));
+      expect(slots, hasLength(12));
     });
 
     test('rejected appointments release their reserved slots', () {
@@ -134,7 +190,7 @@ void main() {
         appointmentDurations: {'appointment_001': const Duration(minutes: 30)},
       );
 
-      expect(slots, hasLength(8));
+      expect(slots, hasLength(15));
       expect(
         slots.any((slot) => slot.startTime == DateTime(2026, 11, 1, 9)),
         isTrue,
@@ -153,7 +209,7 @@ void main() {
         appointmentDurations: {'appointment_001': const Duration(minutes: 30)},
       );
 
-      expect(slots, hasLength(8));
+      expect(slots, hasLength(15));
       expect(
         slots.any((slot) => slot.startTime == DateTime(2026, 11, 1, 9)),
         isTrue,
@@ -195,7 +251,7 @@ void main() {
         isFalse,
       );
 
-      expect(slots, hasLength(7));
+      expect(slots, hasLength(12));
     });
 
     test('handles existing appointments with different service durations', () {
@@ -261,7 +317,9 @@ void main() {
 
       expect(slots.map((slot) => slot.startTime), [
         DateTime(2026, 11, 1, 10, 30),
+        DateTime(2026, 11, 1, 10, 45),
         DateTime(2026, 11, 1, 11),
+        DateTime(2026, 11, 1, 11, 15),
         DateTime(2026, 11, 1, 11, 30),
       ]);
     });
@@ -279,7 +337,7 @@ void main() {
           now: DateTime(2026, 11, 1, 23, 59),
         );
 
-        expect(slots, hasLength(8));
+        expect(slots, hasLength(15));
         expect(slots.first.startTime, DateTime(2026, 11, 2, 8));
       },
     );

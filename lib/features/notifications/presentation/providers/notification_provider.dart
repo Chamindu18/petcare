@@ -14,6 +14,9 @@ class NotificationProvider extends ChangeNotifier {
   List<Notification> _notifications = const [];
   bool _isLoading = true;
   String? _errorMessage;
+  bool _disposed = false;
+  bool _markAllInProgress = false;
+  final Set<String> _readUpdatesInProgress = {};
 
   List<Notification> get notifications => _notifications;
 
@@ -33,12 +36,14 @@ class NotificationProvider extends ChangeNotifier {
 
     _subscription = repository.watchNotifications().listen(
       (notifications) {
+        if (_disposed) return;
         _notifications = notifications;
         _isLoading = false;
         _errorMessage = null;
         notifyListeners();
       },
       onError: (Object error) {
+        if (_disposed) return;
         _isLoading = false;
         _errorMessage = _errorMessageFrom(error);
         notifyListeners();
@@ -46,21 +51,28 @@ class NotificationProvider extends ChangeNotifier {
     );
   }
 
-  Future<void> markAsRead(String notificationId) async {
+  Future<bool> markAsRead(String notificationId) async {
+    if (_disposed || !_readUpdatesInProgress.add(notificationId)) return false;
     try {
       await repository.markAsRead(notificationId: notificationId);
+      return true;
     } catch (error) {
-      _errorMessage = _errorMessageFrom(error);
-      notifyListeners();
+      return false;
+    } finally {
+      _readUpdatesInProgress.remove(notificationId);
     }
   }
 
-  Future<void> markAllAsRead() async {
+  Future<bool> markAllAsRead() async {
+    if (_disposed || _markAllInProgress) return false;
+    _markAllInProgress = true;
     try {
       await repository.markAllAsRead();
+      return true;
     } catch (error) {
-      _errorMessage = _errorMessageFrom(error);
-      notifyListeners();
+      return false;
+    } finally {
+      _markAllInProgress = false;
     }
   }
 
@@ -70,6 +82,7 @@ class NotificationProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _subscription?.cancel();
     super.dispose();
   }

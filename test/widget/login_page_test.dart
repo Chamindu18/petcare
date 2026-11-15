@@ -12,6 +12,7 @@ class _FakeAuthRepository implements AuthRepository {
 
   final bool shouldSucceed;
   final Future<void>? delayFuture;
+  int emailSignInCalls = 0;
 
   @override
   Future<void> registerOwner({
@@ -33,6 +34,7 @@ class _FakeAuthRepository implements AuthRepository {
     required String email,
     required String password,
   }) async {
+    emailSignInCalls++;
     if (delayFuture != null) {
       await delayFuture!;
     }
@@ -226,6 +228,45 @@ void main() {
         await tester.pumpAndSettle();
       },
     );
+
+    testWidgets('repeated login taps start only one request', (tester) async {
+      final completer = Completer<void>();
+      final repo = _FakeAuthRepository(delayFuture: completer.future);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LoginPage(authRepository: repo),
+          onGenerateRoute: (settings) => MaterialPageRoute<void>(
+            builder: (_) => const Scaffold(body: Text('Home')),
+            settings: settings,
+          ),
+        ),
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'your@email.com'),
+        'owner@example.com',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Enter your password'),
+        'valid-password',
+      );
+
+      final submit = tester
+          .widget<ElevatedButton>(find.byType(ElevatedButton))
+          .onPressed!;
+      submit();
+      submit();
+      await tester.pump();
+      expect(repo.emailSignInCalls, 1);
+      expect(
+        tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed,
+        isNull,
+      );
+
+      completer.complete();
+      await tester.pumpAndSettle();
+      expect(repo.emailSignInCalls, 1);
+    });
 
     testWidgets('successful login navigates to Home', (tester) async {
       final repo = _FakeAuthRepository(shouldSucceed: true);

@@ -68,6 +68,9 @@ import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/help_support_page.dart';
 import '../../features/profile/presentation/pages/notification_settings_page.dart';
 import '../../features/profile/presentation/pages/privacy_security_page.dart';
+import '../../features/qr_health_passport/data/repositories/firebase_qr_health_passport_repository.dart';
+import '../../features/qr_health_passport/presentation/pages/owner_qr_health_passport_page.dart';
+import '../../features/qr_health_passport/presentation/pages/qr_scanner_page.dart';
 import '../../core/config/cloudinary_config.dart';
 import '../../features/hospitals/presentation/pages/hospital_discovery_page.dart';
 import '../../features/hospitals/presentation/pages/hospital_details_page.dart';
@@ -80,6 +83,8 @@ import '../../features/ai_assistant/presentation/pages/vet_visit_preparation_pag
 import 'adoption_provider_access_gate.dart';
 import 'adoption_workspace_access_gate.dart';
 import 'owner_access_gate.dart';
+import 'protected_session_gate.dart';
+import 'qr_scanner_access_gate.dart';
 import 'role_based_home_page.dart';
 import '../../features/appointments/presentation/pages/my_appointments_page.dart';
 import '../../features/appointments/domain/entities/appointment.dart';
@@ -142,6 +147,8 @@ class AppRouter {
   static const String vetVisitPreparation = '/vet-visit-preparation';
   static const String appointmentConfirmation = '/appointment-confirmation';
   static const String myAppointments = '/my-appointments';
+  static const String ownerQrHealthPassport = '/qr-health-passport';
+  static const String qrHealthPassportScanner = '/qr-health-passport/scan';
 
   // Routes whose data and workflows are specific to pet owners.
   // Adoption routes intentionally remain under their existing provider gate
@@ -161,6 +168,44 @@ class AppRouter {
     healthSummary,
     preventiveInsights,
     vetVisitPreparation,
+    ownerQrHealthPassport,
+  };
+
+  static const Set<String> _protectedRoutes = <String>{
+    home,
+    myPets,
+    notifications,
+    addPet,
+    adoptionListings,
+    adoptionPetDetails,
+    adoptionRequest,
+    myAdoptionListings,
+    adoptionProviderDashboard,
+    adoptionRequests,
+    createEditAdoptionListing,
+    adoptionRequestDetails,
+    ownerRehomingDashboard,
+    myAdoptionRequests,
+    editProfile,
+    notificationSettings,
+    privacySecurity,
+    helpSupport,
+    aboutPetCare,
+    petProfile,
+    hospitalDiscovery,
+    hospitalDetails,
+    veterinarianDiscovery,
+    veterinarianProfile,
+    bookAppointment,
+    appointmentConfirmation,
+    aiHub,
+    aiChat,
+    healthSummary,
+    preventiveInsights,
+    vetVisitPreparation,
+    myAppointments,
+    ownerQrHealthPassport,
+    qrHealthPassportScanner,
   };
 
   // Public routes are handled here.
@@ -209,18 +254,25 @@ class AppRouter {
     FirebaseFirestore? firestore,
   ]) {
     final route = _buildRoute(settings, auth, profileRepository, firestore);
+    final sessionUid = auth.currentUser?.uid;
     if (route == null ||
-        auth.currentUser == null ||
-        !_ownerOnlyRoutes.contains(settings.name) ||
+        sessionUid == null ||
+        !_protectedRoutes.contains(settings.name) ||
         route is! MaterialPageRoute<dynamic>) {
       return route;
     }
-    // Reuse the route's builder and settings so route arguments remain intact.
+    final childBuilder = _ownerOnlyRoutes.contains(settings.name)
+        ? (BuildContext context) => OwnerAccessGate(
+            auth: auth,
+            profileRepository: profileRepository,
+            childBuilder: route.builder,
+          )
+        : route.builder;
     return MaterialPageRoute<dynamic>(
-      builder: (_) => OwnerAccessGate(
+      builder: (_) => ProtectedSessionGate(
         auth: auth,
-        profileRepository: profileRepository,
-        childBuilder: route.builder,
+        sessionUid: sessionUid,
+        childBuilder: childBuilder,
       ),
       settings: settings,
     );
@@ -233,43 +285,8 @@ class AppRouter {
     FirebaseFirestore? firestore,
   ]) {
     final isAuthenticated = auth.currentUser != null;
-    final protectedRoutes = {
-      home,
-      myPets,
-      notifications,
-      addPet,
-      adoptionListings,
-      adoptionPetDetails,
-      adoptionRequest,
-      myAdoptionListings,
-      adoptionProviderDashboard,
-      adoptionRequests,
-      createEditAdoptionListing,
-      adoptionRequestDetails,
-      ownerRehomingDashboard,
-      myAdoptionRequests,
-      editProfile,
-      notificationSettings,
-      privacySecurity,
-      helpSupport,
-      aboutPetCare,
-      petProfile,
-      hospitalDiscovery,
-      hospitalDetails,
-      veterinarianDiscovery,
-      veterinarianProfile,
-      bookAppointment,
-      appointmentConfirmation,
-      aiHub,
-      aiChat,
-      healthSummary,
-      preventiveInsights,
-      vetVisitPreparation,
-      myAppointments,
-    };
-
     // Protect routes that require authentication.
-    if (protectedRoutes.contains(settings.name) && !isAuthenticated) {
+    if (_protectedRoutes.contains(settings.name) && !isAuthenticated) {
       return MaterialPageRoute(
         builder: (_) => const LoginPage(),
         settings: settings,
@@ -736,6 +753,46 @@ class AppRouter {
           settings: settings,
         );
 
+      case ownerQrHealthPassport:
+        final arguments = settings.arguments;
+        if (arguments is! OwnerQrHealthPassportArgs) {
+          return MaterialPageRoute(
+            builder: (_) => const Scaffold(
+              body: Center(child: Text('Invalid health passport request.')),
+            ),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => OwnerQrHealthPassportPage(
+            petId: arguments.petId,
+            petName: arguments.petName,
+            appointmentId: arguments.appointmentId,
+            repository: FirebaseQrHealthPassportRepository(
+              auth: auth,
+              firestore: firestore ?? FirebaseFirestore.instance,
+            ),
+            auth: auth,
+          ),
+          settings: settings,
+        );
+
+      case qrHealthPassportScanner:
+        return MaterialPageRoute(
+          builder: (_) => QrScannerAccessGate(
+            auth: auth,
+            profileRepository: profileRepository,
+            childBuilder: (_, verificationOnly) => QrScannerPage(
+              verificationOnly: verificationOnly,
+              repository: FirebaseQrHealthPassportRepository(
+                auth: auth,
+                firestore: firestore ?? FirebaseFirestore.instance,
+              ),
+            ),
+          ),
+          settings: settings,
+        );
+
       case bookAppointment:
         final routeArguments = settings.arguments;
 
@@ -783,9 +840,7 @@ class AppRouter {
 
         if (routeArguments is String) {
           return MaterialPageRoute(
-            builder: (_) => buildBookingPage(
-              hospitalId: routeArguments,
-            ),
+            builder: (_) => buildBookingPage(hospitalId: routeArguments),
             settings: settings,
           );
         }

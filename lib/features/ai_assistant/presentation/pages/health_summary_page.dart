@@ -102,7 +102,7 @@ class _HealthSummaryPageState extends State<HealthSummaryPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: const [
                           Text(
-                            'AI Recommendation',
+                            'General Care Guidance',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,

@@ -18,7 +18,7 @@ class HospitalModel extends Hospital {
       name: map['name'] as String,
       location: map['location'] as String,
       contact: map['contact'] as String,
-      hours: map['hours'] as String,
+      hours: map['hours'] is String ? map['hours'] as String : '',
       active: map['active'] as bool,
     );
   }

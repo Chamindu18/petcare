@@ -24,6 +24,8 @@ class HealthRecordsPage extends StatefulWidget {
 }
 
 class _HealthRecordsPageState extends State<HealthRecordsPage> {
+  String? _pendingPetId;
+
   @override
   void initState() {
     super.initState();
@@ -38,6 +40,19 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant HealthRecordsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onControllerChanged);
+      widget.controller.addListener(_onControllerChanged);
+    }
+    if (oldWidget.pet.petId != widget.pet.petId ||
+        oldWidget.controller != widget.controller) {
+      _loadRecords();
+    }
+  }
+
   void _onControllerChanged() {
     if (!mounted) {
       return;
@@ -47,7 +62,14 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
   }
 
   Future<void> _loadRecords() async {
-    await widget.controller.loadHealthRecords(widget.pet.petId);
+    final petId = widget.pet.petId;
+    if (_pendingPetId == petId) return;
+    _pendingPetId = petId;
+    try {
+      await widget.controller.loadHealthRecords(petId);
+    } finally {
+      if (_pendingPetId == petId) _pendingPetId = null;
+    }
 
     if (!mounted) {
       return;
@@ -104,19 +126,20 @@ class _HealthRecordsPageState extends State<HealthRecordsPage> {
 
             const SizedBox(height: 20),
 
-            if (controller.isLoading)
+            if (controller.isLoading ||
+                (controller.loadedPetId != widget.pet.petId &&
+                    controller.errorMessage == null))
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 40),
                 child: Center(child: CircularProgressIndicator()),
               )
-            else ...[
-              if (controller.errorMessage != null)
-                _HealthErrorCard(
-                  message: controller.errorMessage!,
-                  onRetry: _loadRecords,
-                ),
+            else if (controller.errorMessage != null)
+              _HealthErrorCard(
+                message: controller.errorMessage!,
+                onRetry: _loadRecords,
+              )
+            else if (controller.loadedPetId == widget.pet.petId)
               _HealthSummaryGrid(pet: widget.pet, controller: controller),
-            ],
           ],
         ),
       ),

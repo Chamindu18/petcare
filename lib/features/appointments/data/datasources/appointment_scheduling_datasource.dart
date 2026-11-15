@@ -23,6 +23,9 @@ class FirebaseAppointmentSchedulingDataSource
 
   @override
   Future<Map<String, dynamic>> reserve(Map<String, dynamic> request) async {
+    if (!FirebaseEmulatorConfig.enabled && endpoint == null) {
+      throw StateError('Appointment confirmation is unavailable in this live demo.');
+    }
     final user = _auth.currentUser;
     if (user == null) throw StateError('Sign in to manage appointments.');
     final token = await user.getIdToken();

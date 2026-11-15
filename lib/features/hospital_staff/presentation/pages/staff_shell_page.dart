@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../appointments/domain/repositories/appointment_repository.dart';
 import '../../../auth/domain/repositories/auth_repository.dart';
@@ -154,6 +155,13 @@ class _StaffShellPageState extends State<StaffShellPage> {
         elevation: 0,
         actions: [
           IconButton(
+            tooltip: 'Verify QR Health Passport',
+            icon: const Icon(Icons.qr_code_scanner_rounded),
+            onPressed: () =>
+                Navigator.of(context)
+                    .pushNamed(AppRouter.qrHealthPassportScanner),
+          ),
+          IconButton(
             tooltip: 'Notifications',
             icon: const Icon(Icons.notifications_none_rounded),
             onPressed: () => Navigator.of(context).push(
@@ -162,6 +170,10 @@ class _StaffShellPageState extends State<StaffShellPage> {
                   onOpenAppointment: () {
                     Navigator.of(context).pop();
                     _onTabSelected(1);
+                  },
+                  onOpenQueue: () {
+                    Navigator.of(context).pop();
+                    _onTabSelected(3);
                   },
                 ),
               ),

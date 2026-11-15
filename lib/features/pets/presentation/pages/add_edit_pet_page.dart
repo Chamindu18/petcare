@@ -429,6 +429,15 @@ class _AddEditPetPageState extends State<AddEditPetPage> {
                       onRemove: _removePetImage,
                       removeExistingImage: _removeExistingImage,
                     ),
+                    if (_isEditing &&
+                        widget.pet?.imageUrl.trim().isNotEmpty == true &&
+                        (_removeExistingImage || _selectedImageBytes != null))
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text(
+                          'The previous photo will be removed from this pet profile, but may remain accessible at its hosted URL.',
+                        ),
+                      ),
 
                     const SizedBox(height: 20),
 

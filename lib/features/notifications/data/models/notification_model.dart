@@ -19,9 +19,17 @@ class NotificationModel extends Notification {
 
   factory NotificationModel.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> document,
-  ) {
-    final data = document.data();
+  ) => NotificationModel.fromData(
+    document.id,
+    document.data(),
+    hasPendingWrites: document.metadata.hasPendingWrites,
+  );
 
+  factory NotificationModel.fromData(
+    String id,
+    Map<String, dynamic>? data, {
+    required bool hasPendingWrites,
+  }) {
     if (data == null) {
       throw StateError('Notification document does not exist.');
     }
@@ -33,11 +41,12 @@ class NotificationModel extends Notification {
     }
 
     return NotificationModel(
-      notificationId: document.id,
+      notificationId: id,
       recipientUserId: data['recipientUserId'] as String,
       type: data['type'] as String,
       message: data['message'] as String,
-      read: data['read'] as bool,
+      // Firestore can emit the optimistic local write before the server accepts it.
+      read: !hasPendingWrites && (data['read'] as bool),
       targetType: data['targetType'] as String,
       targetId: data['targetId'] as String,
       createdAt: createdAt.toDate(),

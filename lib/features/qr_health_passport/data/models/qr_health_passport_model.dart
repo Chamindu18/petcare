@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../domain/entities/qr_health_passport.dart';
 
 /// Converts QR reference data into a domain entity.
@@ -6,7 +8,11 @@ class QrHealthPassportModel extends QrHealthPassport {
     required super.token,
     required super.petId,
     required super.appointmentId,
+    required super.hospitalId,
+    required super.veterinarianId,
+    required super.createdAt,
     required super.expiresAt,
+    required super.status,
   });
 
   /// Creates a model from stored data.
@@ -15,7 +21,11 @@ class QrHealthPassportModel extends QrHealthPassport {
       token: map['token'] as String,
       petId: map['petId'] as String,
       appointmentId: map['appointmentId'] as String,
-      expiresAt: DateTime.parse(map['expiresAt'] as String),
+      hospitalId: map['hospitalId'] as String,
+      veterinarianId: map['veterinarianId'] as String,
+      createdAt: _date(map['createdAt']),
+      expiresAt: _date(map['createdAt']).add(qrHealthPassportValidity),
+      status: map['status'] as String,
     );
   }
 
@@ -25,7 +35,16 @@ class QrHealthPassportModel extends QrHealthPassport {
       'token': token,
       'petId': petId,
       'appointmentId': appointmentId,
-      'expiresAt': expiresAt.toIso8601String(),
+      'hospitalId': hospitalId,
+      'veterinarianId': veterinarianId,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'status': status,
     };
+  }
+
+  static DateTime _date(Object? value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is String) return DateTime.parse(value);
+    throw const FormatException('Invalid QR passport timestamp.');
   }
 }

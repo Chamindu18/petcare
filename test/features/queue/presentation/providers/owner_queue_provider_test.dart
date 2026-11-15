@@ -1,21 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:petcare/features/queue/domain/entities/queue.dart';
 import 'package:petcare/features/queue/domain/repositories/queue_repository.dart';
 import 'package:petcare/features/queue/presentation/providers/owner_queue_provider.dart';
 
 class _FakeQueueRepository implements QueueRepository {
-  _FakeQueueRepository({this.queue, this.error});
+  _FakeQueueRepository({this.queue, this.error, this.pending});
 
   Queue? queue;
   Object? error;
   int calls = 0;
   String? lastAppointmentId;
+  Completer<Queue?>? pending;
 
   @override
   Future<Queue?> getQueueByAppointment(String appointmentId) async {
     calls++;
     lastAppointmentId = appointmentId;
     if (error != null) throw error!;
+    if (pending != null) return pending!.future;
     return queue;
   }
 
@@ -120,5 +124,57 @@ void main() {
       'Unable to load queue details. Please try again.',
     );
     expect(provider.isLoading, isFalse);
+  });
+
+  test(
+    'refreshes queue status and waiting position without stale position',
+    () async {
+      final queues = _FakeQueueRepository(queue: queueWithStatus('waiting'));
+      final positions = _FakeOwnerQueueRepository(position: 3);
+      final provider = OwnerQueueProvider(
+        queueRepository: queues,
+        ownerQueueRepository: positions,
+        appointmentId: 'appointment-1',
+      );
+      await provider.load();
+      expect(provider.position, 3);
+      positions.position = 2;
+      await provider.load();
+      expect(provider.position, 2);
+      queues.queue = queueWithStatus('called');
+      await provider.load();
+      expect(provider.queue?.status, 'called');
+      expect(provider.position, isNull);
+      expect(positions.calls, 2);
+      provider.dispose();
+    },
+  );
+
+  test('clears previously visible queue when a later read is denied', () async {
+    final queues = _FakeQueueRepository(queue: queueWithStatus('waiting'));
+    final provider = OwnerQueueProvider(
+      queueRepository: queues,
+      appointmentId: 'appointment-1',
+    );
+    await provider.load();
+    queues.error = StateError('permission-denied');
+    await provider.load();
+    expect(provider.queue, isNull);
+    expect(provider.position, isNull);
+    expect(provider.errorMessage, isNotNull);
+    provider.dispose();
+  });
+
+  test('does not apply a pending read after disposal', () async {
+    final queues = _FakeQueueRepository(pending: Completer<Queue?>());
+    final provider = OwnerQueueProvider(
+      queueRepository: queues,
+      appointmentId: 'appointment-1',
+    );
+    final loading = provider.load();
+    provider.dispose();
+    queues.pending!.complete(queueWithStatus('waiting'));
+    await loading;
+    expect(provider.queue, isNull);
   });
 }

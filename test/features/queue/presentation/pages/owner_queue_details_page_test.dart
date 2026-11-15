@@ -8,10 +8,14 @@ import 'package:petcare/features/queue/presentation/pages/owner_queue_details_pa
 class _FakeQueueRepository implements QueueRepository {
   _FakeQueueRepository(this.queue);
 
-  final Queue? queue;
+  Queue? queue;
+  int calls = 0;
 
   @override
-  Future<Queue?> getQueueByAppointment(String appointmentId) async => queue;
+  Future<Queue?> getQueueByAppointment(String appointmentId) async {
+    calls++;
+    return queue;
+  }
 
   @override
   Future<Queue?> getQueueById(String queueId) async => queue;
@@ -20,7 +24,7 @@ class _FakeQueueRepository implements QueueRepository {
 class _FakeOwnerQueueRepository implements OwnerQueueRepository {
   _FakeOwnerQueueRepository(this.position);
 
-  final int? position;
+  int? position;
   int calls = 0;
 
   @override
@@ -61,12 +65,14 @@ Widget _pageFor({
   required Queue? queue,
   int? position,
   _FakeOwnerQueueRepository? positions,
+  _FakeQueueRepository? queues,
+  Appointment? selectedAppointment,
 }) {
   final ownerPositions = positions ?? _FakeOwnerQueueRepository(position);
   return MaterialApp(
     home: OwnerQueueDetailsPage(
-      appointment: appointment,
-      queueRepository: _FakeQueueRepository(queue),
+      appointment: selectedAppointment ?? appointment,
+      queueRepository: queues ?? _FakeQueueRepository(queue),
       ownerQueueRepository: ownerPositions,
       petName: 'Milo',
       hospitalName: 'City Hospital',
@@ -121,5 +127,72 @@ void main() {
 
     expect(find.text('Not checked in yet'), findsOneWidget);
     expect(find.textContaining('Queue details will appear'), findsOneWidget);
+  });
+
+  testWidgets('manual refresh updates status and position', (
+    tester,
+  ) async {
+    final queues = _FakeQueueRepository(queueWithStatus('waiting'));
+    final positions = _FakeOwnerQueueRepository(3);
+    await tester.pumpWidget(
+      _pageFor(queue: queues.queue, queues: queues, positions: positions),
+    );
+    await tester.pumpAndSettle();
+    expect(queues.calls, 1);
+    positions.position = 2;
+    final firstRefresh = tester
+        .state<RefreshIndicatorState>(find.byType(RefreshIndicator))
+        .show();
+    await tester.pumpAndSettle();
+    await firstRefresh;
+    expect(find.text('You are number 2'), findsOneWidget);
+    queues.queue = queueWithStatus('called');
+    final secondRefresh = tester
+        .state<RefreshIndicatorState>(find.byType(RefreshIndicator))
+        .show();
+    await tester.pumpAndSettle();
+    await secondRefresh;
+    expect(find.text('Please proceed'), findsOneWidget);
+    expect(find.textContaining('You are number'), findsNothing);
+  });
+
+  testWidgets('does not read again after the page closes', (tester) async {
+    final queues = _FakeQueueRepository(queueWithStatus('waiting'));
+    await tester.pumpWidget(_pageFor(queue: queues.queue, queues: queues));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const MaterialApp(home: Scaffold()));
+    await tester.pump(const Duration(minutes: 2));
+    expect(queues.calls, 1);
+  });
+
+  testWidgets('switching appointments discards the old queue', (tester) async {
+    final first = _FakeQueueRepository(queueWithStatus('waiting'));
+    await tester.pumpWidget(_pageFor(queue: first.queue, queues: first));
+    await tester.pumpAndSettle();
+    final second = _FakeQueueRepository(null);
+    final nextAppointment = Appointment(
+      appointmentId: 'appointment-2',
+      ownerId: 'owner-1',
+      petId: 'pet-1',
+      hospitalId: 'hospital-1',
+      serviceId: 'service-1',
+      vetId: 'vet-1',
+      dateTime: DateTime(2026, 11, 7, 11),
+      reason: 'Checkup',
+      status: 'confirmed',
+      createdAt: DateTime(2026, 11, 1),
+    );
+    await tester.pumpWidget(
+      _pageFor(
+        queue: null,
+        queues: second,
+        selectedAppointment: nextAppointment,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Not checked in yet'), findsOneWidget);
+    expect(find.text('You are number 3'), findsNothing);
+    expect(first.calls, 1);
+    expect(second.calls, 1);
   });
 }
