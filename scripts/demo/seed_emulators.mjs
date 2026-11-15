@@ -2,6 +2,7 @@ import {readFile} from 'node:fs/promises';
 import {initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
 import {FieldValue, Timestamp, getFirestore} from 'firebase-admin/firestore';
+import {requireDemoServices, waitForBookingFunction} from './readiness.mjs';
 
 const projectId = 'demo-petcare';
 const firestoreHost = '127.0.0.1:8080';
@@ -34,21 +35,10 @@ async function requireEmulators() {
   }
   const config = JSON.parse(await readFile(new URL('../../firebase.json', import.meta.url), 'utf8'));
   check(config.emulators?.auth?.port === 9099 && config.emulators?.firestore?.port === 8080 && config.emulators?.functions?.port === 5001, 'Unexpected emulator ports.');
-  const checks = [
-    fetch(`http://${firestoreHost}/`, {signal: AbortSignal.timeout(3000)}),
-    fetch(`http://${authHost}/`, {signal: AbortSignal.timeout(3000)}),
-  ];
-  const results = await Promise.allSettled(checks);
-  if (results.some((result) => result.status === 'rejected' || result.value.status >= 500)) {
-    throw new Error(
-      'Auth and Firestore emulators must be running on ports 9099 and 8080.',
-    );
-  }
-  const callable = await fetch(`http://${functionsHost}/${projectId}/asia-south2/reserveAppointmentSlot`, {
-    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({data: {}}),
-    signal: AbortSignal.timeout(3000),
-  });
-  check(callable.status === 401, `Booking Function is not ready in ${projectId} (HTTP ${callable.status}); refusing reset.`);
+  await requireDemoServices({authHost, firestoreHost});
+  // The Functions listener can answer 404 before source discovery registers the callable.
+  await waitForBookingFunction({projectId, host: functionsHost});
+  await requireDemoServices({authHost, firestoreHost});
 }
 
 async function resetFirestore() {
