@@ -58,7 +58,9 @@ class FirebaseAdoptionRequestRepository
       );
     }
 
-    final requestReference = _requestsCollection.doc('${listingId}_${user.uid}');
+    final requestReference = _requestsCollection.doc(
+      '${listingId}_${user.uid}',
+    );
     final listingReference = _listingsCollection.doc(listingId);
     final notificationId =
         'adoption_request_submitted_${listingId}_${user.uid}';

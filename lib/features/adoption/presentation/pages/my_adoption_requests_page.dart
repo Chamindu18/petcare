@@ -88,7 +88,9 @@ class _MyAdoptionRequestsPageState extends State<MyAdoptionRequestsPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Unable to withdraw this request. Refresh and try again.'),
+          content: Text(
+            'Unable to withdraw this request. Refresh and try again.',
+          ),
         ),
       );
     }
@@ -122,7 +124,8 @@ class _MyAdoptionRequestsPageState extends State<MyAdoptionRequestsPage> {
               final request = _provider.requests[index];
               return _AdoptionRequestCard(
                 request: request,
-                onWithdraw: request.status.toLowerCase() == 'pending' &&
+                onWithdraw:
+                    request.status.toLowerCase() == 'pending' &&
                         _withdrawalRepository != null
                     ? () => _confirmWithdrawal(request)
                     : null,

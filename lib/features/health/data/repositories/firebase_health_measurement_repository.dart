@@ -68,7 +68,8 @@ class FirebaseHealthMeasurementRepository
         .get();
 
     return snapshot.docs
-        .map((document) => HealthMeasurementModel.fromMap(document.data()))
+        .map((document) => HealthMeasurementModel.tryFromMap(document.data()))
+        .whereType<HealthMeasurementModel>()
         .toList();
   }
 
@@ -91,7 +92,7 @@ class FirebaseHealthMeasurementRepository
       return null;
     }
 
-    return HealthMeasurementModel.fromMap(data);
+    return HealthMeasurementModel.tryFromMap(data);
   }
 
   @override

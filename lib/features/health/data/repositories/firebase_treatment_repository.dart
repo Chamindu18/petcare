@@ -65,7 +65,8 @@ class FirebaseTreatmentRepository implements TreatmentRepository {
         .get();
 
     return snapshot.docs
-        .map((document) => TreatmentModel.fromMap(document.data()))
+        .map((document) => TreatmentModel.tryFromMap(document.data()))
+        .whereType<TreatmentModel>()
         .toList();
   }
 
@@ -85,7 +86,7 @@ class FirebaseTreatmentRepository implements TreatmentRepository {
       return null;
     }
 
-    return TreatmentModel.fromMap(data);
+    return TreatmentModel.tryFromMap(data);
   }
 
   @override

@@ -30,7 +30,7 @@ An owner can generate a time-limited, appointment-linked QR passport. The access
 
 ### Pet-care guidance and notifications
 
-PetCare+ includes pet-context guidance and health summaries. Some advice is deterministic/general guidance, **not a live AI diagnosis or medical recommendation**. The application also supports role-specific in-app notifications; a failure to mark an item as read should not silently masquerade as successful delivery or navigation.
+PetCare+ includes pet-context guidance and health summaries. Health summaries, preventive insights and visit preparation use local logic. The live AI repository is unconfigured in this revision. The application also supports role-specific in-app notifications; a failure to mark an item as read should not silently masquerade as successful delivery or navigation.
 
 ## Technology stack
 
@@ -89,7 +89,7 @@ feature/
 ### Requirements
 
 - Flutter SDK and Android SDK / platform-tools
-- Node.js **22** and npm
+- Node.js **22**, npm and JDK 21 for the Firestore emulator
 - A physical Android phone with USB debugging, or an Android emulator
 - Repository dependencies installed
 - No Firebase billing upgrade is needed for the local demo
@@ -97,7 +97,7 @@ feature/
 Clone the repository and install dependencies:
 
 ```powershell
-git clone https://github.com/Chamindu18/petcare.git
+git clone --branch feature/member1 https://github.com/Chamindu18/petcare.git
 cd petcare
 flutter pub get
 npm.cmd ci
@@ -205,10 +205,13 @@ The repository also contains emulator-backed tests for Firestore authorization, 
 
 ```powershell
 npm.cmd run test:rules
+npm.cmd run test:health
 npm.cmd run test:booking
+npm.cmd --prefix rules_test ci
+npm.cmd run test:legacy
 ```
 
-These emulator test commands manage local emulator processes. Avoid running them concurrently with an active recorded demo or a backend instance already using the same ports.
+Run the test commands sequentially. The health suite uses its dedicated P31-04 emulator on port 18081. The other suites use the disposable project `demo-petcare-release-tests` and loopback ports in `firebase.test.json`. Build the emulator-configured Android APK with `flutter build apk --debug --dart-define=USE_FIREBASE_EMULATORS=true` for the Android emulator.
 
 **Latest user-reported demo verification (November 2026):** Six seeded account sign-ins and role workflows were manually exercised successfully on the demonstration setup. The preceding Codex setup report recorded **586 passing Flutter tests**, **8 passing booking/cross-role tests**, **7 passing QR authorization tests**, and no Flutter analyzer issues. These are reported results, not a claim of a new CI run or production deployment.
 
@@ -219,7 +222,7 @@ These emulator test commands manage local emulator processes. Avoid running them
 - The full booking demonstration runs with local Firebase emulators. The shared Spark project does not deploy the booking callable.
 - Owner queue status uses **manual refresh**; do not describe it as automatically live-updating.
 - Cloudinary photo removal/replacement can remove or change the Firestore URL without deleting an already hosted asset. Old URLs may remain accessible; see [image retention notes](docs/pet-image-retention.md).
-- External Google Sign-In, remote AI services and Cloudinary uploads are not guaranteed by the isolated emulator seed and require separate integration verification.
+- External Google Sign-In and Cloudinary uploads require separate integration verification. Configure the Cloudinary cloud name and unsigned preset with the CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET Dart defines when using your own account.
 - Do not commit passwords, service-account private keys, local emulator exports containing credentials, or private user information.
 - The demo is academic software and should not be treated as a production veterinary medical-record system.
 

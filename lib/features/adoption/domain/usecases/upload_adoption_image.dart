@@ -7,13 +7,7 @@ class UploadAdoptionImage {
 
   final AdoptionImageRepository _repository;
 
-  Future<String> call({
-    required String listingId,
-    required Uint8List bytes,
-  }) {
-    return _repository.uploadAdoptionImage(
-      listingId: listingId,
-      bytes: bytes,
-    );
+  Future<String> call({required String listingId, required Uint8List bytes}) {
+    return _repository.uploadAdoptionImage(listingId: listingId, bytes: bytes);
   }
 }

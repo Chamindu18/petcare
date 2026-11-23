@@ -4,7 +4,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/config/cloudinary_config.dart';
 import '../../../../app/theme/app_theme.dart';
-import '../../domain/repositories/cloudinary_adoption_image_repository.dart';
+import '../../data/repositories/cloudinary_adoption_image_repository.dart';
 import '../../data/repositories/firebase_adoption_listing_repository.dart';
 import '../../domain/entities/adoption_listing.dart';
 import '../../domain/repositories/adoption_listing_repository.dart';

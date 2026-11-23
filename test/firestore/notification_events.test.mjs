@@ -9,7 +9,7 @@ import { doc, getDoc, setDoc, updateDoc, writeBatch, serverTimestamp, Timestamp 
 
 const rules = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../firestore.rules'), 'utf8');
 let env;
-before(async () => { env = await initializeTestEnvironment({ projectId: 'demo-petcare', firestore: { rules } }); });
+before(async () => { env = await initializeTestEnvironment({ projectId: 'demo-petcare-release-tests', firestore: { rules } }); });
 after(async () => { await env?.cleanup(); });
 beforeEach(async () => {
   await env.clearFirestore();

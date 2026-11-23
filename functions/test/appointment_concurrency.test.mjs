@@ -9,7 +9,15 @@ import {assertDenied} from '../../test/firestore/assert_denied.mjs';
 import {reserveAppointment, BookingError, instant, schedule} from '../src/appointment_booking.mjs';
 
 let db, app, env;
-const base = '2026-11-10T09:00:00.000Z';
+// Anchor the weekly-hours fixtures to a future Tuesday in UTC.
+const tuesday = new Date();
+tuesday.setUTCDate(tuesday.getUTCDate() + 7 + (9 - tuesday.getUTCDay()) % 7);
+function fixtureTime(time, dayOffset = 0) {
+  const day = new Date(tuesday);
+  day.setUTCDate(day.getUTCDate() + dayOffset);
+  return day.toISOString().slice(0, 10) + 'T' + time;
+}
+const base = fixtureTime('09:00:00.000Z');
 const request = (appointmentId, patch = {}) => ({action: 'create', appointmentId,
   petId: 'pet-a', hospitalId: 'hospital-a', vetId: 'vet-a', serviceId: 'service-a',
   dateTime: base, reason: 'Checkup', ...patch});
@@ -31,9 +39,9 @@ async function oneWinner(promises) {
 }
 before(async () => {
   assert.ok(process.env.FIRESTORE_EMULATOR_HOST, 'Emulator is required; never run these tests on production');
-  env = await initializeTestEnvironment({projectId: 'demo-petcare',
+  env = await initializeTestEnvironment({projectId: 'demo-petcare-release-tests',
     firestore: {rules: readFileSync('firestore.rules', 'utf8')}});
-  app = initializeApp({projectId: 'demo-petcare'}, 'appointment-concurrency-tests');
+  app = initializeApp({projectId: 'demo-petcare-release-tests'}, 'appointment-concurrency-tests');
   db = getFirestore(app);
 });
 after(async () => { await env?.cleanup(); if (app) await deleteApp(app); });
@@ -109,7 +117,7 @@ test('missing and inactive hospitals cannot accept bookings or reassignment', as
   for (const hospital of [null, {active: false}]) {
     if (hospital) await db.doc('hospitals/hospital-a').set(hospital);
     else await db.doc('hospitals/hospital-a').delete();
-    await assert.rejects(book('blocked', {dateTime: '2026-11-10T10:00:00Z'}),
+    await assert.rejects(book('blocked', {dateTime: fixtureTime('10:00:00Z')}),
       error => error instanceof BookingError && error.code === 'failed-precondition');
     await assert.rejects(reassign('existing', 'vet-b'),
       error => error instanceof BookingError && error.code === 'failed-precondition');
@@ -121,8 +129,8 @@ test('missing and inactive hospitals cannot accept bookings or reassignment', as
 
 test('hospital hours, closed days and past times are enforced by the callable', async () => {
   await db.doc('hospitals/hospital-a').update({hours: 'Monday - Saturday, 8 AM - 8 PM'});
-  for (const dateTime of ['2026-11-15T09:00:00Z', '2026-11-10T02:15:00Z',
-    '2026-11-10T14:30:00Z', '2026-11-10T09:01:00Z', '2020-11-10T09:00:00Z']) {
+  for (const dateTime of [fixtureTime('09:00:00Z', 5), fixtureTime('02:15:00Z'),
+    fixtureTime('14:30:00Z'), fixtureTime('09:01:00Z'), '2020-11-10T09:00:00Z']) {
     await assert.rejects(book(`closed-${dateTime}`, {dateTime}),
       error => error instanceof BookingError && error.code === 'failed-precondition');
   }
@@ -141,14 +149,14 @@ test('missing and overnight operating hours fail closed', async () => {
 test('legacy longer appointment prevents an overlapping 15-minute booking', async () => {
   await db.doc('appointments/legacy-long').set({...request('legacy-long'), ownerId: 'owner-a',
     status: 'pending', createdAt: base, durationMinutes: 60});
-  await assert.rejects(book('short', {dateTime: '2026-11-10T09:45:00Z'}),
+  await assert.rejects(book('short', {dateTime: fixtureTime('09:45:00Z')}),
     error => error.code === 'already-exists');
   await counts(1, 0);
 });
 
 test('adjacent appointments and different dates may reserve concurrently', async () => {
-  await Promise.all([book('first'), book('adjacent', {dateTime: '2026-11-10T09:30:00Z'}),
-    book('tomorrow', {dateTime: '2026-11-11T09:00:00Z'})]);
+  await Promise.all([book('first'), book('adjacent', {dateTime: fixtureTime('09:30:00Z')}),
+    book('tomorrow', {dateTime: fixtureTime('09:00:00Z', 1)})]);
   await counts(3);
 });
 
@@ -187,7 +195,7 @@ test('booking and staff reassignment contend on the same target lock', async () 
 });
 
 test('owner rescheduling and booking enforce the same interval rules', async () => {
-  await book('source', {dateTime: '2026-11-10T11:00:00Z'});
+  await book('source', {dateTime: fixtureTime('11:00:00Z')});
   await oneWinner([book('new'), reserveAppointment(db, 'owner-a', request('source', {action: 'update'}))]);
   const occupied = (await db.collection('appointments').get()).docs.filter(d => d.data().dateTime === base);
   assert.equal(occupied.length, 1);
@@ -217,7 +225,7 @@ test('cross-hospital staff, doctors and owners cannot use staff reassignment', a
 });
 
 test('legacy appointments without projections still prevent overlapping booking', async () => {
-  await db.doc('appointments/legacy').set({...request('legacy'), dateTime: '2026-11-10T14:30:00.000',
+  await db.doc('appointments/legacy').set({...request('legacy'), dateTime: fixtureTime('14:30:00.000'),
     ownerId: 'owner-a', status: 'pending', createdAt: base});
   await assert.rejects(book('new'), error => error.code === 'already-exists');
   await counts(1, 0);
@@ -227,8 +235,8 @@ test('snapshotted duration is stable when the service duration changes', async (
   await book('first');
   await db.doc('services/service-a').update({duration: 15});
   assert.equal((await db.doc('appointments/first').get()).data().durationMinutes, 30);
-  await assert.rejects(book('next-slot', {dateTime: '2026-11-10T09:15:00Z'}), error => error.code === 'already-exists');
-  await book('adjacent', {dateTime: '2026-11-10T09:30:00Z'});
+  await assert.rejects(book('next-slot', {dateTime: fixtureTime('09:15:00Z')}), error => error.code === 'already-exists');
+  await book('adjacent', {dateTime: fixtureTime('09:30:00Z')});
   await counts(2);
 });
 
@@ -236,9 +244,9 @@ test('a 20-minute service blocks both intersecting 15-minute starts', async () =
   await db.doc('services/service-a').update({duration: 20});
   await book('twenty');
   assert.equal((await db.doc('appointments/twenty').get()).data().durationMinutes, 20);
-  await assert.rejects(book('overlap', {dateTime: '2026-11-10T09:15:00Z'}),
+  await assert.rejects(book('overlap', {dateTime: fixtureTime('09:15:00Z')}),
     error => error.code === 'already-exists');
-  await book('next', {dateTime: '2026-11-10T09:30:00Z'});
+  await book('next', {dateTime: fixtureTime('09:30:00Z')});
   await counts(2);
 });
 
@@ -259,8 +267,8 @@ test('queued appointment reassignment is rejected without changing its queue', a
 });
 
 test('hospital-local legacy times and offset times represent the same instant', () => {
-  assert.equal(instant('2026-11-10T14:30:00.000').toISOString(), base);
-  assert.equal(instant('2026-11-10T14:30:00+05:30').toISOString(), base);
+  assert.equal(instant(fixtureTime('14:30:00.000')).toISOString(), base);
+  assert.equal(instant(fixtureTime('14:30:00+05:30')).toISOString(), base);
 });
 
 
@@ -296,7 +304,7 @@ test('clients cannot forge duration snapshots, lock revisions, or direct resched
   const owner = env.authenticatedContext('owner-a').firestore();
   await assertDenied(updateDoc(doc(owner, 'appointments/first'), {durationMinutes: 1}));
   await assertDenied(updateDoc(doc(owner, 'appointment_schedule/first'), {durationMinutes: 1}));
-  await assertDenied(updateDoc(doc(owner, 'appointments/first'), {dateTime: '2026-11-10T10:00:00Z', updatedAt: serverTimestamp()}));
+  await assertDenied(updateDoc(doc(owner, 'appointments/first'), {dateTime: fixtureTime('10:00:00Z'), updatedAt: serverTimestamp()}));
   await assertDenied(getDoc(doc(owner, 'appointment_booking_locks/vet-a')));
   await assertDenied(setDoc(doc(owner, 'appointment_booking_locks/vet-a'), {revision: 999}));
 });
@@ -305,7 +313,7 @@ test('invalid veterinarian account links preserve booking but receive no veterin
   await db.doc('veterinarians/vet-a').update({userId: 'missing-doctor'});
   await book('missing-account');
   await db.doc('veterinarians/vet-a').update({userId: 'doctor-b'});
-  await book('wrong-account', {dateTime: '2026-11-10T09:30:00Z'});
+  await book('wrong-account', {dateTime: fixtureTime('09:30:00Z')});
   await assert.rejects(book('missing-directory', {vetId: 'missing'}), BookingError);
   await counts(2);
   const veterinarianNotices = (await db.collection('notifications')

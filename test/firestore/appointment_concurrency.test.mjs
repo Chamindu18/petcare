@@ -5,7 +5,7 @@ import {initializeTestEnvironment} from '@firebase/rules-unit-testing';
 import {doc, setDoc, collection, getDocs, writeBatch} from 'firebase/firestore';
 
 test('two stale client availability reads cannot bypass the trusted scheduler', async () => {
-  const env = await initializeTestEnvironment({projectId: 'demo-petcare', firestore: {rules: readFileSync('firestore.rules', 'utf8')}});
+  const env = await initializeTestEnvironment({projectId: 'demo-petcare-release-tests', firestore: {rules: readFileSync('firestore.rules', 'utf8')}});
   try {
     await env.clearFirestore();
     await env.withSecurityRulesDisabled(async c => {

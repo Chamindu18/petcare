@@ -1,4 +1,5 @@
 import '../../domain/entities/medical_condition.dart';
+import 'stored_health_date.dart';
 
 class MedicalConditionModel extends MedicalCondition {
   const MedicalConditionModel({
@@ -14,18 +15,24 @@ class MedicalConditionModel extends MedicalCondition {
     required super.updatedAt,
   });
 
-  factory MedicalConditionModel.fromMap(Map<String, dynamic> map) {
+  static MedicalConditionModel? tryFromMap(Map<String, dynamic> map) {
+    final diagnosisDate = parseStoredHealthDate(map['diagnosisDate']);
+    final createdAt = parseStoredHealthDate(map['createdAt']);
+    final updatedAt = parseStoredHealthDate(map['updatedAt']);
+    if (diagnosisDate == null || createdAt == null || updatedAt == null) {
+      return null;
+    }
     return MedicalConditionModel(
       conditionId: map['conditionId'] as String,
       petId: map['petId'] as String,
       name: map['name'] as String,
       status: map['status'] as String,
       source: map['source'] as String,
-      diagnosisDate: DateTime.parse(map['diagnosisDate'] as String),
+      diagnosisDate: diagnosisDate,
       vetId: map['vetId'] as String?,
       notes: map['notes'] as String,
-      createdAt: DateTime.parse(map['createdAt'] as String),
-      updatedAt: DateTime.parse(map['updatedAt'] as String),
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 

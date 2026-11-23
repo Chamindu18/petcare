@@ -24,7 +24,9 @@ class FirebaseAppointmentSchedulingDataSource
   @override
   Future<Map<String, dynamic>> reserve(Map<String, dynamic> request) async {
     if (!FirebaseEmulatorConfig.enabled && endpoint == null) {
-      throw StateError('Appointment confirmation is unavailable in this live demo.');
+      throw StateError(
+        'Appointment confirmation is unavailable in this live demo.',
+      );
     }
     final user = _auth.currentUser;
     if (user == null) throw StateError('Sign in to manage appointments.');
@@ -32,11 +34,10 @@ class FirebaseAppointmentSchedulingDataSource
     if (token == null) {
       throw StateError('Your session has expired. Sign in again.');
     }
-    final target = endpoint ??
+    final target =
+        endpoint ??
         (FirebaseEmulatorConfig.enabled
-            ? FirebaseEmulatorConfig.functionEndpoint(
-                'reserveAppointmentSlot',
-              )
+            ? FirebaseEmulatorConfig.functionEndpoint('reserveAppointmentSlot')
             : Uri.https(
                 'asia-south2-${_auth.app.options.projectId}.cloudfunctions.net',
                 '/reserveAppointmentSlot',

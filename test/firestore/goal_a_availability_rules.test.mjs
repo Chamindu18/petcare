@@ -10,7 +10,7 @@ const rules = readFileSync(resolve('deployment/goal-a/firestore.rules'), 'utf8')
 
 test('Goal A deployed-rules candidate permits only authenticated availability reads', async () => {
   const env = await initializeTestEnvironment({
-    projectId: 'demo-petcare', firestore: {rules},
+    projectId: 'demo-petcare-release-tests', firestore: {rules},
   });
   try {
     const projection = {
@@ -46,7 +46,7 @@ test('Goal A deployed-rules candidate permits only authenticated availability re
 });
 
 test('Goal A blocks every unprojected occupancy path and preserves scoped reads and metadata edits', async () => {
-  const env = await initializeTestEnvironment({projectId: 'demo-petcare', firestore: {rules}});
+  const env = await initializeTestEnvironment({projectId: 'demo-petcare-release-tests', firestore: {rules}});
   try {
     const appointment = {
       appointmentId: 'existing', ownerId: 'owner-a', petId: 'pet-a',

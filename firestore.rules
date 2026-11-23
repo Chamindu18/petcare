@@ -301,18 +301,37 @@ service cloud.firestore {
     // Medical Conditions
     // ============================================================
 
+    function writableHealthPet(petId) {
+      return isOwner() && ownsPet(petId)
+        && get(/databases/$(database)/documents/pets/$(petId)).data.get('status', 'active') != 'deleted';
+    }
+
+    function optionalHealthString(data, field) {
+      return data.get(field, null) == null || data[field] is string;
+    }
+
     match /medical_conditions/{conditionId} {
+      function validRecord(data) {
+        return data.keys().hasAll(['conditionId', 'petId', 'name', 'status', 'source', 'diagnosisDate', 'notes', 'createdAt', 'updatedAt'])
+          && data.keys().hasOnly(['conditionId', 'petId', 'name', 'status', 'source', 'diagnosisDate', 'vetId', 'notes', 'createdAt', 'updatedAt'])
+          && data.conditionId == conditionId
+          && data.name is string
+          && data.status is string
+          && data.source is string
+          && data.diagnosisDate is string
+          && data.createdAt is string
+          && data.updatedAt is string
+          && optionalHealthString(data, 'vetId')
+          && data.notes is string;
+      }
+
       allow read: if ownsPet(resource.data.petId);
-
-      allow create: if isOwner()
-        && ownsPet(request.resource.data.petId);
-
-      allow update: if isOwner()
-        && ownsPet(resource.data.petId)
-        && request.resource.data.petId == resource.data.petId;
-
-      allow delete: if isOwner()
-        && ownsPet(resource.data.petId);
+      allow create: if writableHealthPet(request.resource.data.petId)
+        && validRecord(request.resource.data);
+      allow update: if writableHealthPet(resource.data.petId)
+        && request.resource.data.petId == resource.data.petId
+        && validRecord(request.resource.data);
+      allow delete: if writableHealthPet(resource.data.petId);
     }
 
     // ============================================================
@@ -320,17 +339,26 @@ service cloud.firestore {
     // ============================================================
 
     match /vaccinations/{vaccinationId} {
+      function validRecord(data) {
+        return data.keys().hasAll(['vaccinationId', 'petId', 'name', 'dateGiven', 'notes', 'createdAt', 'updatedAt'])
+          && data.keys().hasOnly(['vaccinationId', 'petId', 'name', 'dateGiven', 'nextDueDate', 'providerId', 'notes', 'createdAt', 'updatedAt'])
+          && data.vaccinationId == vaccinationId
+          && data.name is string
+          && data.dateGiven is string
+          && data.createdAt is string
+          && data.updatedAt is string
+          && optionalHealthString(data, 'nextDueDate')
+          && optionalHealthString(data, 'providerId')
+          && data.notes is string;
+      }
+
       allow read: if ownsPet(resource.data.petId);
-
-      allow create: if isOwner()
-        && ownsPet(request.resource.data.petId);
-
-      allow update: if isOwner()
-        && ownsPet(resource.data.petId)
-        && request.resource.data.petId == resource.data.petId;
-
-      allow delete: if isOwner()
-        && ownsPet(resource.data.petId);
+      allow create: if writableHealthPet(request.resource.data.petId)
+        && validRecord(request.resource.data);
+      allow update: if writableHealthPet(resource.data.petId)
+        && request.resource.data.petId == resource.data.petId
+        && validRecord(request.resource.data);
+      allow delete: if writableHealthPet(resource.data.petId);
     }
 
     // ============================================================
@@ -338,17 +366,27 @@ service cloud.firestore {
     // ============================================================
 
     match /treatments/{treatmentId} {
+      function validRecord(data) {
+        return data.keys().hasAll(['treatmentId', 'petId', 'name', 'status', 'source', 'notes', 'createdAt', 'updatedAt'])
+          && data.keys().hasOnly(['treatmentId', 'petId', 'name', 'status', 'source', 'startDate', 'endDate', 'notes', 'createdAt', 'updatedAt'])
+          && data.treatmentId == treatmentId
+          && data.name is string
+          && data.status is string
+          && data.source is string
+          && data.createdAt is string
+          && data.updatedAt is string
+          && optionalHealthString(data, 'startDate')
+          && optionalHealthString(data, 'endDate')
+          && data.notes is string;
+      }
+
       allow read: if ownsPet(resource.data.petId);
-
-      allow create: if isOwner()
-        && ownsPet(request.resource.data.petId);
-
-      allow update: if isOwner()
-        && ownsPet(resource.data.petId)
-        && request.resource.data.petId == resource.data.petId;
-
-      allow delete: if isOwner()
-        && ownsPet(resource.data.petId);
+      allow create: if writableHealthPet(request.resource.data.petId)
+        && validRecord(request.resource.data);
+      allow update: if writableHealthPet(resource.data.petId)
+        && request.resource.data.petId == resource.data.petId
+        && validRecord(request.resource.data);
+      allow delete: if writableHealthPet(resource.data.petId);
     }
 
     // ============================================================
@@ -356,17 +394,25 @@ service cloud.firestore {
     // ============================================================
 
     match /health_measurements/{measurementId} {
+      function validRecord(data) {
+        return data.keys().hasAll(['measurementId', 'petId', 'type', 'value', 'unit', 'recordedAt', 'createdAt', 'updatedAt'])
+          && data.keys().hasOnly(['measurementId', 'petId', 'type', 'value', 'unit', 'recordedAt', 'createdAt', 'updatedAt'])
+          && data.measurementId == measurementId
+          && data.type is string
+          && data.value is number
+          && data.unit is string
+          && data.recordedAt is string
+          && data.createdAt is string
+          && data.updatedAt is string;
+      }
+
       allow read: if ownsPet(resource.data.petId);
-
-      allow create: if isOwner()
-        && ownsPet(request.resource.data.petId);
-
-      allow update: if isOwner()
-        && ownsPet(resource.data.petId)
-        && request.resource.data.petId == resource.data.petId;
-
-      allow delete: if isOwner()
-        && ownsPet(resource.data.petId);
+      allow create: if writableHealthPet(request.resource.data.petId)
+        && validRecord(request.resource.data);
+      allow update: if writableHealthPet(resource.data.petId)
+        && request.resource.data.petId == resource.data.petId
+        && validRecord(request.resource.data);
+      allow delete: if writableHealthPet(resource.data.petId);
     }
 
     // ============================================================

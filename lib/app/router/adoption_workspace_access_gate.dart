@@ -70,7 +70,8 @@ class _AdoptionWorkspaceAccessGateState
         final role = UserRoleX.tryParseFirestore(
           _profileProvider.profile?.role,
         );
-        if (role == null || !widget.allowedRoles.contains(role.firestoreValue)) {
+        if (role == null ||
+            !widget.allowedRoles.contains(role.firestoreValue)) {
           return const _AccessMessage(
             title: 'Adoption access required',
             message: 'This adoption screen is not available for your account.',
@@ -98,9 +99,8 @@ class _AccessMessage extends StatelessWidget {
         child: Text(
           message,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppTheme.deepBrown,
-          ),
+          style: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(color: AppTheme.deepBrown),
         ),
       ),
     ),

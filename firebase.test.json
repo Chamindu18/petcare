@@ -1,0 +1,54 @@
+{
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "appointments",
+      "runtime": "nodejs22",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "*.log"
+      ]
+    }
+  ],
+  "firestore": {
+    "database": "(default)",
+    "location": "asia-south2",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "emulators": {
+    "hub": {
+      "host": "127.0.0.1",
+      "port": 24400
+    },
+    "logging": {
+      "host": "127.0.0.1",
+      "port": 24500
+    },
+    "auth": {
+      "host": "127.0.0.1",
+      "port": 29099
+    },
+    "functions": {
+      "host": "127.0.0.1",
+      "port": 25001
+    },
+    "firestore": {
+      "host": "127.0.0.1",
+      "port": 28080,
+      "websocketPort": 29150
+    },
+    "eventarc": {
+      "host": "127.0.0.1",
+      "port": 29299
+    },
+    "tasks": {
+      "host": "127.0.0.1",
+      "port": 29499
+    },
+    "ui": {
+      "enabled": false
+    }
+  }
+}

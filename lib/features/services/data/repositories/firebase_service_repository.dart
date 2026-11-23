@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/service.dart';
 import '../../domain/repositories/service_repository.dart';
 import '../models/service_model.dart';
-import 'package:flutter/foundation.dart';
 
 /// Reads hospital service data from Firestore.
 class FirebaseServiceRepository implements ServiceRepository {
@@ -24,13 +23,9 @@ class FirebaseServiceRepository implements ServiceRepository {
         .where('active', isEqualTo: true)
         .get();
 
-    return snapshot.docs.map((document) {
-  debugPrint(
-    'SERVICE DOC: ${document.id} => ${document.data()}',
-  );
-
-  return ServiceModel.fromMap(document.data());
-}).toList();
+    return snapshot.docs
+        .map((document) => ServiceModel.fromMap(document.data()))
+        .toList();
   }
 
   @override

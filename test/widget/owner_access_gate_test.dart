@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -35,16 +34,12 @@ class _FakeProfileRepository implements ProfileRepository {
   }) async {}
 
   @override
-  Future<void> updateNotificationPreference({
-    required bool enabled,
-  }) async {}
+  Future<void> updateNotificationPreference({required bool enabled}) async {}
 }
 
 void main() {
   group('OwnerAccessGate', () {
-    testWidgets('allows an owner to see the protected screen', (
-      tester,
-    ) async {
+    testWidgets('allows an owner to see the protected screen', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: OwnerAccessGate(
@@ -66,9 +61,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: OwnerAccessGate(
-            profileRepository: _FakeProfileRepository(
-              'adoption_provider',
-            ),
+            profileRepository: _FakeProfileRepository('adoption_provider'),
             childBuilder: (_) => const Text('owner-only-content'),
           ),
         ),

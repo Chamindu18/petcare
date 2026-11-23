@@ -197,8 +197,10 @@ class FirebaseQueueRepository
         .doc(key);
     final queueRef = _queueCollection.doc();
 
+    int? observedNumber;
     Future<void> runCheckIn({required bool includeVetNotification}) {
       return _firestore.runTransaction((tx) async {
+        observedNumber = null;
         final snapshot = await tx.get(appointmentRef);
         if (!snapshot.exists) throw StateError('Appointment not found.');
         final appointmentData = {
@@ -241,9 +243,11 @@ class FirebaseQueueRepository
         );
         if (!result.isEligible) throw StateError(result.message!);
         final counter = await tx.get(counterRef);
-        final number = counter.exists
-            ? (counter.data()!['lastNumber'] as int) + 1
-            : 1;
+        final lastNumber = counter.exists
+            ? counter.data()!['lastNumber'] as int
+            : 0;
+        observedNumber = lastNumber;
+        final number = lastNumber + 1;
         final veterinarianRecipient = includeVetNotification
             ? await NotificationEvent.resolveVeterinarianRecipient(
                 tx,
@@ -303,13 +307,30 @@ class FirebaseQueueRepository
       });
     }
 
-    try {
-      await runCheckIn(includeVetNotification: true);
-    } on FirebaseException catch (error) {
-      // Preserve the authorized queue transition if a legacy veterinarian
-      // directory points at an invalid or mismatched Auth account.
-      if (error.code != 'permission-denied') rethrow;
-      await runCheckIn(includeVetNotification: false);
+    var includeVetNotification = true;
+    var contentionRetries = 0;
+    while (true) {
+      try {
+        await runCheckIn(includeVetNotification: includeVetNotification);
+        break;
+      } on FirebaseException catch (error) {
+        if (error.code != 'permission-denied') rethrow;
+        // Rules can detect a stale queue number before the SDK reports contention.
+        final observed = observedNumber;
+        if (observed != null && contentionRetries < 4) {
+          final current = await counterRef.get(
+            const GetOptions(source: Source.server),
+          );
+          final latest = current.data()?['lastNumber'];
+          if (latest is int && latest > observed) {
+            contentionRetries++;
+            continue;
+          }
+        }
+        // Legacy veterinarian links can prevent the optional notification.
+        if (!includeVetNotification) rethrow;
+        includeVetNotification = false;
+      }
     }
     return (await getQueueById(queueRef.id))!;
   }
