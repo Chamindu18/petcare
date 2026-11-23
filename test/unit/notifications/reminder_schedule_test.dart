@@ -8,10 +8,7 @@ void main() {
       ReminderSchedule.appointment(DateTime(2026, 11, 8, 12), now),
       DateTime(2026, 11, 7, 12),
     );
-    expect(
-      ReminderSchedule.appointment(DateTime(2026, 11, 7, 9), now),
-      isNull,
-    );
+    expect(ReminderSchedule.appointment(DateTime(2026, 11, 7, 9), now), isNull);
   });
 
   test('vaccination reminder uses only the existing due date', () {

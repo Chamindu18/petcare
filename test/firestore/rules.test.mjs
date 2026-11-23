@@ -28,7 +28,7 @@ import {
 } from 'firebase/firestore';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const projectId = 'demo-petcare';
+const projectId = 'demo-petcare-release-tests';
 const rules = readFileSync(resolve(__dirname, '../../firestore.rules'), 'utf8');
 let env;
 

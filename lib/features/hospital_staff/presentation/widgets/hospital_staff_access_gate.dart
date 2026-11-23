@@ -59,9 +59,7 @@ class _HospitalStaffAccessGateState extends State<HospitalStaffAccessGate> {
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
@@ -79,8 +77,7 @@ class _HospitalStaffAccessGateState extends State<HospitalStaffAccessGate> {
 
         final assignment = snapshot.data;
 
-        if (assignment == null ||
-            !assignment.hasValidHospitalAccess) {
+        if (assignment == null || !assignment.hasValidHospitalAccess) {
           return _buildMessagePage(
             icon: Icons.lock_outline,
             title: 'Hospital access unavailable',
@@ -130,10 +127,7 @@ class _HospitalStaffAccessGateState extends State<HospitalStaffAccessGate> {
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: onAction,
-                  child: Text(actionLabel),
-                ),
+                FilledButton(onPressed: onAction, child: Text(actionLabel)),
               ],
             ),
           ),

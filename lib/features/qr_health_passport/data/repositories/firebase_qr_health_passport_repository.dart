@@ -255,16 +255,24 @@ class FirebaseQrHealthPassportRepository implements QrHealthPassportRepository {
           'appointmentId': appointmentSnapshot.id,
         }),
         medicalConditions: conditionSnapshot.docs
-            .map((document) => MedicalConditionModel.fromMap(document.data()))
+            .map(
+              (document) => MedicalConditionModel.tryFromMap(document.data()),
+            )
+            .whereType<MedicalConditionModel>()
             .toList(),
         vaccinations: vaccinationSnapshot.docs
-            .map((document) => VaccinationModel.fromMap(document.data()))
+            .map((document) => VaccinationModel.tryFromMap(document.data()))
+            .whereType<VaccinationModel>()
             .toList(),
         treatments: treatmentSnapshot.docs
-            .map((document) => TreatmentModel.fromMap(document.data()))
+            .map((document) => TreatmentModel.tryFromMap(document.data()))
+            .whereType<TreatmentModel>()
             .toList(),
         measurements: measurementSnapshot.docs
-            .map((document) => HealthMeasurementModel.fromMap(document.data()))
+            .map(
+              (document) => HealthMeasurementModel.tryFromMap(document.data()),
+            )
+            .whereType<HealthMeasurementModel>()
             .toList(),
       );
     } on FirebaseException catch (error) {

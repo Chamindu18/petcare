@@ -6,7 +6,7 @@ import {getFirestore} from 'firebase-admin/firestore';
 test('authenticated callable transport serializes concurrent bookings and rejects anonymous callers', async () => {
   assert.ok(process.env.FIRESTORE_EMULATOR_HOST && process.env.FIREBASE_AUTH_EMULATOR_HOST,
     'Firestore and Auth emulators are required');
-  const projectId = 'demo-petcare';
+  const projectId = 'demo-petcare-release-tests';
   const app = initializeApp({projectId}, 'callable-transport-test');
   try {
     const authHost = process.env.FIREBASE_AUTH_EMULATOR_HOST;
@@ -25,10 +25,13 @@ test('authenticated callable transport serializes concurrent bookings and reject
     await db.doc('users/transport-doctor').set({role: 'veterinarian', vetId: 'transport-vet', hospitalId: 'transport-hospital'});
     await db.doc('veterinarians/transport-vet').set({active: true, userId: 'transport-doctor', hospitalId: 'transport-hospital'});
     await db.doc('services/transport-service').set({hospitalId: 'transport-hospital', duration: 30});
-    const endpoint = `http://127.0.0.1:5001/${projectId}/asia-south2/reserveAppointmentSlot`;
+    const endpoint = `http://127.0.0.1:25001/${projectId}/asia-south2/reserveAppointmentSlot`;
+    const slot = new Date();
+    slot.setUTCDate(slot.getUTCDate() + 7);
+    slot.setUTCHours(9, 0, 0, 0);
     const payload = appointmentId => ({data: {action: 'create', appointmentId, petId: 'transport-pet',
       hospitalId: 'transport-hospital', serviceId: 'transport-service', vetId: 'transport-vet',
-      dateTime: '2026-12-10T09:00:00Z', reason: 'Checkup'}});
+      dateTime: slot.toISOString(), reason: 'Checkup'}});
     const invoke = (appointmentId, token) => fetch(endpoint, {method: 'POST',
       headers: {'Content-Type': 'application/json', ...(token ? {Authorization: `Bearer ${token}`} : {})},
       body: JSON.stringify(payload(appointmentId))});

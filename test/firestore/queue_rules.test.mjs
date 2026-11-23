@@ -18,6 +18,7 @@ import {
   serverTimestamp,
   getDoc,
   getDocs,
+  getDocFromServer,
   collection,
   query,
   where,
@@ -28,7 +29,7 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const projectId = 'demo-petcare';
+const projectId = 'demo-petcare-release-tests';
 
 const rules = readFileSync(
   resolve(__dirname, '../../firestore.rules'),
@@ -580,16 +581,30 @@ test('assigned veterinarian can read and update only their own queue records', a
 async function transactionCheckIn(db, appointmentId) {
   const ref = doc(collection(db, 'queue_records'));
   const counterRef = doc(db, `hospitals/hospital-a/queue_days/${localDay}`);
-  await runTransaction(db, async tx => {
+  let previousNumber;
+  const commit = () => runTransaction(db, async tx => {
+    previousNumber = undefined;
     const appointmentRef = doc(db, 'appointments', appointmentId);
     const appointment = (await tx.get(appointmentRef)).data();
     if (appointment.queueId) throw new Error('duplicate');
     const counter = await tx.get(counterRef);
-    const number = counter.exists() ? counter.data().lastNumber + 1 : 1;
+    previousNumber = counter.exists() ? counter.data().lastNumber : 0;
+    const number = previousNumber + 1;
     tx.set(counterRef, {lastNumber: number, queueId: ref.id, day, updatedAt: serverTimestamp()});
     tx.set(ref, queueData({queueId: ref.id, appointmentId, queueNumber: number, position: number}));
     tx.update(appointmentRef, {queueId: ref.id, updatedAt: serverTimestamp()});
   }, {maxAttempts: 20});
+  for (let retries = 0; ; retries++) {
+    try {
+      await commit();
+      break;
+    } catch (error) {
+      // Match the app's bounded retry for a confirmed stale allocation.
+      if (error.code !== 'permission-denied' || previousNumber === undefined || retries >= 4) throw error;
+      const current = await getDocFromServer(counterRef);
+      if (!current.exists() || current.data().lastNumber <= previousNumber) throw error;
+    }
+  }
   return (await getDoc(ref)).data();
 }
 

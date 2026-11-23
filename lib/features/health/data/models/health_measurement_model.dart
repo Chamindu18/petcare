@@ -1,4 +1,5 @@
 import '../../domain/entities/health_measurement.dart';
+import 'stored_health_date.dart';
 
 class HealthMeasurementModel extends HealthMeasurement {
   const HealthMeasurementModel({
@@ -12,16 +13,22 @@ class HealthMeasurementModel extends HealthMeasurement {
     required super.updatedAt,
   });
 
-  factory HealthMeasurementModel.fromMap(Map<String, dynamic> map) {
+  static HealthMeasurementModel? tryFromMap(Map<String, dynamic> map) {
+    final recordedAt = parseStoredHealthDate(map['recordedAt']);
+    final createdAt = parseStoredHealthDate(map['createdAt']);
+    final updatedAt = parseStoredHealthDate(map['updatedAt']);
+    if (recordedAt == null || createdAt == null || updatedAt == null) {
+      return null;
+    }
     return HealthMeasurementModel(
       measurementId: map['measurementId'] as String,
       petId: map['petId'] as String,
       type: map['type'] as String,
       value: (map['value'] as num).toDouble(),
       unit: map['unit'] as String,
-      recordedAt: DateTime.parse(map['recordedAt'] as String),
-      createdAt: DateTime.parse(map['createdAt'] as String),
-      updatedAt: DateTime.parse(map['updatedAt'] as String),
+      recordedAt: recordedAt,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 

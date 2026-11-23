@@ -67,7 +67,8 @@ class FirebaseMedicalConditionRepository implements MedicalConditionRepository {
         .get();
 
     return snapshot.docs
-        .map((document) => MedicalConditionModel.fromMap(document.data()))
+        .map((document) => MedicalConditionModel.tryFromMap(document.data()))
+        .whereType<MedicalConditionModel>()
         .toList();
   }
 
@@ -90,7 +91,7 @@ class FirebaseMedicalConditionRepository implements MedicalConditionRepository {
       return null;
     }
 
-    return MedicalConditionModel.fromMap(data);
+    return MedicalConditionModel.tryFromMap(data);
   }
 
   @override

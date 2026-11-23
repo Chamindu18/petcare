@@ -4,10 +4,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../domain/entities/appointment.dart';
 
 class AppointmentConfirmationPage extends StatelessWidget {
-  const AppointmentConfirmationPage({
-    required this.appointment,
-    super.key,
-  });
+  const AppointmentConfirmationPage({required this.appointment, super.key});
 
   final Appointment appointment;
 
@@ -38,10 +35,8 @@ class AppointmentConfirmationPage extends StatelessWidget {
               Text(
                 'Your appointment has been submitted successfully.',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.deepBrown,
-                  height: 1.45,
-                ),
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: AppTheme.deepBrown, height: 1.45),
               ),
               const SizedBox(height: 28),
 
@@ -89,9 +84,7 @@ class _SuccessIcon extends StatelessWidget {
 }
 
 class _AppointmentCard extends StatelessWidget {
-  const _AppointmentCard({
-    required this.appointment,
-  });
+  const _AppointmentCard({required this.appointment});
 
   final Appointment appointment;
 
@@ -161,11 +154,7 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 22,
-          color: AppTheme.primary,
-        ),
+        Icon(icon, size: 22, color: AppTheme.primary),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -173,9 +162,8 @@ class _InfoRow extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.deepBrown,
-                ),
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: AppTheme.deepBrown),
               ),
               const SizedBox(height: 3),
               Text(

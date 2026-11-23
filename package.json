@@ -5,10 +5,11 @@
   "scripts": {
     "demo:emulators": "node scripts/demo/start_emulators.mjs",
     "demo:seed": "node scripts/demo/seed_emulators.mjs",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-petcare \"node --test --test-concurrency=1 test/firestore/rules.test.mjs test/firestore/recipient_backfill_plan.test.mjs test/firestore/appointment_rules.test.mjs test/firestore/queue_rules.test.mjs test/firestore/notification_events.test.mjs test/firestore/appointment_concurrency.test.mjs functions/test/appointment_concurrency.test.mjs\"",
+    "test:rules": "firebase emulators:exec --only firestore --config firebase.test.json --project demo-petcare-release-tests \"node --test --test-concurrency=1 test/firestore/rules.test.mjs test/firestore/recipient_backfill_plan.test.mjs test/firestore/appointment_rules.test.mjs test/firestore/queue_rules.test.mjs test/firestore/notification_events.test.mjs test/firestore/appointment_concurrency.test.mjs test/firestore/appointment_schedule_backfill.test.mjs test/firestore/qr_health_passport_rules.test.mjs test/firestore/veterinarian_directory_a4.test.mjs functions/test/appointment_concurrency.test.mjs\"",
     "backfill:adoption-request-recipients": "node scripts/backfill-adoption-request-recipients.mjs",
-    "test:booking": "node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only auth,functions,firestore --project demo-petcare \"node --test --test-concurrency=1 functions/test/callable_transport.test.mjs functions/test/owner_queue.test.mjs functions/test/cross_role.test.mjs\"",
-    "test:legacy": "firebase emulators:exec --only firestore --project demo-petcare \"npm --prefix rules_test test\""
+    "test:booking": "node node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only auth,functions,firestore --config firebase.test.json --project demo-petcare-release-tests \"node --test --test-concurrency=1 functions/test/callable_transport.test.mjs functions/test/owner_queue.test.mjs functions/test/cross_role.test.mjs\"",
+    "test:legacy": "firebase emulators:exec --only firestore --config firebase.test.json --project demo-petcare-release-tests \"npm --prefix rules_test test\"",
+    "test:health": "firebase emulators:exec --only firestore --config p31-04.firebase.json --project demo-petcare-p31-04 \"node --test test/firestore/health_authorization_rules.test.mjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "4.0.1",

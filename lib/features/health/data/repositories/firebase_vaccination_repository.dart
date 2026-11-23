@@ -64,7 +64,8 @@ class FirebaseVaccinationRepository implements VaccinationRepository {
         .get();
 
     return snapshot.docs
-        .map((document) => VaccinationModel.fromMap(document.data()))
+        .map((document) => VaccinationModel.tryFromMap(document.data()))
+        .whereType<VaccinationModel>()
         .toList();
   }
 
@@ -87,7 +88,7 @@ class FirebaseVaccinationRepository implements VaccinationRepository {
       return null;
     }
 
-    return VaccinationModel.fromMap(data);
+    return VaccinationModel.tryFromMap(data);
   }
 
   @override

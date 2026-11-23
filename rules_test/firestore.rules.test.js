@@ -140,14 +140,14 @@ before(async function () {
   this.timeout(30000);
 
   testEnv = await initializeTestEnvironment({
-    projectId: 'demo-petcare',
+    projectId: 'demo-petcare-release-tests',
     firestore: {
       rules: fs.readFileSync(
         path.join(__dirname, '..', 'firestore.rules'),
         'utf8',
       ),
       host: '127.0.0.1',
-      port: 8080,
+      port: 28080,
     },
   });
 });

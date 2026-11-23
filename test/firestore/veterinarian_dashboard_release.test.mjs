@@ -6,7 +6,7 @@ import {doc, setDoc, getDoc, getDocs, collection, query, where, updateDoc} from 
 
 for (const variant of ['deployed', 'candidate']) {
   test(`${variant}: V01 assignment authorization and workflow boundaries`, async () => {
-    const env = await initializeTestEnvironment({projectId: 'demo-petcare', firestore: {
+    const env = await initializeTestEnvironment({projectId: 'demo-petcare-release-tests', firestore: {
       rules: readFileSync(`build/veterinarian-rules-review/${variant}.rules`, 'utf8'),
     }});
     try {

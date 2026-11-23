@@ -172,5 +172,4 @@ void main() {
     expect(repository.withdrawnRequestId, 'request-1');
     expect(find.text('Adoption request withdrawn.'), findsOneWidget);
   });
-
 }

@@ -86,5 +86,4 @@ void main() {
     expect(map['listingOwnerId'], 'owner-1');
     expect(map.containsKey('providerId'), isFalse);
   });
-
 }

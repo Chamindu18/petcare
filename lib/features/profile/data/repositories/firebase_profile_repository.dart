@@ -28,7 +28,6 @@ class FirebaseProfileRepository implements ProfileRepository {
     return user.uid;
   }
 
-  
   @override
   Stream<UserProfile?> watchCurrentProfile() {
     final userId = _currentUserId;

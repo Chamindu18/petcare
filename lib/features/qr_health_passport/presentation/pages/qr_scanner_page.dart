@@ -105,7 +105,9 @@ class _QrScannerPageState extends State<QrScannerPage> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text(widget.verificationOnly ? 'Verify QR' : 'Scan Health Passport'),
+        title: Text(
+          widget.verificationOnly ? 'Verify QR' : 'Scan Health Passport',
+        ),
       ),
       body: Stack(
         fit: StackFit.expand,
@@ -114,7 +116,8 @@ class _QrScannerPageState extends State<QrScannerPage> {
             controller: _controller,
             onDetect: _onDetect,
             errorBuilder: (context, error) => _CameraError(
-              message: error.errorCode == MobileScannerErrorCode.permissionDenied
+              message:
+                  error.errorCode == MobileScannerErrorCode.permissionDenied
                   ? 'Camera permission is required to scan the QR code.'
                   : 'The camera is unavailable.',
               onRetry: _controller.start,
@@ -151,14 +154,20 @@ class _QrScannerPageState extends State<QrScannerPage> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                           SizedBox(width: 12),
-                          Text('Verifying...', style: TextStyle(color: Colors.white)),
+                          Text(
+                            'Verifying...',
+                            style: TextStyle(color: Colors.white),
+                          ),
                         ],
                       )
                     : Text(
-                        _error ?? 'Place the PetCare+ QR code inside the frame.',
+                        _error ??
+                            'Place the PetCare+ QR code inside the frame.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: _error == null ? Colors.white : Colors.orangeAccent,
+                          color: _error == null
+                              ? Colors.white
+                              : Colors.orangeAccent,
                         ),
                       ),
               ),
@@ -190,11 +199,22 @@ class _CameraError extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.no_photography_outlined, color: Colors.white, size: 56),
+              const Icon(
+                Icons.no_photography_outlined,
+                color: Colors.white,
+                size: 56,
+              ),
               const SizedBox(height: 16),
-              Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white)),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white),
+              ),
               const SizedBox(height: 16),
-              FilledButton(onPressed: onRetry, child: const Text('Retry camera')),
+              FilledButton(
+                onPressed: onRetry,
+                child: const Text('Retry camera'),
+              ),
             ],
           ),
         ),

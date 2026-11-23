@@ -1,4 +1,5 @@
 import '../../domain/entities/treatment.dart';
+import 'stored_health_date.dart';
 
 class TreatmentModel extends Treatment {
   const TreatmentModel({
@@ -14,22 +15,21 @@ class TreatmentModel extends Treatment {
     required super.updatedAt,
   });
 
-  factory TreatmentModel.fromMap(Map<String, dynamic> map) {
+  static TreatmentModel? tryFromMap(Map<String, dynamic> map) {
+    final createdAt = parseStoredHealthDate(map['createdAt']);
+    final updatedAt = parseStoredHealthDate(map['updatedAt']);
+    if (createdAt == null || updatedAt == null) return null;
     return TreatmentModel(
       treatmentId: map['treatmentId'] as String,
       petId: map['petId'] as String,
       name: map['name'] as String,
       status: map['status'] as String,
       source: map['source'] as String,
-      startDate: map['startDate'] == null
-          ? null
-          : DateTime.parse(map['startDate'] as String),
-      endDate: map['endDate'] == null
-          ? null
-          : DateTime.parse(map['endDate'] as String),
+      startDate: parseStoredHealthDate(map['startDate']),
+      endDate: parseStoredHealthDate(map['endDate']),
       notes: map['notes'] as String,
-      createdAt: DateTime.parse(map['createdAt'] as String),
-      updatedAt: DateTime.parse(map['updatedAt'] as String),
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 

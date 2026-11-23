@@ -129,9 +129,7 @@ void main() {
     expect(find.textContaining('Queue details will appear'), findsOneWidget);
   });
 
-  testWidgets('manual refresh updates status and position', (
-    tester,
-  ) async {
+  testWidgets('manual refresh updates status and position', (tester) async {
     final queues = _FakeQueueRepository(queueWithStatus('waiting'));
     final positions = _FakeOwnerQueueRepository(3);
     await tester.pumpWidget(

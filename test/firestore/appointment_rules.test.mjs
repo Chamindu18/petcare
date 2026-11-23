@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const projectId = 'demo-petcare';
+const projectId = 'demo-petcare-release-tests';
 const rules = readFileSync(
   resolve(__dirname, '../../firestore.rules'),
   'utf8',
@@ -497,7 +497,17 @@ test('availability exposes schedule fields only and cannot be forged', async () 
 
 
 test('owner health-record creation remains independent of appointment assignment', async () => {
-  for (const collectionName of ['medical_conditions', 'vaccinations', 'treatments', 'health_measurements']) {
-    await assertSucceeds(setDoc(doc(authenticatedDb('owner-1'), `${collectionName}/health-record`), {petId: 'pet-1', notes: 'Owner record'}));
+  const id = 'health-record';
+  const date = '2026-11-01T12:00:00Z';
+  const common = {petId: 'pet-1', createdAt: date, updatedAt: date};
+  const records = {
+    medical_conditions: {conditionId: id, name: 'Condition', status: 'active', source: 'owner-reported', diagnosisDate: date, notes: ''},
+    vaccinations: {vaccinationId: id, name: 'Vaccine', dateGiven: date, notes: ''},
+    treatments: {treatmentId: id, name: 'Treatment', status: 'active', source: 'owner-reported', notes: ''},
+    health_measurements: {measurementId: id, type: 'weight', value: 10, unit: 'kg', recordedAt: date},
+  };
+  for (const [collectionName, record] of Object.entries(records)) {
+    const ref = doc(authenticatedDb('owner-1'), collectionName, id);
+    await assertSucceeds(setDoc(ref, {...common, ...record}));
   }
 });

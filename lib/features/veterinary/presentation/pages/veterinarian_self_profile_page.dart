@@ -400,7 +400,9 @@ class _VeterinarianSelfProfilePageState
       MaterialPageRoute<bool>(
         builder: (_) => ListenableBuilder(
           listenable: widget.controller,
-          builder: (context, _) => sessionRevision != widget.controller.sessionRevision || widget.controller.veterinarian == null
+          builder: (context, _) =>
+              sessionRevision != widget.controller.sessionRevision ||
+                  widget.controller.veterinarian == null
               ? Scaffold(
                   appBar: AppBar(),
                   body: const Center(

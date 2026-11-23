@@ -123,23 +123,15 @@ Future<void> _selectDropdownValue(
 /// Using an explicit SingleChildScrollView avoids accidentally selecting
 /// another Scrollable in the widget tree. The 0.75 alignment keeps the
 /// button comfortably above the bottom edge of the 600px test viewport.
-Future<void> _scrollToButton(
-  WidgetTester tester,
-  Finder button,
-) async {
+Future<void> _scrollToButton(WidgetTester tester, Finder button) async {
   final scrollable = find
       .byWidgetPredicate(
         (widget) =>
-            widget is Scrollable &&
-            widget.axisDirection == AxisDirection.down,
+            widget is Scrollable && widget.axisDirection == AxisDirection.down,
       )
       .first;
 
-  await tester.scrollUntilVisible(
-    button,
-    300,
-    scrollable: scrollable,
-  );
+  await tester.scrollUntilVisible(button, 300, scrollable: scrollable);
 
   await tester.pumpAndSettle();
 
@@ -152,10 +144,7 @@ Future<void> _scrollToButton(
       break;
     }
 
-    await tester.drag(
-      scrollable,
-      const Offset(0, -120),
-    );
+    await tester.drag(scrollable, const Offset(0, -120));
 
     await tester.pumpAndSettle();
   }

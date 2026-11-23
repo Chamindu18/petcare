@@ -11,7 +11,7 @@ import {assertDenied} from '../../test/firestore/assert_denied.mjs';
 test('real callable booking, staff decisions/reassignment, doctor visibility and daily queue agree across roles', async () => {
   assert.ok(process.env.FIRESTORE_EMULATOR_HOST && process.env.FIREBASE_AUTH_EMULATOR_HOST,
     'Auth and Firestore emulators are required');
-  const projectId = 'demo-petcare';
+  const projectId = 'demo-petcare-release-tests';
   const env = await initializeTestEnvironment({projectId,
     firestore: {rules: readFileSync('firestore.rules', 'utf8')}});
   const app = initializeApp({projectId}, 'cross-role');
@@ -39,26 +39,23 @@ test('real callable booking, staff decisions/reassignment, doctor visibility and
     await Promise.all(Object.entries(entries).map(([path, data]) => admin.doc(path).set(data)));
     const db = uid => env.authenticatedContext(uid).firestore();
     const owner = db(ownerId), staff = db('cross-staff'), outsider = db('cross-outsider');
-    const hospitalNow = new Date(Date.now() + 330 * 60000);
-    const dayKey = hospitalNow.toISOString().slice(0, 10);
-    const firstMinute = Math.ceil((hospitalNow.getUTCHours() * 60 + hospitalNow.getUTCMinutes() + 30) / 15) * 15;
-    assert.ok(firstMinute + 45 < 1439, 'Today must have room for two future test bookings');
-    const slotTime = minute => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
-    const day = Timestamp.fromDate(new Date(`${dayKey}T00:00:00Z`));
+    const hospitalDay = (daysAhead = 0) => new Date(Date.now() + (330 + daysAhead * 1440) * 60000)
+      .toISOString().slice(0, 10);
+    const bookingDay = hospitalDay(1);
     const invoke = async input => {
-      const response = await fetch(`http://127.0.0.1:5001/${projectId}/asia-south2/reserveAppointmentSlot`,
+      const response = await fetch(`http://127.0.0.1:25001/${projectId}/asia-south2/reserveAppointmentSlot`,
         {method: 'POST', headers: {'Content-Type': 'application/json', Authorization: `Bearer ${idToken}`},
           body: JSON.stringify({data: input})});
       return {status: response.status, body: await response.json()};
     };
     const create = (appointmentId, time) => invoke({action: 'create', appointmentId, petId: 'cross-pet',
       hospitalId: 'cross-hospital', vetId: 'cross-vet-a', serviceId: 'cross-service',
-      dateTime: `${dayKey}T${time}:00+05:30`, reason: 'Integration check'});
+      dateTime: `${bookingDay}T${time}:00+05:30`, reason: 'Integration check'});
     assert.equal((await getDocs(query(collection(owner, 'hospitals'), where('active', '==', true)))).size, 1);
     assert.equal((await getDocs(query(collection(owner, 'veterinarians'), where('active', '==', true),
       where('hospitalId', '==', 'cross-hospital')))).size, 2);
-    assert.equal((await create('cross-booking', slotTime(firstMinute))).status, 200);
-    assert.equal((await create('cross-reject', slotTime(firstMinute + 30))).status, 200);
+    assert.equal((await create('cross-booking', '09:00')).status, 200);
+    assert.equal((await create('cross-reject', '09:30')).status, 200);
     const appointmentRef = client => doc(client, 'appointments/cross-booking');
     const doctorQuery = (uid, vetId) => getDocs(query(collection(db(uid), 'appointments'),
       where('hospitalId', '==', 'cross-hospital'), where('vetId', '==', vetId)));
@@ -86,14 +83,15 @@ test('real callable booking, staff decisions/reassignment, doctor visibility and
       {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({token: customToken, returnSecureToken: true})});
     const {idToken: staffToken} = await signIn.json();
     assert.ok(staffToken);
-    const response = await fetch(`http://127.0.0.1:5001/${projectId}/asia-south2/reserveAppointmentSlot`,
+    const response = await fetch(`http://127.0.0.1:25001/${projectId}/asia-south2/reserveAppointmentSlot`,
       {method: 'POST', headers: {'Content-Type': 'application/json', Authorization: `Bearer ${staffToken}`},
         body: JSON.stringify({data: {action: 'reassign', appointmentId: 'cross-booking', hospitalId: 'cross-hospital', vetId: 'cross-vet-b'}})});
     assert.equal(response.status, 200, await response.text());
     assert.equal((await doctorQuery('cross-doctor-a', 'cross-vet-a')).size, 1); // rejected record remains history
     assert.equal((await doctorQuery('cross-doctor-b', 'cross-vet-b')).size, 1);
     await assertDenied(getDoc(appointmentRef(db('cross-doctor-a'))));
-    const checkIn = queueId => runTransaction(staff, async tx => {
+    const checkIn = (queueId, dayKey) => runTransaction(staff, async tx => {
+      const day = Timestamp.fromDate(new Date(`${dayKey}T00:00:00Z`));
       const ref = appointmentRef(staff);
       const appointment = (await tx.get(ref)).data();
       if (appointment.queueId) throw new Error('duplicate check-in');
@@ -106,14 +104,28 @@ test('real callable booking, staff decisions/reassignment, doctor visibility and
         status: 'waiting', day, dayKey, createdAt: serverTimestamp(), updatedAt: serverTimestamp()});
       tx.update(ref, {queueId, updatedAt: serverTimestamp()});
     });
-    const results = await Promise.allSettled([checkIn('cross-queue-a'), checkIn('cross-queue-b')]);
+    // Simulate arrival on the booked day without changing either emulator's clock.
+    const arrive = async dayKey => {
+      const dateTime = new Date(`${dayKey}T09:00:00+05:30`).toISOString();
+      const batch = admin.batch();
+      for (const path of ['appointments/cross-booking', 'appointment_schedule/cross-booking']) {
+        batch.update(admin.doc(path), {dateTime});
+      }
+      await batch.commit();
+      return Promise.allSettled(['cross-queue-a', 'cross-queue-b'].map(id => checkIn(id, dayKey)));
+    };
+    const arrivalDay = hospitalDay();
+    let results = await arrive(arrivalDay);
+    if (results.every(result => result.status === 'rejected') && hospitalDay() !== arrivalDay) {
+      results = await arrive(hospitalDay());
+    }
     assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
     assert.equal((await admin.collection('queue_records').get()).size, 1);
     const ownerRecord = (await getDoc(appointmentRef(owner))).data();
     assert.equal(ownerRecord.ownerId, ownerId);
     assert.equal(ownerRecord.vetId, 'cross-vet-b');
     assert.equal(ownerRecord.status, 'confirmed');
-    const positionResponse = await fetch(`http://127.0.0.1:5001/${projectId}/asia-south2/getOwnerQueuePosition`,
+    const positionResponse = await fetch(`http://127.0.0.1:25001/${projectId}/asia-south2/getOwnerQueuePosition`,
       {method: 'POST', headers: {'Content-Type': 'application/json', Authorization: `Bearer ${idToken}`},
         body: JSON.stringify({data: {queueId: ownerRecord.queueId}})});
     const positionBody = await positionResponse.json();
